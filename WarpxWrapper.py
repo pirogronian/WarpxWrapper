@@ -28,15 +28,29 @@ UseStdin = False
 
 BeVerbose = False
 
-def verbose(*arg):
+def nestArgs(prefix, arg):
+    args = list(arg)
+    if len(args) > 0:
+        nest = args[0]
+        if isinstance(nest, int) and nest > 0:
+            args[0] = "   " * nest
+    prefix = prefix + "   "
+    args.insert(0, prefix)
+
+    return tuple(args)
+
+def verbose(*args):
+    args = nestArgs("II", args)
     if BeVerbose:
-        print("II   ", *arg)
+        print(*args)
 
-def warning(*arg):
-    print("!!   ", *arg)
+def warning(*args):
+    args = nestArgs("!!", args)
+    print(*args)
 
-def error(*arg):
-    print("EE   ", *arg, file=sys.stderr)
+def error(*args):
+    args = nestArgs("EE", args)
+    print(*args, file=sys.stderr)
 
 DefaultConfigFileName = "config.ini"
 
@@ -58,7 +72,7 @@ def getCfgCommon(name, option, default=None, section=configparser.UNNAMED_SECTIO
         verbose("Config: {}.{} = {}".format(section, option, val))
     except Exception as e:
         warning("Warning, exception while reading config option \'{}\':".format(option))
-        warning(e)
+        warning(1, e)
         val = default
     return val
 
