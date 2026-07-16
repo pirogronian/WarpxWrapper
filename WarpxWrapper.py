@@ -6,6 +6,7 @@ import regex
 import time
 import datetime
 import configparser
+import logging
 
 InputFile = "input"
 
@@ -26,31 +27,42 @@ ExitOnEOFPastFooter = True
 
 UseStdin = False
 
-BeVerbose = False
+logger = logging.getLogger()
 
-def nestArgs(prefix, arg):
+def prepareLog(prefix, arg):
     args = list(arg)
-    if len(args) > 0:
+    nest = 0
+    prefix += "   "
+    if len(args) > 1:
         nest = args[0]
-        if isinstance(nest, int) and nest > 0:
-            args[0] = "   " * nest
-    prefix = prefix + "   "
-    args.insert(0, prefix)
+    if isinstance(nest, int) and nest > 0:
+        prefix = prefix + "   " * nest
+        args.pop(0)
 
-    return tuple(args)
+    msg = "".join(str(item) for item in args)
+    msg = prefix + msg
 
-def verbose(*args):
-    args = nestArgs("II", args)
-    if BeVerbose:
-        print(*args)
+    return msg
+
+def info(*args):
+    msg = prepareLog("II", args)
+    logger.info(msg)
 
 def warning(*args):
-    args = nestArgs("!!", args)
-    print(*args)
+    msg = prepareLog("!!", args)
+    logger.warning(msg)
 
 def error(*args):
-    args = nestArgs("EE", args)
-    print(*args, file=sys.stderr)
+    msg = prepareLog("EE", args)
+    logger.error(msg)
+
+def critical(*args):
+    msg = prepareLog("CC", args)
+    logger.critical(msg)
+
+def exception(*args):
+    msg = prepareLog("XX", args)
+    logger.exception(msg)
 
 DefaultConfigFileName = "config.ini"
 
@@ -59,7 +71,7 @@ if len(sys.argv) > 1:
     ConfigFileName = sys.argv[1]
 
 if not ConfigFileName:
-    verbose("No config file provided, falling back to default: " + DefaultConfigFileName)
+    info("No config file provided, falling back to default: " + DefaultConfigFileName)
     ConfigFileName = DefaultConfigFileName
 
 config = configparser.ConfigParser(allow_unnamed_section=True, allow_no_value=True)
@@ -69,7 +81,7 @@ def getCfgCommon(name, option, default=None, section=configparser.UNNAMED_SECTIO
     method = getattr(config, name)
     try:
         val = method(section, option, fallback=default)
-        verbose("Config: {}.{} = {}".format(section, option, val))
+        info("Config: {}.{} = {}".format(section, option, val))
     except Exception as e:
         warning("Warning, exception while reading config option \'{}\':".format(option))
         warning(1, e)
@@ -97,7 +109,7 @@ try:
     Log = open(LogFile, "w")
 except Exception as e:
     warning("An exception occured while opening the log file '{0}':".format(LogFile))
-    warning(e)
+    warning(1, e)
 
 InputData = None
 
@@ -106,7 +118,7 @@ if UseStdin:
 
 if not (UseOutputFile and UseStdin):
     if not os.access(InputFile, os.R_OK):
-        error("Input file \"{0}\" is not readable. Aborting.".format(InputFile))
+        critical("Input file \"{0}\" is not readable. Aborting.".format(InputFile))
         exit(1)
 
     Command = []
