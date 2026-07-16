@@ -27,11 +27,20 @@ ExitOnEOFPastFooter = True
 
 UseStdin = False
 
+LogLevels = {
+        'debug': logging.DEBUG,
+        'info': logging.INFO,
+        'warning': logging.WARNING,
+        'error' : logging.ERROR,
+        'critical' : logging.CRITICAL
+    }
+
 logger = logging.getLogger("WarpxWrapper")
 logHandler = logging.StreamHandler()
 logFormatter = logging.Formatter("%(levelname)s:  %(message)s")
 logHandler.setFormatter(logFormatter)
 logger.addHandler(logHandler)
+logger.setLevel(logging.DEBUG)
 
 def prepareLog(arg):
     args = list(arg)
@@ -48,6 +57,10 @@ def prepareLog(arg):
     msg = prefix + msg
 
     return msg
+
+def debug(*args):
+    msg = prepareLog(args)
+    logger.debug(msg)
 
 def info(*args):
     msg = prepareLog(args)
@@ -76,7 +89,7 @@ if len(sys.argv) > 1:
     ConfigFileName = sys.argv[1]
 
 if not ConfigFileName:
-    info("No config file provided, falling back to default: " + DefaultConfigFileName)
+    debug("No config file provided, falling back to default: " + DefaultConfigFileName)
     ConfigFileName = DefaultConfigFileName
 
 config = configparser.ConfigParser(allow_unnamed_section=True, allow_no_value=True)
@@ -86,7 +99,7 @@ def getCfgCommon(name, option, default=None, section=configparser.UNNAMED_SECTIO
     method = getattr(config, name)
     try:
         val = method(section, option, fallback=default)
-        info("Config: {}.{} = {}".format(section, option, val))
+        debug("Config: {}.{} = {}".format(section, option, val))
     except Exception as e:
         warning("Warning, exception while reading config option \'{}\':".format(option))
         warning(1, e)
@@ -113,8 +126,8 @@ UseStdin       = getCfgBool("usestdin", UseStdin)
 try:
     Log = open(LogFile, "w")
 except Exception as e:
-    warning("An exception occured while opening the log file '{0}':".format(LogFile))
-    warning(1, e)
+    error("An exception occured while opening the log file '{0}':".format(LogFile))
+    error(1, e)
 
 InputData = None
 
@@ -138,9 +151,9 @@ if not (UseOutputFile and UseStdin):
     RunMsgLen = len(RunMsg)
 
     Panel = "-" * RunMsgLen
-    print(Panel)
-    print(RunMsg)
-    print(Panel)
+    debug(Panel)
+    debug(RunMsg)
+    debug(Panel)
 
     WarpxSubproc = subprocess.Popen(args=Command,stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
     InputData = WarpxSubproc.stdout
