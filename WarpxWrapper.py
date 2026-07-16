@@ -147,8 +147,14 @@ InputData = None
 
 if UseStdin:
     InputData = sys.stdin
-
-if not (UseOutputFile and UseStdin):
+elif UseOutputFile:
+    try:
+        InputData = open(OutputFile, "r")
+    except Exception as e:
+        critical("Cannot open data file '{}'. Aborting.".format(OutputFile))
+        critical(1, e)
+        exit(1)
+else:
     Command = []
 
     if FullCommand == "":
@@ -181,6 +187,7 @@ if not (UseOutputFile and UseStdin):
         exit(1)
 
     InputData = WarpxSubproc.stdout
+
 
 CurrentTime = 0
 PreviousTime = 0
