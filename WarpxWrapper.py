@@ -9,6 +9,9 @@ import configparser
 import logging
 
 InputFile = "input"
+ExecBase = "warpx."
+ExecDim = "3d"
+FullCommand = ""
 
 TotalSimSteps = -1
 TotalSimTime = -1
@@ -112,11 +115,17 @@ def getCfgBool(option, default=None, section=configparser.UNNAMED_SECTION):
 def getCfg(option, default=None, section=configparser.UNNAMED_SECTION):
     return getCfgCommon("get", option, default, section)
 
+LogFile                  = getCfg("logfile", "")
+
 InputFile                = getCfg("inputfile", InputFile)
+UseMpi               = getCfgBool("usempi", UseMpi)
+ExecBase                 = getCfg("execbase", ExecBase)
+ExecDim                  = getCfg("execdim", ExecDim)
+FullCommand              = getCfg("fullcommand", FullCommand)
+
+
 TotalSimSteps        = int(getCfg("steps", TotalSimSteps))
 TotalSimTime       = float(getCfg("time", TotalSimTime))
-UseMpi               = getCfgBool("usempi", UseMpi)
-LogFile                  = getCfg("logfile", "")
 
 UseOutputFile  = getCfgBool("useoutputfile", False)
 OutputFile     =     getCfg("outputfile", OutputFile)
@@ -135,17 +144,21 @@ if UseStdin:
     InputData = sys.stdin
 
 if not (UseOutputFile and UseStdin):
-    if not os.access(InputFile, os.R_OK):
-        critical("Input file \"{0}\" is not readable. Aborting.".format(InputFile))
-        exit(1)
-
     Command = []
 
-    if UseMpi:
-        Command.append("mpirun")
+    if FullCommand == "":
+        if UseMpi:
+            Command.append("mpirun")
 
-    Command.append("warpx.3d")
-    Command.append(InputFile)
+        Command.append(ExecBase + ExecDim)
+
+        if not os.access(InputFile, os.R_OK):
+            critical("Input file \"{0}\" is not readable. Aborting.".format(InputFile))
+            exit(1)
+
+        Command.append(InputFile)
+    else:
+        Command = FullCommand.split(' ')
 
     RunMsg = "|   Running WarpX 3D with the following command: {0}   |".format(Command)
     RunMsgLen = len(RunMsg)
@@ -155,7 +168,13 @@ if not (UseOutputFile and UseStdin):
     debug(RunMsg)
     debug(Panel)
 
-    WarpxSubproc = subprocess.Popen(args=Command,stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+    try:
+        WarpxSubproc = subprocess.Popen(args=Command,stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+    except Exception as e:
+        critical("Cannot create a subprocess to get its output. Aborting.")
+        critical(1, e)
+        exit(1)
+
     InputData = WarpxSubproc.stdout
 
 CurrentTime = 0
