@@ -24,9 +24,9 @@ LogFile = "Log.txt"
 
 OutputFile = "output.txt"
 UseOutputFile = False
-ExitOnEOF = False
+WaitForData = False
 ExitOnFooter = False
-ExitOnEOFPastFooter = True
+DontWaitByFooter = True
 
 UseStdin = False
 
@@ -96,6 +96,7 @@ if not ConfigFileName:
     ConfigFileName = DefaultConfigFileName
 
 config = configparser.ConfigParser(allow_unnamed_section=True, allow_no_value=True)
+config.optionxform = str
 config.read(ConfigFileName)
 
 def getCfgCommon(name, option, default=None, section=configparser.UNNAMED_SECTION):
@@ -115,22 +116,26 @@ def getCfgBool(option, default=None, section=configparser.UNNAMED_SECTION):
 def getCfg(option, default=None, section=configparser.UNNAMED_SECTION):
     return getCfgCommon("get", option, default, section)
 
-LogFile                  = getCfg("logfile", "")
+LogFile                  = getCfg("LogFile", "")
 
-InputFile                = getCfg("inputfile", InputFile)
-UseMpi               = getCfgBool("usempi", UseMpi)
-ExecBase                 = getCfg("execbase", ExecBase)
-ExecDim                  = getCfg("execdim", ExecDim)
-FullCommand              = getCfg("fullcommand", FullCommand)
+InputFile                = getCfg("InputFile", InputFile)
+UseMpi               = getCfgBool("UseMpi", UseMpi)
+ExecBase                 = getCfg("ExecBase", ExecBase)
+ExecDim                  = getCfg("ExecDim", ExecDim)
+FullCommand              = getCfg("FullCommand", FullCommand)
 
 
-TotalSimSteps        = int(getCfg("steps", TotalSimSteps))
-TotalSimTime       = float(getCfg("time", TotalSimTime))
+TotalSimSteps        = int(getCfg("Steps", TotalSimSteps))
+TotalSimTime       = float(getCfg("Time", TotalSimTime))
 
-UseOutputFile  = getCfgBool("useoutputfile", False)
-OutputFile     =     getCfg("outputfile", OutputFile)
+WaitForData          = getCfgBool("WaitForData", WaitForData)
+ExitOnFooter         = getCfgBool("ExitOnFooter", ExitOnFooter)
+DontWaitByFooter     = getCfgBool("DontWaitByFooter", DontWaitByFooter)
 
-UseStdin       = getCfgBool("usestdin", UseStdin)
+UseOutputFile  = getCfgBool("UseOutputFile", False)
+OutputFile     =     getCfg("OutputFile", OutputFile)
+
+UseStdin       = getCfgBool("UseStdin", UseStdin)
 
 try:
     Log = open(LogFile, "w")
@@ -205,8 +210,8 @@ ReNum   = regex.compile("[+-]?(?:[0-9]+(?:\\.[0-9]+)?|\\.[0-9]+)(?:[eE][+-]?[0-9
 while 1:
     OutputLine = InputData.readline()
     if OutputLine == "":
-        if UseOutputFile and not ExitOnEOF:
-            sleep(UpdateInterval)
+        if UseOutputFile and WaitForData:
+            time.sleep(UpdateInterval)
             continue
         break
     try:
@@ -229,9 +234,9 @@ while 1:
         Footer = True
         if ExitOnFooter:
             break
-        if ExitOnEOFPastFooter:
-            ExitOnEOF = True
-            sleep(UpdateInterval)
+        if DontWaitByFooter:
+            WaitForData = False
+            time.sleep(UpdateInterval)
 
     if Header or Footer:
         print(OutputLine, end='')
