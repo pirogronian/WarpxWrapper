@@ -7,6 +7,7 @@ import time
 import datetime
 import configparser
 import logging
+import pathlib
 
 InputFile = "input"
 ExecBase = "warpx."
@@ -127,6 +128,7 @@ FullCommand              = getCfg("FullCommand", FullCommand)
 
 TotalSimSteps        = int(getCfg("Steps", TotalSimSteps))
 TotalSimTime       = float(getCfg("Time", TotalSimTime))
+UpdateInterval     = float(getCfg("UpdateInterval", UpdateInterval))
 
 WaitForData          = getCfgBool("WaitForData", WaitForData)
 ExitOnFooter         = getCfgBool("ExitOnFooter", ExitOnFooter)
@@ -136,6 +138,8 @@ UseOutputFile  = getCfgBool("UseOutputFile", False)
 OutputFile     =     getCfg("OutputFile", OutputFile)
 
 UseStdin       = getCfgBool("UseStdin", UseStdin)
+
+BlockingInput = True
 
 try:
     Log = open(LogFile, "w")
@@ -198,6 +202,7 @@ PureDelta = 0
 
 Header = True
 Footer = False
+SkipMain = False
 
 MainUpdated = False
 SecondUpdated = False
@@ -217,10 +222,12 @@ ReNum   = regex.compile("[+-]?(?:[0-9]+(?:\\.[0-9]+)?|\\.[0-9]+)(?:[eE][+-]?[0-9
 while 1:
     OutputLine = InputData.readline()
     if OutputLine == "":
-        if UseOutputFile and WaitForData:
+        if os.get_blocking(InputData.fileno()):
+            break
+        elif WaitForData:
             time.sleep(UpdateInterval)
             continue
-        break
+
     try:
         if Log.isOpen():
             Log.write(OutputLine)
@@ -235,7 +242,7 @@ while 1:
             MainUpdated = False
             SecondUpdated = False
         else:
-            continue
+            SkipMain = True
 
     if Footer == False and ReFoot.match(OutputLine):
         Footer = True
@@ -256,6 +263,8 @@ while 1:
         Header = False
 
     if Re1.search(OutputLine):
+        if SkipMain:
+            continue
         nums = ReNum.findall(OutputLine)
         Step = int(nums[0])
         SimulationElapsed = float(nums[1])
@@ -324,8 +333,6 @@ while 1:
             LastUpdated = CurrentTime
             MainUpdated = False
             SecondUpdated = False
-        else:
-            continue
 
 """print(MeanStepETA, MeanTimeETA, MeanTest, Steps)
 
