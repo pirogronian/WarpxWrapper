@@ -244,17 +244,6 @@ while 1:
         else:
             SkipMain = True
 
-    if Footer == False and ReFoot.match(OutputLine):
-        Footer = True
-        if ExitOnFooter:
-            break
-        if DontWaitByFooter:
-            WaitForData = False
-            time.sleep(UpdateInterval)
-
-    if Header or Footer:
-        print(OutputLine, end='')
-
     if Header == True and ReHead.match(OutputLine):
         print("+-----------------------------------------------------------------------------+")
         print("|                            Time statistics:                                 |")
@@ -262,7 +251,15 @@ while 1:
         print("|", end='\n\n\n\n\n\n')
         Header = False
 
-    if Re1.search(OutputLine):
+    elif Footer == False and ReFoot.match(OutputLine):
+        Footer = True
+        if ExitOnFooter:
+            break
+        if DontWaitByFooter:
+            WaitForData = False
+            time.sleep(UpdateInterval)
+
+    elif Re1.search(OutputLine):
         if SkipMain:
             continue
         nums = ReNum.findall(OutputLine)
@@ -326,6 +323,9 @@ while 1:
         PureElapsed = float(nums[0])
         PureDelta = float(nums[1])
         SecondUpdated = True
+
+    if Header or Footer:
+        print(OutputLine, end='')
 
     if MainUpdated and SecondUpdated:
         CurrentTime = time.time()
