@@ -30,10 +30,13 @@ BeVerbose = False
 
 def verbose(*arg):
     if BeVerbose:
-        print("II  ", arg)
+        print("II   ", *arg)
 
-def warning(msg):
-    print("!!  ", msg)
+def warning(*arg):
+    print("!!   ", *arg)
+
+def error(*arg):
+    print("EE   ", *arg, file=sys.stderr)
 
 DefaultConfigFileName = "config.ini"
 
@@ -54,8 +57,8 @@ def getCfgCommon(name, option, default=None, section=configparser.UNNAMED_SECTIO
         val = method(section, option, fallback=default)
         verbose("Config: {}.{} = {}".format(section, option, val))
     except Exception as e:
-        print("!!  Warning, exception while reading config option \'{}\':".format(option))
-        print("!!  {}".format(e))
+        warning("Warning, exception while reading config option \'{}\':".format(option))
+        warning(e)
         val = default
     return val
 
@@ -79,8 +82,8 @@ UseStdin       = getCfgBool("usestdin", UseStdin)
 try:
     Log = open(LogFile, "w")
 except Exception as e:
-    print("An exception occured while opening the log file '{0}':".format(LogFile))
-    print("")
+    warning("An exception occured while opening the log file '{0}':".format(LogFile))
+    warning(e)
 
 InputData = None
 
@@ -89,7 +92,7 @@ if UseStdin:
 
 if not (UseOutputFile and UseStdin):
     if not os.access(InputFile, os.R_OK):
-        print("Input file \"{0}\" is not readable. Aborting.".format(InputFile))
+        error("Input file \"{0}\" is not readable. Aborting.".format(InputFile))
         exit(1)
 
     Command = []
