@@ -27,16 +27,21 @@ ExitOnEOFPastFooter = True
 
 UseStdin = False
 
-logger = logging.getLogger()
+logger = logging.getLogger("WarpxWrapper")
+logHandler = logging.StreamHandler()
+logFormatter = logging.Formatter("%(levelname)s:  %(message)s")
+logHandler.setFormatter(logFormatter)
+logger.addHandler(logHandler)
 
-def prepareLog(prefix, arg):
+def prepareLog(arg):
     args = list(arg)
     nest = 0
-    prefix += "   "
+    prefix = ""
+#    prefix += "   "
     if len(args) > 1:
         nest = args[0]
     if isinstance(nest, int) and nest > 0:
-        prefix = prefix + "   " * nest
+        prefix = "   " * nest
         args.pop(0)
 
     msg = "".join(str(item) for item in args)
@@ -45,23 +50,23 @@ def prepareLog(prefix, arg):
     return msg
 
 def info(*args):
-    msg = prepareLog("II", args)
+    msg = prepareLog(args)
     logger.info(msg)
 
 def warning(*args):
-    msg = prepareLog("!!", args)
+    msg = prepareLog(args)
     logger.warning(msg)
 
 def error(*args):
-    msg = prepareLog("EE", args)
+    msg = prepareLog(args)
     logger.error(msg)
 
 def critical(*args):
-    msg = prepareLog("CC", args)
+    msg = prepareLog(args)
     logger.critical(msg)
 
 def exception(*args):
-    msg = prepareLog("XX", args)
+    msg = prepareLog(args)
     logger.exception(msg)
 
 DefaultConfigFileName = "config.ini"
