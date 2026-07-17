@@ -7,15 +7,14 @@ import time
 import datetime
 import logging
 import pathlib
-import importlib
 
 WarpxInputFile = "input"
 ExecBase = "warpx."
 ExecDim = "3d"
 FullCommand = ""
 
-TotalSimSteps = -1
-TotalSimTime = -1
+MaxSteps = -1
+MaxTime = -1
 
 UpdateInterval = 0.5
 
@@ -53,9 +52,31 @@ LogLevels = {
         'critical' : logging.CRITICAL
     }
 
+class ColorfulFormatter(logging.Formatter):
+
+    grey = "\x1b[38;20m"
+    yellow = "\x1b[33;20m"
+    red = "\x1b[31;20m"
+    bold_red = "\x1b[31;1m"
+    reset = "\x1b[0m"
+    format = "%(levelname)s - %(message)s"
+
+    FORMATS = {
+        logging.DEBUG: grey + format + reset,
+        logging.INFO: grey + format + reset,
+        logging.WARNING: yellow + format + reset,
+        logging.ERROR: red + format + reset,
+        logging.CRITICAL: bold_red + format + reset
+    }
+
+    def format(self, record):
+        log_fmt = self.FORMATS.get(record.levelno)
+        formatter = logging.Formatter(log_fmt)
+        return formatter.format(record)
+
 logger = logging.getLogger("WarpxWrapper")
 logHandler = logging.StreamHandler()
-logFormatter = logging.Formatter("%(levelname)s:  %(message)s")
+logFormatter = ColorfulFormatter()
 logHandler.setFormatter(logFormatter)
 logger.addHandler(logHandler)
 logger.setLevel(logging.DEBUG)
@@ -113,7 +134,8 @@ def IncludeFile(fname):
         exec(prog, globals())
     except Exception as e:
         error("Error while executing include file: '{}'".format(fname))
-        error(1, e)
+        exception(1, e)
+        exit(1)
 
 
 ConfigFileName = "config.py"
@@ -288,18 +310,18 @@ while 1:
         RemainingSteps = -1
         StepsProgress = -1
         StepsETA = -1
-        if TotalSimSteps > 0:
-            RemainingSteps = TotalSimSteps-Step
-            StepsProgress = int(Step/TotalSimSteps*100)
+        if MaxSteps > 0:
+            RemainingSteps = MaxSteps-Step
+            StepsProgress = int(Step/MaxSteps*100)
             StepsETA = Delta*RemainingSteps
             MeanStepETA += StepsETA
 
         RemainingSimTime = -1
         TimeProgress = -1
         TimeETA = -1
-        if TotalSimTime > 0:
-            RemainingSimTime = TotalSimTime-SimulationElapsed
-            TimeProgress = int(SimulationElapsed/TotalSimTime*100)
+        if MaxTime > 0:
+            RemainingSimTime = MaxTime-SimulationElapsed
+            TimeProgress = int(SimulationElapsed/MaxTime*100)
             RealToSimTime = Delta/SimulationDelta
             TimeETA = RealToSimTime*RemainingSimTime
             MeanTimeETA += TimeETA
@@ -309,9 +331,9 @@ while 1:
         EffElapsed = int(PureElapsed/Elapsed*100)
         EffDelta = int(PureDelta/Delta*100)
 
-        StepsMsg = "|   Step:  {0:^15} / {1:^15} : {2:^15} ({3:>3}%), ETA: {4:>20}           ".format(Step, timenf(TotalSimSteps), timenf(RemainingSteps), timenf(StepsProgress), timedf(StepsETA))
+        StepsMsg = "|   Step:  {0:^15} / {1:^15} : {2:^15} ({3:>3}%), ETA: {4:>20}           ".format(Step, timenf(MaxSteps), timenf(RemainingSteps), timenf(StepsProgress), timedf(StepsETA))
 
-        TimeMsg = "|   Sim time: {0:^10}   /    {1:^10}   :   {2:^10}    ({3:>3}%), ETA: {4:>20}          ".format(timenf(SimulationElapsed), timenf(TotalSimTime), timenf(RemainingSimTime), timenf(TimeProgress), timedf(TimeETA))
+        TimeMsg = "|   Sim time: {0:^10}   /    {1:^10}   :   {2:^10}    ({3:>3}%), ETA: {4:>20}          ".format(timenf(SimulationElapsed), timenf(MaxTime), timenf(RemainingSimTime), timenf(TimeProgress), timedf(TimeETA))
 
         Time2Msg = "|   Elapsed: {0}, delta: {1:.2f} ({2:.2e}), eff: elapsed: {3}%, delta: {4}%          ".format(timedf(Elapsed), Delta, SimulationDelta, EffElapsed, EffDelta)
 
