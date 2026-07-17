@@ -8,6 +8,8 @@ import datetime
 import logging
 import pathlib
 
+ErrorIsFatal = True
+
 WarpxInputFile = "input"
 ExecBase = "warpx."
 ExecDim = "3d"
@@ -121,13 +123,26 @@ def exception(*args):
     msg = prepareLog(args)
     logger.exception(msg)
 
+def DoError(*args):
+    if args:
+        error(*args)
+    if ErrorIsFatal:
+        error(" ^^^^ An error occured, aborting. ^^^^")
+        exit(1)
+
+def DoFatal(*args):
+    if args:
+        critical(*args)
+        critical(" ^^^^ An error occured, aborting. ^^^^")
+        exit(1)
+
 def IncludeFile(fname):
     debug("Including file '{}'.".format(fname))
     try:
         f = open(fname, "r")
     except Exception as e:
         error("Cannot open file '{}'.".format(fname))
-        error(1, e)
+        DoError(1, e)
         return
     prog = f.read()
     try:
@@ -135,7 +150,7 @@ def IncludeFile(fname):
     except Exception as e:
         error("Error while executing include file: '{}'".format(fname))
         exception(1, e)
-        exit(1)
+        DoError()
 
 
 ConfigFileName = "config.py"
@@ -151,7 +166,7 @@ try:
     Log = open(LogFile, "w")
 except Exception as e:
     error("An exception occured while opening the log file '{0}':".format(LogFile))
-    error(1, e)
+    DoError(1, e)
 
 InputData = None
 
@@ -170,19 +185,16 @@ elif UseWarpxOutputFile:
                 open(WarpxOutputFile, "x")
             except Exception as e:
                 critical("Cannot open nor create data file '{}'. Aborting.".format(WarpxOutputFile))
-                critical(1, e)
-                exit(1)
+                DoFatal(1, e)
             try:
                 InputData = open(WarpxOutputFile, "r")
             except Exception as e:
                 critical("Cannot open created data file '{}'. Aborting.".format(WarpxOutputFile))
-                critical(1, e)
-                exit(1)
+                DoFatal(1, e)
 #            WaitForData = True # Warpx is surely not sending data yet
         else:
             critical("Cannot open data file '{}'. Aborting.".format(WarpxOutputFile))
-            critical(1, e)
-            exit(1)
+            DoFatal(1, e)
     debug("File '{}' successfully opened.".format(WarpxOutputFile))
     if pathlib.Path(WarpxOutputFile).is_fifo():
         IsFifo = True
@@ -196,8 +208,7 @@ else:
         Command.append(ExecBase + ExecDim)
 
         if not os.access(WarpxInputFile, os.R_OK):
-            critical("Warpx input file \"{0}\" is not readable. Aborting.".format(WarpxInputFile))
-            exit(1)
+            DoFatal("Warpx input file \"{0}\" is not readable. Aborting.".format(WarpxInputFile))
 
         Command.append(WarpxInputFile)
     else:
@@ -215,8 +226,7 @@ else:
         WarpxSubproc = subprocess.Popen(args=Command,stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
     except Exception as e:
         critical("Cannot create a subprocess to get its output. Aborting.")
-        critical(1, e)
-        exit(1)
+        DoFatal(1, e)
 
     InputData = WarpxSubproc.stdout
     IsFifo = True
@@ -279,8 +289,9 @@ while 1:
     try:
         if Log.isOpen():
             Log.write(OutputLine)
-    except Exception:
-        pass
+    except Exception as e:
+        warning("An error while writing to log file.")
+        warning(1, e)
 
 
     if MainUpdated and SecondUpdated:
