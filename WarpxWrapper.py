@@ -35,11 +35,29 @@ UseMpi = True
 LogFile = "Log.txt"
 
 InputFile = ""
-IsFifo = False
 WaitForStart = False
 WaitForData = False
 SkipFooter = False
 DontWaitForFooter = True
+
+Params = (
+        "Source",
+        "ErrorIsFatal",
+        "WarpxInputFile",
+        "ExecBase",
+        "ExecDim",
+        "FullCommand",
+        "MaxSteps",
+        "MaxTime",
+        "UpdateInterval",
+        "UseMpi",
+        "LogFile",
+        "InputFile",
+        "WaitForStart",
+        "WaitForData",
+        "SkipFooter",
+        "DontWaitForFooter"
+    )
 
 def timedf(seconds):
     if seconds < 0:
@@ -165,6 +183,17 @@ def IncludeFile(fname):
         exception(1, e)
         DoError()
 
+def PrintParam(name):
+    Globals = globals()
+    Value = Globals[name]
+    TypeName = type(Value).__name__
+    debug(1, "{} = {} ({})".format(name, Value, TypeName))
+
+def PrintParams():
+    debug("Printing current configuration:")
+    for name in Params:
+        PrintParam(name)
+
 DefaultConfigFile = "config.py"
 ConfigFile = ""
 
@@ -193,6 +222,7 @@ def PrepareLogging():
             LogWritable = False
 
 InputData = None
+IsFifo = False
 
 def PrepareStdin():
     global InputData
@@ -261,6 +291,8 @@ def PrepareCommand():
 
     InputData = WarpxSubproc.stdout
     IsFifo = True
+
+PrintParams()
 
 if Source == SourceType.STDIN:
     PrepareStdin()
