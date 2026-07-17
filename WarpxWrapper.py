@@ -39,6 +39,7 @@ WaitForStart = False
 WaitForData = False
 SkipFooter = False
 DontWaitForFooter = True
+NonDestructivePrint = False
 
 Params = (
         "Source",
@@ -56,7 +57,8 @@ Params = (
         "WaitForStart",
         "WaitForData",
         "SkipFooter",
-        "DontWaitForFooter"
+        "DontWaitForFooter",
+        "NonDestructivePrint"
     )
 
 def timedf(seconds):
@@ -294,6 +296,10 @@ def PrepareCommand():
 
 PrintParams()
 
+MsgEnd = ''
+if NonDestructivePrint:
+    MsgEnd = '\n'
+
 if Source == SourceType.STDIN:
     PrepareStdin()
 elif Source == SourceType.FILE:
@@ -336,7 +342,10 @@ while 1:
     if StartTime < 0:
         WaitingFor = time.time() - WaitForDataStart
         if WaitingFor > 0:
-            print("\r   Waiting for WarpX to start sending data for: {}".format(timedf(WaitingFor)), end='')
+            msg = "   Waiting for WarpX to start sending data for: {}".format(timedf(WaitingFor))
+            if not NonDestructivePrint:
+                msg = '\r' + msg
+            print(msg, end=MsgEnd)
 
     OutputLine = InputData.readline()
     if OutputLine == "":
@@ -419,7 +428,8 @@ while 1:
 
         Time2Msg = "|   Elapsed: {0}, delta: {1:.2f} ({2:.2e}), eff: elapsed: {3}%, delta: {4}%          ".format(timedf(Elapsed), Delta, SimulationDelta, EffElapsed, EffDelta)
 
-        print(end='\r\033[A\033[A\033[A\033[A\033[A')
+        if not NonDestructivePrint:
+            print('\r\033[A\033[A\033[A\033[A\033[A', end='')
         print(StepsMsg,)
         print(TimeMsg,)
         print(Time2Msg)
@@ -441,7 +451,10 @@ while 1:
         print("+-----------------------------------------------------------------------------+")
         print("|                            Time statistics:                                 |")
         print("+-----------------------------------------------------------------------------+")
-        print("|", end='\n\n\n\n\n\n')
+        End = '\n\n\n\n\n\n'
+        if NonDestructivePrint:
+            End = "\n"
+        print("|", end=End)
         Header = False
 
     elif Footer == False and ReFoot.match(OutputLine):
