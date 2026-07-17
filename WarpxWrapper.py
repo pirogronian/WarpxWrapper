@@ -24,8 +24,7 @@ UseMpi = False
 
 LogFile = "Log.txt"
 
-WarpxOutputFile = "output.txt"
-UseWarpxOutputFile = False
+InputFile = ""
 IsFifo = False
 WaitForStart = False
 WaitForData = False
@@ -189,30 +188,30 @@ InputData = None
 if UseStdin:
     InputData = sys.stdin
     IsFifo = True
-elif UseWarpxOutputFile:
-    debug("Opening WarpX output file: '{}'".format(WarpxOutputFile))
+elif InputFile:
+    debug("Opening WarpX output file: '{}'".format(InputFile))
     try:
-        InputData = open(WarpxOutputFile, "r")
+        InputData = open(InputFile, "r")
     except Exception as e:
         if WaitForStart or WaitForData:
-            warning("Cannot open data file '{}' for reading, trying to create it...".format(WarpxOutputFile))
+            warning("Cannot open data file '{}' for reading, trying to create it...".format(InputFile))
             warning(1, e)
             try:
-                open(WarpxOutputFile, "x")
+                open(InputFile, "x")
             except Exception as e:
-                critical("Cannot open nor create data file '{}'. Aborting.".format(WarpxOutputFile))
+                critical("Cannot open nor create data file '{}'. Aborting.".format(InputFile))
                 DoFatal(1, e)
             try:
-                InputData = open(WarpxOutputFile, "r")
+                InputData = open(InputFile, "r")
             except Exception as e:
-                critical("Cannot open created data file '{}'. Aborting.".format(WarpxOutputFile))
+                critical("Cannot open created data file '{}'. Aborting.".format(InputFile))
                 DoFatal(1, e)
 #            WaitForData = True # Warpx is surely not sending data yet
         else:
-            critical("Cannot open data file '{}'. Aborting.".format(WarpxOutputFile))
+            critical("Cannot open data file '{}'. Aborting.".format(InputFile))
             DoFatal(1, e)
-    debug("File '{}' successfully opened.".format(WarpxOutputFile))
-    if pathlib.Path(WarpxOutputFile).is_fifo():
+    debug("File '{}' successfully opened.".format(InputFile))
+    if pathlib.Path(InputFile).is_fifo():
         IsFifo = True
 else:
     Command = []
