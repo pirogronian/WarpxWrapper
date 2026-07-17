@@ -25,6 +25,8 @@ LogFile = "Log.txt"
 
 WarpxOutputFile = "output.txt"
 UseWarpxOutputFile = False
+IsFifo = False
+WaitForStart = False
 WaitForData = False
 SkipFooter = False
 DontWaitForFooter = True
@@ -130,6 +132,7 @@ TotalSimSteps        = int(getCfg("Steps", TotalSimSteps))
 TotalSimTime       = float(getCfg("Time", TotalSimTime))
 UpdateInterval     = float(getCfg("UpdateInterval", UpdateInterval))
 
+WaitForStart         = getCfgBool("WaitForStart", WaitForStart)
 WaitForData          = getCfgBool("WaitForData", WaitForData)
 SkipFooter           = getCfgBool("SkipFooter", SkipFooter)
 DontWaitForFooter    = getCfgBool("DontWaitForFooter", DontWaitForFooter)
@@ -151,13 +154,35 @@ InputData = None
 
 if UseStdin:
     InputData = sys.stdin
+    IsFifo = True
 elif UseWarpxOutputFile:
+    debug("Opening WarpX output file: '{}'".format(WarpxOutputFile))
     try:
         InputData = open(WarpxOutputFile, "r")
     except Exception as e:
-        critical("Cannot open data file '{}'. Aborting.".format(WarpxOutputFile))
-        critical(1, e)
-        exit(1)
+        if WaitForStart or WaitForData:
+            warning("Cannot open data file '{}' for reading, trying to create it...".format(WarpxOutputFile))
+            warning(1, e)
+            try:
+                open(WarpxOutputFile, "x")
+            except Exception as e:
+                critical("Cannot open nor create data file '{}'. Aborting.".format(WarpxOutputFile))
+                critical(1, e)
+                exit(1)
+            try:
+                InputData = open(WarpxOutputFile, "r")
+            except Exception as e:
+                critical("Cannot open created data file '{}'. Aborting.".format(WarpxOutputFile))
+                critical(1, e)
+                exit(1)
+#            WaitForData = True # Warpx is surely not sending data yet
+        else:
+            critical("Cannot open data file '{}'. Aborting.".format(WarpxOutputFile))
+            critical(1, e)
+            exit(1)
+    debug("File '{}' successfully opened.".format(WarpxOutputFile))
+    if pathlib.Path(WarpxOutputFile).is_fifo():
+        IsFifo = True
 else:
     Command = []
 
@@ -191,11 +216,12 @@ else:
         exit(1)
 
     InputData = WarpxSubproc.stdout
+    IsFifo = True
 
 
 CurrentTime = 0
 PreviousTime = 0
-StartTime = time.time()
+StartTime = -1
 
 PureElapsed = 0
 PureDelta = 0
@@ -219,14 +245,33 @@ ReFoot  = regex.compile("Total Time")
 ReNum   = regex.compile("[+-]?(?:[0-9]+(?:\\.[0-9]+)?|\\.[0-9]+)(?:[eE][+-]?[0-9]+)?")
 #ReNum = regex.compile("[0-9]+(.[0-9]+(e[+-][0-9]+)?)?")
 
+WaitForDataStart = time.time()
+debug("\n      Start waiting for WarpX Data...\n")
+
 while 1:
+    if StartTime < 0:
+        WaitingFor = time.time() - WaitForDataStart
+        if WaitingFor > 0:
+            print("\r   Waiting for WarpX to start sending data for: {}".format(str(datetime.timedelta(seconds=WaitingFor))), end='')
+
     OutputLine = InputData.readline()
     if OutputLine == "":
-        if os.get_blocking(InputData.fileno()):
+        #print("Read null string")
+        if (IsFifo):
+            #print("Blocking input")
+            if WaitForStart and StartTime < 0:
+                time.sleep(UpdateInterval)
+                continue
             break
-        elif WaitForData:
+        elif WaitForData or (WaitForStart and StartTime < 0):
+            #print("Waiting for data")
             time.sleep(UpdateInterval)
             continue
+        break
+
+    if StartTime < 0:
+        StartTime = time.time()
+        print("\n   Got data, starting processing.\n")
 
     try:
         if Log.isOpen():
@@ -321,8 +366,9 @@ while 1:
         Footer = True
         if SkipFooter:
             break
-        if DontWaitForFooter:
+        if WaitForData:
             WaitForData = False
+            time.sleep(UpdateInterval) # The last wait
 
     if Header or Footer:
         print(OutputLine, end='')
