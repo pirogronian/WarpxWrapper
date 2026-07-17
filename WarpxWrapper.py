@@ -162,11 +162,16 @@ IncludeFile(ConfigFileName)
 
 BlockingInput = True
 
+Log = None
+LogWritable = False
+
 try:
     Log = open(LogFile, "w")
+    LogWritable = True
 except Exception as e:
     error("An exception occured while opening the log file '{0}':".format(LogFile))
     DoError(1, e)
+    LogWritable = False
 
 InputData = None
 
@@ -286,12 +291,12 @@ while 1:
         StartTime = time.time()
         print("\n   Got data, starting processing.\n")
 
-    try:
-        if Log.isOpen():
-            Log.write(OutputLine)
-    except Exception as e:
-        warning("An error while writing to log file.")
-        warning(1, e)
+        if LogWritable:
+            try:
+                Log.write(OutputLine)
+            except Exception as e:
+                warning("An error while writing to log file.")
+                warning(1, e)
 
 
     if MainUpdated and SecondUpdated:
