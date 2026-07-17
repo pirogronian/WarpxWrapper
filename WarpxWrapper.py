@@ -257,7 +257,6 @@ while 1:
             break
         if DontWaitForFooter:
             WaitForData = False
-            time.sleep(UpdateInterval)
 
     elif Re1.search(OutputLine):
         if SkipMain:
