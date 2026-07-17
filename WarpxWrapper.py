@@ -7,6 +7,15 @@ import time
 import datetime
 import logging
 import pathlib
+import enum
+
+class SourceType(enum.Enum):
+    DEFAULT = 0 # It means the COMMAND
+    COMMAND = 1
+    FILE    = 2
+    STDIN   = 3
+
+Source = SourceType.DEFAULT
 
 ErrorIsFatal = True
 
@@ -184,11 +193,17 @@ if LogFile != "":
         LogWritable = False
 
 InputData = None
+Command = []
 
-if UseStdin:
+def PrepareStdin():
+    global InputData
+    global IsFifo
     InputData = sys.stdin
     IsFifo = True
-elif InputFile:
+
+def PrepareInputFile():
+    global InputData
+    global IsFifo
     debug("Opening WarpX output file: '{}'".format(InputFile))
     try:
         InputData = open(InputFile, "r")
@@ -213,21 +228,23 @@ elif InputFile:
     debug("File '{}' successfully opened.".format(InputFile))
     if pathlib.Path(InputFile).is_fifo():
         IsFifo = True
-else:
-    Command = []
 
-    if FullCommand == "":
+def PrepareCommand():
+    global InputData
+    global Command
+    if Command == []:
+        if FullCommand != "":
+            Command = FullCommand.split(' ')
+
+    if Command == []:
         if UseMpi:
             Command.append("mpirun")
+            Command.append(ExecBase + ExecDim)
 
-        Command.append(ExecBase + ExecDim)
+            if not IsReadable(WarpxInputFile):
+                DoFatal("Warpx input file \"{0}\" is not readable. Aborting.".format(WarpxInputFile))
 
-        if not IsReadable(WarpxInputFile):
-            DoFatal("Warpx input file \"{0}\" is not readable. Aborting.".format(WarpxInputFile))
-
-        Command.append(WarpxInputFile)
-    else:
-        Command = FullCommand.split(' ')
+            Command.append(WarpxInputFile)
 
     RunMsg = "|   Running WarpX 3D with the following command: {0}   |".format(Command)
     RunMsgLen = len(RunMsg)
@@ -246,6 +263,12 @@ else:
     InputData = WarpxSubproc.stdout
     IsFifo = True
 
+if Source == SourceType.STDIN:
+    PrepareStdin()
+elif Source == SourceType.FILE:
+    PrepareInputFile()
+else:
+    PrepareCommand()
 
 CurrentTime = 0
 PreviousTime = 0
