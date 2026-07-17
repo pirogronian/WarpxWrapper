@@ -40,6 +40,8 @@ WaitForData = False
 SkipFooter = False
 DontWaitForFooter = True
 
+Command = []
+
 def timedf(seconds):
     if seconds < 0:
         return "-/-"
@@ -176,8 +178,6 @@ if ConfigFile == "":
 else:
     IncludeFile(ConfigFile)
 
-BlockingInput = True
-
 Log = None
 LogWritable = False
 
@@ -191,7 +191,6 @@ if LogFile != "":
         LogWritable = False
 
 InputData = None
-Command = []
 
 def PrepareStdin():
     global InputData
