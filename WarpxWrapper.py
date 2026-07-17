@@ -23,6 +23,7 @@ WarpxInputFile = "input"
 ExecBase = "warpx."
 ExecDim = "3d"
 FullCommand = ""
+Command = []
 
 MaxSteps = -1
 MaxTime = -1
@@ -39,8 +40,6 @@ WaitForStart = False
 WaitForData = False
 SkipFooter = False
 DontWaitForFooter = True
-
-Command = []
 
 def timedf(seconds):
     if seconds < 0:
