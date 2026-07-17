@@ -9,7 +9,7 @@ import configparser
 import logging
 import pathlib
 
-InputFile = "input"
+WarpxInputFile = "input"
 ExecBase = "warpx."
 ExecDim = "3d"
 FullCommand = ""
@@ -23,11 +23,11 @@ UseMpi = False
 
 LogFile = "Log.txt"
 
-OutputFile = "output.txt"
-UseOutputFile = False
+WarpxOutputFile = "output.txt"
+UseWarpxOutputFile = False
 WaitForData = False
-ExitOnFooter = False
-DontWaitByFooter = True
+SkipFooter = False
+DontWaitForFooter = True
 
 UseStdin = False
 
@@ -119,7 +119,7 @@ def getCfg(option, default=None, section=configparser.UNNAMED_SECTION):
 
 LogFile                  = getCfg("LogFile", "")
 
-InputFile                = getCfg("InputFile", InputFile)
+WarpxInputFile           = getCfg("WarpxInputFile", WarpxInputFile)
 UseMpi               = getCfgBool("UseMpi", UseMpi)
 ExecBase                 = getCfg("ExecBase", ExecBase)
 ExecDim                  = getCfg("ExecDim", ExecDim)
@@ -131,13 +131,13 @@ TotalSimTime       = float(getCfg("Time", TotalSimTime))
 UpdateInterval     = float(getCfg("UpdateInterval", UpdateInterval))
 
 WaitForData          = getCfgBool("WaitForData", WaitForData)
-ExitOnFooter         = getCfgBool("ExitOnFooter", ExitOnFooter)
-DontWaitByFooter     = getCfgBool("DontWaitByFooter", DontWaitByFooter)
+SkipFooter           = getCfgBool("SkipFooter", SkipFooter)
+DontWaitForFooter    = getCfgBool("DontWaitForFooter", DontWaitForFooter)
 
-UseOutputFile  = getCfgBool("UseOutputFile", False)
-OutputFile     =     getCfg("OutputFile", OutputFile)
+UseWarpxOutputFile   = getCfgBool("UseWarpxOutputFile", False)
+WarpxOutputFile          = getCfg("WarpxOutputFile", WarpxOutputFile)
 
-UseStdin       = getCfgBool("UseStdin", UseStdin)
+UseStdin             = getCfgBool("UseStdin", UseStdin)
 
 BlockingInput = True
 
@@ -151,11 +151,11 @@ InputData = None
 
 if UseStdin:
     InputData = sys.stdin
-elif UseOutputFile:
+elif UseWarpxOutputFile:
     try:
-        InputData = open(OutputFile, "r")
+        InputData = open(WarpxOutputFile, "r")
     except Exception as e:
-        critical("Cannot open data file '{}'. Aborting.".format(OutputFile))
+        critical("Cannot open data file '{}'. Aborting.".format(WarpxOutputFile))
         critical(1, e)
         exit(1)
 else:
@@ -167,11 +167,11 @@ else:
 
         Command.append(ExecBase + ExecDim)
 
-        if not os.access(InputFile, os.R_OK):
-            critical("Input file \"{0}\" is not readable. Aborting.".format(InputFile))
+        if not os.access(WarpxInputFile, os.R_OK):
+            critical("Warpx input file \"{0}\" is not readable. Aborting.".format(WarpxInputFile))
             exit(1)
 
-        Command.append(InputFile)
+        Command.append(WarpxInputFile)
     else:
         Command = FullCommand.split(' ')
 
@@ -253,9 +253,9 @@ while 1:
 
     elif Footer == False and ReFoot.match(OutputLine):
         Footer = True
-        if ExitOnFooter:
+        if SkipFooter:
             break
-        if DontWaitByFooter:
+        if DontWaitForFooter:
             WaitForData = False
             time.sleep(UpdateInterval)
 
