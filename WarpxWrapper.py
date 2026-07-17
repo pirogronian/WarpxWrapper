@@ -40,8 +40,6 @@ WaitForData = False
 SkipFooter = False
 DontWaitForFooter = True
 
-UseStdin = False
-
 def timedf(seconds):
     if seconds < 0:
         return "-/-"
