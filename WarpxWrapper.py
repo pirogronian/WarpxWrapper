@@ -5,9 +5,9 @@ import subprocess
 import regex
 import time
 import datetime
-import configparser
 import logging
 import pathlib
+import importlib
 
 WarpxInputFile = "input"
 ExecBase = "warpx."
@@ -100,59 +100,28 @@ def exception(*args):
     msg = prepareLog(args)
     logger.exception(msg)
 
-DefaultConfigFileName = "config.ini"
+def IncludeFile(fname):
+    debug("Including file '{}'.".format(fname))
+    try:
+        f = open(fname, "r")
+    except Exception as e:
+        error("Cannot open file '{}'.".format(fname))
+        error(1, e)
+        return
+    prog = f.read()
+    try:
+        exec(prog, globals())
+    except Exception as e:
+        error("Error while executing include file: '{}'".format(fname))
+        error(1, e)
 
-ConfigFileName = ""
+
+ConfigFileName = "config.py"
+
 if len(sys.argv) > 1:
     ConfigFileName = sys.argv[1]
 
-if not ConfigFileName:
-    debug("No config file provided, falling back to default: " + DefaultConfigFileName)
-    ConfigFileName = DefaultConfigFileName
-
-config = configparser.ConfigParser(allow_unnamed_section=True, allow_no_value=True)
-config.optionxform = str
-config.read(ConfigFileName)
-
-def getCfgCommon(name, option, default=None, section=configparser.UNNAMED_SECTION):
-    method = getattr(config, name)
-    try:
-        val = method(section, option, fallback=default)
-        debug("Config: {}.{} = {}".format(section, option, val))
-    except Exception as e:
-        warning("Warning, exception while reading config option \'{}\':".format(option))
-        warning(1, e)
-        val = default
-    return val
-
-def getCfgBool(option, default=None, section=configparser.UNNAMED_SECTION):
-    return getCfgCommon("getboolean", option, default, section)
-
-def getCfg(option, default=None, section=configparser.UNNAMED_SECTION):
-    return getCfgCommon("get", option, default, section)
-
-LogFile                  = getCfg("LogFile", "")
-
-WarpxInputFile           = getCfg("WarpxInputFile", WarpxInputFile)
-UseMpi               = getCfgBool("UseMpi", UseMpi)
-ExecBase                 = getCfg("ExecBase", ExecBase)
-ExecDim                  = getCfg("ExecDim", ExecDim)
-FullCommand              = getCfg("FullCommand", FullCommand)
-
-
-TotalSimSteps        = int(getCfg("Steps", TotalSimSteps))
-TotalSimTime       = float(getCfg("Time", TotalSimTime))
-UpdateInterval     = float(getCfg("UpdateInterval", UpdateInterval))
-
-WaitForStart         = getCfgBool("WaitForStart", WaitForStart)
-WaitForData          = getCfgBool("WaitForData", WaitForData)
-SkipFooter           = getCfgBool("SkipFooter", SkipFooter)
-DontWaitForFooter    = getCfgBool("DontWaitForFooter", DontWaitForFooter)
-
-UseWarpxOutputFile   = getCfgBool("UseWarpxOutputFile", False)
-WarpxOutputFile          = getCfg("WarpxOutputFile", WarpxOutputFile)
-
-UseStdin             = getCfgBool("UseStdin", UseStdin)
+IncludeFile(ConfigFileName)
 
 BlockingInput = True
 
