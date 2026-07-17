@@ -136,6 +136,12 @@ def DoFatal(*args):
         critical(" ^^^^ An error occured, aborting. ^^^^")
         exit(1)
 
+def IsReadable(fname):
+    return os.access(WarpxInputFile, os.R_OK)
+
+def IsWritable(fname):
+    return os.access(WarpxInputFile, os.W_OK)
+
 def IncludeFile(fname):
     debug("Including file '{}'.".format(fname))
     try:
@@ -152,13 +158,17 @@ def IncludeFile(fname):
         exception(1, e)
         DoError()
 
-
-ConfigFileName = "config.py"
+DefaultConfigFile = "config.py"
+ConfigFile = ""
 
 if len(sys.argv) > 1:
-    ConfigFileName = sys.argv[1]
+    ConfigFile = sys.argv[1]
 
-IncludeFile(ConfigFileName)
+if ConfigFile == "":
+    if IsReadable(DefaultConfigFile): # Lack of default config name is not an error
+        IncludeFile(DefaultConfigFile)
+else:
+    IncludeFile(ConfigFile)
 
 BlockingInput = True
 
@@ -212,7 +222,7 @@ else:
 
         Command.append(ExecBase + ExecDim)
 
-        if not os.access(WarpxInputFile, os.R_OK):
+        if not IsReadable(WarpxInputFile):
             DoFatal("Warpx input file \"{0}\" is not readable. Aborting.".format(WarpxInputFile))
 
         Command.append(WarpxInputFile)
