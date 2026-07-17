@@ -175,13 +175,14 @@ BlockingInput = True
 Log = None
 LogWritable = False
 
-try:
-    Log = open(LogFile, "w")
-    LogWritable = True
-except Exception as e:
-    error("An exception occured while opening the log file '{0}':".format(LogFile))
-    DoError(1, e)
-    LogWritable = False
+if LogFile != "":
+    try:
+        Log = open(LogFile, "w")
+        LogWritable = True
+    except Exception as e:
+        error("An exception occured while opening the log file '{0}':".format(LogFile))
+        DoError(1, e)
+        LogWritable = False
 
 InputData = None
 
