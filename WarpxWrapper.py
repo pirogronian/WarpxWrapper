@@ -33,6 +33,18 @@ DontWaitForFooter = True
 
 UseStdin = False
 
+def timedf(seconds):
+    if seconds < 0:
+        return "-/-"
+    return str(datetime.timedelta(seconds=seconds))
+
+def timenf(n):
+    if n < 0:
+        return "-/-"
+    if type(n) == int:
+        return "{:3}".format(n)
+    return "{:.2e}".format(n)
+
 LogLevels = {
         'debug': logging.DEBUG,
         'info': logging.INFO,
@@ -252,7 +264,7 @@ while 1:
     if StartTime < 0:
         WaitingFor = time.time() - WaitForDataStart
         if WaitingFor > 0:
-            print("\r   Waiting for WarpX to start sending data for: {}".format(str(datetime.timedelta(seconds=WaitingFor))), end='')
+            print("\r   Waiting for WarpX to start sending data for: {}".format(timedf(WaitingFor)), end='')
 
     OutputLine = InputData.readline()
     if OutputLine == "":
@@ -328,14 +340,11 @@ while 1:
         EffElapsed = int(PureElapsed/Elapsed*100)
         EffDelta = int(PureDelta/Delta*100)
 
-        StepETAStr = str(datetime.timedelta(seconds=StepsETA))
-        StepsMsg = "|   Step:  {0:^15} / {1:^15} : {2:^15} ({3:>3}%), ETA: {4:>20}           ".format(Step, TotalSimSteps, RemainingSteps, StepsProgress, StepETAStr)
+        StepsMsg = "|   Step:  {0:^15} / {1:^15} : {2:^15} ({3:>3}%), ETA: {4:>20}           ".format(Step, timenf(TotalSimSteps), timenf(RemainingSteps), timenf(StepsProgress), timedf(StepsETA))
 
-        TimeETAStr = str(datetime.timedelta(seconds=TimeETA))
-        TimeMsg = "|   Sim time: {0:^10.2e}   /    {1:^10.2e}   :   {2:^10.2e}    ({3:>3}%), ETA: {4:>20}          ".format(SimulationElapsed, TotalSimTime, RemainingSimTime, TimeProgress, TimeETAStr)
+        TimeMsg = "|   Sim time: {0:^10}   /    {1:^10}   :   {2:^10}    ({3:>3}%), ETA: {4:>20}          ".format(timenf(SimulationElapsed), timenf(TotalSimTime), timenf(RemainingSimTime), timenf(TimeProgress), timedf(TimeETA))
 
-        ElapsedStr = str(datetime.timedelta(seconds=Elapsed))
-        Time2Msg = "|   Elapsed: {0}, delta: {1:.2f} ({2:.2e}), eff: elapsed: {3}%, delta: {4}%          ".format(ElapsedStr, Delta, SimulationDelta, EffElapsed, EffDelta)
+        Time2Msg = "|   Elapsed: {0}, delta: {1:.2f} ({2:.2e}), eff: elapsed: {3}%, delta: {4}%          ".format(timedf(Elapsed), Delta, SimulationDelta, EffElapsed, EffDelta)
 
         print(end='\r\033[A\033[A\033[A\033[A\033[A')
         print(StepsMsg,)
@@ -388,7 +397,7 @@ MeanTest /= Steps
 
 print(MeanStepETA, MeanTimeETA, MeanTest)"""
 
-FMsg = "Finished in " + str(datetime.timedelta(seconds=CurrentTime-StartTime))
+FMsg = "Finished in " + timedf(CurrentTime-StartTime)
 FMsg = "|{:^77}|".format(FMsg)
 
 #EMsg = "Mean ETA: {0} / {1}".format(datetime.timedelta(seconds=MeanStepETA), datetime.timedelta(seconds=MeanTimeETA))
