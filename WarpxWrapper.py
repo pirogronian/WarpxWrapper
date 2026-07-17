@@ -29,7 +29,7 @@ MaxTime = -1
 
 UpdateInterval = 0.5
 
-UseMpi = False
+UseMpi = True
 
 LogFile = "Log.txt"
 
