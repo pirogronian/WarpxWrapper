@@ -11,13 +11,14 @@ import enum
 import argparse
 import distutils
 
-DEBUG = logging.DEBUG
-INFO = logging.INFO
-WARNING = logging.WARNING
-ERROR = logging.ERROR
-CRITICAL = logging.CRITICAL
+class Verbosity(enum.IntEnum):
+    DEBUG = logging.DEBUG
+    INFO = logging.INFO
+    WARNING = logging.WARNING
+    ERROR = logging.ERROR
+    CRITICAL = logging.CRITICAL
 
-LogLevel = INFO
+LogLevel = Verbosity.INFO
 
 ErrorIsFatal = True
 
@@ -119,19 +120,19 @@ def Log(level, *args):
     logger.log(level, msg)
 
 def LogDebug(*args):
-    Log(DEBUG, *args)
+    Log(Verbosity.DEBUG, *args)
 
 def LogInfo(*args):
-    Log(INFO, *args)
+    Log(Verbosity.INFO, *args)
 
 def LogWarning(*args):
-    Log(WARNING, *args)
+    Log(Verbosity.WARNING, *args)
 
 def LogError(*args):
-    Log(ERROR, *args)
+    Log(Verbosity.ERROR, *args)
 
 def LogCritical(*args):
-    Log(CRITICAL, *args)
+    Log(Verbosity.CRITICAL, *args)
 
 def LogExcept(level, *args):
     if level >= LogLevel:
@@ -139,19 +140,19 @@ def LogExcept(level, *args):
         logger.exception(msg)
 
 def LogExceptDebug(*args):
-    LogExcept(DEBUG, *args)
+    LogExcept(Verbosity.DEBUG, *args)
 
 def LogExceptInfo(*args):
-    LogExcept(INFO, *args)
+    LogExcept(Verbosity.INFO, *args)
 
 def LogExceptWarn(*args):
-    LogExcept(WARNING, *args)
+    LogExcept(Verbosity.WARNING, *args)
 
 def LogExceptCrit(*args):
-    LogExcept(CRITICAL, *args)
+    LogExcept(Verbosity.CRITICAL, *args)
 
 def LogExceptError(*args):
-    LogExcept(ERROR, *args)
+    LogExcept(Verbosity.ERROR, *args)
 
 def Error(*args):
     if args:
