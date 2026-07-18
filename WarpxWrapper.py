@@ -65,7 +65,7 @@ def timedf(seconds):
         return "o-o"
 #    print(seconds, "\n", int(seconds), "\n", sys.maxsize)
     try:
-        ret = str(datetime.timedelta(seconds=seconds))
+        return str(datetime.timedelta(seconds=seconds))
     except OverflowError:
         return "o_O"
 
