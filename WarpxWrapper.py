@@ -21,6 +21,8 @@ ErrorIsFatal = True
 
 UpdateInterval = 0.5
 
+DontRun = False
+
 MaxSteps = -1
 MaxTime = -1
 
@@ -51,6 +53,7 @@ DontWaitForFooter = True
 NonDestructivePrint = False
 
 Params = (
+        "DontRun",
         "Source",
         "ErrorIsFatal",
         "WarpxInputFile",
@@ -373,6 +376,9 @@ ReNum   = regex.compile("[+-]?(?:[0-9]+(?:\\.[0-9]+)?|\\.[0-9]+)(?:[eE][+-]?[0-9
 
 WaitForDataStart = time.time()
 LogDebug("\n      Start waiting for WarpX Data...\n")
+
+if DontRun:
+    exit(0)
 
 while 1:
     if StartTime < 0:
