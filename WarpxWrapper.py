@@ -54,27 +54,7 @@ SkipFooter = False
 DontWaitForFooter = True
 NonDestructivePrint = False
 
-Params = (
-        "DontRun",
-        "Source",
-        "ErrorIsFatal",
-        "WarpxInputFile",
-        "ExecBase",
-        "ExecDim",
-        "Executable",
-        "Command",
-        "MaxSteps",
-        "MaxTime",
-        "UpdateInterval",
-        "UseMpi",
-        "LogFile",
-        "InputFile",
-        "WaitForStart",
-        "WaitForData",
-        "SkipFooter",
-        "DontWaitForFooter",
-        "NonDestructivePrint"
-    )
+Params = []
 
 def timedf(seconds):
     if seconds < 0:
@@ -233,11 +213,14 @@ LogLevels = {
     }
 
 class VerboseAction(argparse.Action):
+    def __init__(self, option_strings, dest, **kwargs):
+        kwargs.pop("VarName")
+        super().__init__(option_strings, dest, **kwargs)
     def __call__(self, parser, namespace, value, option_string):
         global LogLevel
         LogLevel = LogLevels[value]
-        LogDebug("Setting LogLevel to '{}'.".format(value))
-parser.add_argument("-v", "--verbosity", nargs='?', action=VerboseAction, const='debug', choices = LogLevels.keys())
+        LogDebug("Command line: set LogLevel to '{}'.".format(value))
+#parser.add_argument("-v", "--verbosity", nargs='?', action=VerboseAction, const='debug', choices = LogLevels.keys())
 
 class IncludeAction(argparse.Action):
     Used = False
@@ -258,12 +241,15 @@ Sources = {
     }
 
 class SourceAction(argparse.Action):
+    def __init__(self, option_strings, dest, **kwargs):
+        kwargs.pop("VarName")
+        super().__init__(option_strings, dest, **kwargs)
     def __call__(self, parser, namespace, value, option_string):
         global Source
         key = value[0]
         Source = Sources[key]
-        LogDebug("Set Source to {}".format(key))
-parser.add_argument("-s", "--source", nargs=1, action=SourceAction, choices=Sources.keys())
+        LogDebug("Command line: set Source to {}".format(key))
+#parser.add_argument("-s", "--source", nargs=1, action=SourceAction, choices=Sources.keys())
 
 def StrToBool(value):
     try:
@@ -291,10 +277,10 @@ def StrToType(value, t):
 
 class ParamAction(argparse.Action):
     Param = ""
-    def __init__(self, option_strings, dest, nargs=None, **kwargs):
+    def __init__(self, option_strings, dest, **kwargs):
 #        print("{}.__init__({}, {}, {}, {})".format(self.__class__.__name__, option_strings, dest, nargs, kwargs))
         self.Param = kwargs.pop("VarName")
-        super().__init__(option_strings, dest, nargs = nargs, **kwargs)
+        super().__init__(option_strings, dest, **kwargs)
     def __call__(self, parser, namespace, values, option_string):
         if type(values) == list:
             value = values[0]
@@ -307,7 +293,37 @@ class ParamAction(argparse.Action):
             Error("Value of param {} must be convertable to {}!".format(option_string, t.__name__))
         globals()[self.Param] = value
         LogDebug("Command line: set {} to {}".format(self.Param, value))
-parser.add_argument("-m", "--use-mpi", nargs='?', action=ParamAction, VarName="UseMpi", const=True)
+
+def AddParam(VarName, *Args, **KArgs):
+    if VarName in globals():
+        global parser
+        NArgs = '?' if "const" in KArgs else 1
+        if not "action" in KArgs:
+            KArgs["action"] = ParamAction
+        parser.add_argument(*Args, VarName = VarName, nargs = NArgs, **KArgs)
+        Params.append(VarName)
+    else:
+        raise NameError("Variable {} not found.".format(VarName))
+
+AddParam("LogLevel", "-v", "--verbosity", action=VerboseAction, const='debug', choices=LogLevels.keys())
+AddParam("DontRun", "-r", "--dont-run", const = True)
+AddParam("LogFile", "-l", "--log-file")
+AddParam("Source", "-s", "--source", action=SourceAction, choices=Sources.keys())
+AddParam("ErrorIsFatal", "--error-fatal", const = True)
+AddParam("WarpxInputFile", "--warpx-input-file")
+AddParam("ExecBase", "--exec-base")
+AddParam("ExecDim", "--exec-dim")
+AddParam("Executable", "--executable")
+AddParam("UseMpi", "-m", "--use-mpi", const = True)
+AddParam("Command", "-c", "--command")
+AddParam("MaxSteps", "-x", "--max-steps")
+AddParam("MaxTime", "-t", "--max-time")
+AddParam("UpdateInterval", "--upd-int", "--update-interval")
+AddParam("WaitForStart", "--wait-for-start", const = True)
+AddParam("WaitForData", "-w", "--wait", "--wait-for-data", const = True)
+AddParam("SkipFooter", "-f", "--skip-footer", const = True)
+AddParam("DontWaitForFooter", "--dont-wait-for-footer", const = True)
+AddParam("NonDestructivePrint", "-d", "--non-destructive-print", const = True)
 
 args = parser.parse_args(sys.argv[1:])
 LogDebug("Options from command line: {}".format(args))
