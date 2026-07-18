@@ -205,11 +205,11 @@ parser = argparse.ArgumentParser(
     )
 
 LogLevels = {
-        'debug': logging.DEBUG,
-        'info': logging.INFO,
-        'warning': logging.WARNING,
-        'error' : logging.ERROR,
-        'critical' : logging.CRITICAL
+        'debug': Verbosity.DEBUG,
+        'info': Verbosity.INFO,
+        'warning': Verbosity.WARNING,
+        'error' : Verbosity.ERROR,
+        'critical' : Verbosity.CRITICAL
     }
 
 class VerboseAction(argparse.Action):
@@ -310,12 +310,13 @@ def TypeDescription(t, NonFatal = False):
 def AddParam(VarName, *Args, **KArgs):
     if VarName in globals():
         global parser
-        NArgs = '?' if "const" in KArgs else 1
+        if not "nargs" in KArgs:
+            KArgs["nargs"] = '?' if "const" in KArgs else 1
         if not "action" in KArgs:
             KArgs["action"] = ParamAction
         if not "help" in KArgs:
             KArgs["help"] = "Type: {}.".format(TypeDescription(type(globals()[VarName]), True))
-        parser.add_argument(*Args, VarName = VarName, nargs = NArgs, **KArgs)
+        parser.add_argument(*Args, VarName = VarName, **KArgs)
         Params.append(VarName)
     else:
         raise NameError("Variable {} not found.".format(VarName))
