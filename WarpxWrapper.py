@@ -155,9 +155,25 @@ def error(*args):
 def critical(*args):
     log(CRITICAL, *args)
 
-def exception(*args):
-    msg = prepareLog(args)
-    logger.exception(msg)
+def LogExcept(level, *args):
+    if level >= LogLevel:
+        msg = prepareLog(args)
+        logger.exception(msg)
+
+def LogExceptDebug(*args):
+    LogExcept(DEBUG, *args)
+
+def LogExceptInfo(*args):
+    LogExcept(INFO, *args)
+
+def LogExceptWarn(*args):
+    LogExcept(WARNING, *args)
+
+def LogExceptCrit(*args):
+    LogExcept(CRITICAL, *args)
+
+def LogExceptError(*args):
+    LogExcept(ERROR, *args)
 
 def DoError(*args):
     if args:
@@ -191,7 +207,7 @@ def IncludeFile(fname):
         exec(prog, globals())
     except Exception as e:
         error("Error while executing include file: '{}'".format(fname))
-        exception(1, e)
+        LogExceptError(1, e)
         DoError()
 
 def PrintParam(name):
