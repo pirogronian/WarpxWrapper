@@ -212,7 +212,7 @@ LogLevels = {
         'critical' : Verbosity.CRITICAL
     }
 
-class VerboseAction(argparse.Action):
+class VerbosityAction(argparse.Action):
     def __init__(self, option_strings, dest, **kwargs):
         kwargs.pop("VarName")
         super().__init__(option_strings, dest, **kwargs)
@@ -321,7 +321,7 @@ def AddParam(VarName, *Args, **KArgs):
     else:
         raise NameError("Variable {} not found.".format(VarName))
 
-AddParam("LogLevel", "-v", "--verbosity", action=VerboseAction, const='debug', choices=LogLevels.keys())
+AddParam("LogLevel", "-v", "--verbosity", action=VerbosityAction, const='debug', choices=LogLevels.keys())
 AddParam("DontRun", "-r", "--dont-run", const = True)
 AddParam("ErrorIsFatal", "--error-fatal", const = True)
 AddParam("LogFile", "-l", "--log-file")
