@@ -350,7 +350,7 @@ DefaultConfigFile = "config.py"
 if IsReadable(DefaultConfigFile): # Always try, never cry.
     IncludeFile(DefaultConfigFile)
 else:
-    LogDebug("Cannot read default config file: '{}'".format(DefaultConfigFile))
+    LogDebug(f"Cannot read default config file: '{DefaultConfigFile}'")
 
 args = parser.parse_args(sys.argv[1:])
 if len(args.command) > 0:
@@ -370,7 +370,7 @@ def PrepareLogging():
             LogStream = open(LogFile, "w")
             LogWritable = True
         except Exception as e:
-            LogError("An exception occured while opening the log file '{0}':".format(LogFile))
+            LogError(f"An exception occured while opening the log file '{LogFile}':")
             Error(1, e)
             LogWritable = False
 
@@ -386,28 +386,28 @@ def PrepareStdin():
 def PrepareInputFile():
     global InputData
     global IsFifo
-    LogDebug("Opening WarpX output file: '{}'".format(InputFile))
+    LogDebug(f"Opening WarpX output file: '{InputFile}'")
     try:
         InputData = open(InputFile, "r")
     except Exception as e:
         if WaitForStart or WaitForData:
-            warning("Cannot open data file '{}' for reading, trying to create it...".format(InputFile))
+            warning(f"Cannot open data file '{InputFile}' for reading, trying to create it...")
             warning(1, e)
             try:
                 open(InputFile, "x")
             except Exception as e:
-                LogCritical("Cannot open nor create data file '{}'. Aborting.".format(InputFile))
+                LogCritical(f"Cannot open nor create data file '{InputFile}'.")
                 Fatal(1, e)
             try:
                 InputData = open(InputFile, "r")
             except Exception as e:
-                LogCritical("Cannot open created data file '{}'. Aborting.".format(InputFile))
+                LogCritical("Cannot open created data file '{InputFile}'.")
                 Fatal(1, e)
 #            WaitForData = True # Warpx is surely not sending data yet
         else:
-            LogCritical("Cannot open data file '{}'. Aborting.".format(InputFile))
+            LogCritical("Cannot open data file '{InputFile}'.")
             Fatal(1, e)
-    LogDebug("File '{}' successfully opened.".format(InputFile))
+    LogDebug("File '{InputFile}' successfully opened.")
     if pathlib.Path(InputFile).is_fifo():
         IsFifo = True
 
@@ -437,11 +437,11 @@ def PrepareCommand():
         if InputFile == "":
             InputFile = DefaultWarpxInputFile
         if not IsReadable(InputFile):
-            Error("Warpx input file \"{0}\" is not readable.".format(InputFile))
+            Error(f"Warpx input file \"{InputFile}\" is not readable.")
 
         CmdArgs.append(InputFile)
 
-    RunMsg = "|   Running WarpX 3D with the following command: {0}   |".format(CmdArgs)
+    RunMsg = f"|   Running WarpX 3D with the following command: {CmdArgs}   |"
     RunMsgLen = len(RunMsg)
 
     Panel = "-" * RunMsgLen
@@ -452,7 +452,7 @@ def PrepareCommand():
     try:
         WarpxSubproc = subprocess.Popen(args=CmdArgs,stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
     except Exception as e:
-        LogCritical("Cannot create a subprocess to get its output. Aborting.")
+        LogCritical("Cannot create a subprocess to get its output.")
         Fatal(1, e)
 
     InputData = WarpxSubproc.stdout
@@ -509,7 +509,7 @@ while 1:
     if StartTime < 0:
         WaitingFor = time.time() - WaitForDataStart
         if WaitingFor > 0:
-            msg = "   Waiting for WarpX to start sending data for: {}".format(timedf(WaitingFor))
+            msg = f"   Waiting for WarpX to start sending data for: {timedf(WaitingFor)}"
             if not NonDestructivePrint:
                 msg = '\r' + msg
             print(msg, end=MsgEnd)
