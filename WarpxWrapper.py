@@ -26,7 +26,7 @@ UpdateInterval = 0.5
 DontRun = False
 
 MaxSteps = -1
-MaxTime = -1
+MaxTime = -1.0
 
 LogFile = "Log.txt"
 
