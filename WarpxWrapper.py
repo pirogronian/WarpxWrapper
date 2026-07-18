@@ -9,6 +9,7 @@ import logging
 import pathlib
 import enum
 import argparse
+import distutils
 
 DEBUG = logging.DEBUG
 INFO = logging.INFO
@@ -264,15 +265,49 @@ class SourceAction(argparse.Action):
         LogDebug("Set Source to {}".format(key))
 parser.add_argument("-s", "--source", nargs=1, action=SourceAction, choices=Sources.keys())
 
+def StrToBool(value):
+    try:
+#        print("Try conversion to float: ", value)
+        value = float(value)
+#        print("Success: ", value, type(value))
+        if value > 0:
+            value = True
+        else:
+            value = False
+#        print("Still successful.")
+    except Exception:
+#        print("Not successful. Trying again: ", value)
+        value = distutils.util.strtobool(value)
+        if value > 0:
+            value = True
+        else:
+            value = False
+    return value
+
+def StrToType(value, t):
+    if t == bool:
+        return StrToBool(value)
+    return t(value)
+
 class ParamAction(argparse.Action):
     Param = ""
     def __init__(self, option_strings, dest, nargs=None, **kwargs):
-        print("{}.__init__({}, {}, {}, {})".format(self.__class__.__name__, option_strings, dest, nargs, kwargs))
+#        print("{}.__init__({}, {}, {}, {})".format(self.__class__.__name__, option_strings, dest, nargs, kwargs))
         self.Param = kwargs.pop("VarName")
         super().__init__(option_strings, dest, nargs = nargs, **kwargs)
-    def __call__(self, parser, namespace, value, option_string):
-        LogDebug("{}[{}] := {}".format(self.__class__.__name__, self.Param, value))
-parser.add_argument("-p", "--param", nargs='?', action=ParamAction, VarName="Właściwość", const="Domyślne")
+    def __call__(self, parser, namespace, values, option_string):
+        if type(values) == list:
+            value = values[0]
+        else:
+            value = values
+        t = type(globals()[self.Param])
+        try:
+            value = StrToType(value, t)
+        except:
+            Error("Value of param {} must be convertable to {}!".format(option_string, t.__name__))
+        globals()[self.Param] = value
+        LogDebug("Command line: set {} to {}".format(self.Param, value))
+parser.add_argument("-m", "--use-mpi", nargs='?', action=ParamAction, VarName="UseMpi", const=True)
 
 args = parser.parse_args(sys.argv[1:])
 LogDebug("Options from command line: {}".format(args))
