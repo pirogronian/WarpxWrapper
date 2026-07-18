@@ -34,13 +34,14 @@ class SourceType(enum.Enum):
 
 Source = SourceType.DEFAULT
 
-WarpxInputFile = "input"
+DefaultWarpxInputFile = "input"
+WarpxInputFile = ""
 ExecBase = "warpx."
 ExecDim = "3d"
-FullCommand = ""
-Command = []
+Executable = ""
+Command = ""
 
-UseMpi = True
+UseMpi = False
 
 InputFile = ""
 WaitForStart = False
@@ -55,7 +56,8 @@ Params = (
         "WarpxInputFile",
         "ExecBase",
         "ExecDim",
-        "FullCommand",
+        "Executable",
+        "Command",
         "MaxSteps",
         "MaxTime",
         "UpdateInterval",
@@ -288,21 +290,30 @@ def PrepareInputFile():
 def PrepareCommand():
     global InputData
     global Command
-    if Command == []:
-        if FullCommand != "":
-            Command = FullCommand.split(' ')
+    global WarpxInputFile
 
-    if Command == []:
-        if UseMpi:
-            Command.append("mpirun")
-            Command.append(ExecBase + ExecDim)
+    CmdArgs = []
 
-            if not IsReadable(WarpxInputFile):
-                Fatal("Warpx input file \"{0}\" is not readable. Aborting.".format(WarpxInputFile))
+    if UseMpi:
+        CmdArgs.append("mpirun")
 
-            Command.append(WarpxInputFile)
+    if Command != "":
+        CmdArgs.extend(Command.split(' '))
+    else:
+        if Executable != "":
+            CmdArgs.append(Executable)
+        else:
+            CmdArgs.append(ExecBase + ExecDim)
 
-    RunMsg = "|   Running WarpX 3D with the following command: {0}   |".format(Command)
+    if Command == "":
+        if WarpxInputFile == "":
+            WarpxInputFile = DefaultWarpxInputFile
+        if not IsReadable(WarpxInputFile):
+            Error("Warpx input file \"{0}\" is not readable.".format(WarpxInputFile))
+
+        CmdArgs.append(WarpxInputFile)
+
+    RunMsg = "|   Running WarpX 3D with the following command: {0}   |".format(CmdArgs)
     RunMsgLen = len(RunMsg)
 
     Panel = "-" * RunMsgLen
@@ -311,7 +322,7 @@ def PrepareCommand():
     LogDebug(Panel)
 
     try:
-        WarpxSubproc = subprocess.Popen(args=Command,stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+        WarpxSubproc = subprocess.Popen(args=CmdArgs,stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
     except Exception as e:
         LogCritical("Cannot create a subprocess to get its output. Aborting.")
         Fatal(1, e)
