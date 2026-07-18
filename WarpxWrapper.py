@@ -343,8 +343,10 @@ AddParam("ExecDim", "--dim", "--exec-dim")
 AddParam("Executable", "--executable")
 AddParam("UseMpi", "-m", "--use-mpi", const = True)
 AddParam("Command", "-c", "--command", nargs="+")
+parser.add_argument("command", nargs="*")
 
 args = parser.parse_args(sys.argv[1:])
+Command.extend(args.command)
 
 if not IncludeAction.Used:
     DefaultConfigFile = "config.py"
@@ -416,9 +418,11 @@ def PrepareCommand():
         CmdArgs.append("mpirun")
 
     if type(Command) == str and Command != "":
-        CmdArgs.extend(Command.split(' '))
+        CmdArgs.extend(Command.split())
     elif type(Command) == list and len(Command) > 0:
-        CmdArgs += Command
+        for arg in Command:
+            subargs = arg.split()
+            CmdArgs.extend(subargs)
     else:
         if Executable != "":
             CmdArgs.append(Executable)
