@@ -9,6 +9,23 @@ import logging
 import pathlib
 import enum
 
+DEBUG = logging.DEBUG
+INFO = logging.INFO
+WARNING = logging.WARNING
+ERROR = logging.ERROR
+CRITICAL = logging.CRITICAL
+
+LogLevel = INFO
+
+ErrorIsFatal = True
+
+UpdateInterval = 0.5
+
+MaxSteps = -1
+MaxTime = -1
+
+LogFile = "Log.txt"
+
 class SourceType(enum.Enum):
     DEFAULT = 0 # It means the COMMAND
     COMMAND = 1
@@ -17,22 +34,13 @@ class SourceType(enum.Enum):
 
 Source = SourceType.DEFAULT
 
-ErrorIsFatal = True
-
 WarpxInputFile = "input"
 ExecBase = "warpx."
 ExecDim = "3d"
 FullCommand = ""
 Command = []
 
-MaxSteps = -1
-MaxTime = -1
-
-UpdateInterval = 0.5
-
 UseMpi = True
-
-LogFile = "Log.txt"
 
 InputFile = ""
 WaitForStart = False
@@ -110,7 +118,7 @@ logHandler.setFormatter(logFormatter)
 logger.addHandler(logHandler)
 logger.setLevel(logging.DEBUG)
 
-def prepareLog(arg):
+def prepareLog(*arg):
     args = list(arg)
     nest = 0
     prefix = ""
@@ -126,25 +134,26 @@ def prepareLog(arg):
 
     return msg
 
+def log(level, *args):
+    if logger.level != LogLevel: # Let user for simple LogLevel = <level> to work
+        logger.setLevel(LogLevel)
+    msg = prepareLog(*args)
+    logger.log(level, msg)
+
 def debug(*args):
-    msg = prepareLog(args)
-    logger.debug(msg)
+    log(DEBUG, *args)
 
 def info(*args):
-    msg = prepareLog(args)
-    logger.info(msg)
+    log(INFO, *args)
 
 def warning(*args):
-    msg = prepareLog(args)
-    logger.warning(msg)
+    log(WARNING, *args)
 
 def error(*args):
-    msg = prepareLog(args)
-    logger.error(msg)
+    log(ERROR, *args)
 
 def critical(*args):
-    msg = prepareLog(args)
-    logger.critical(msg)
+    log(CRITICAL, *args)
 
 def exception(*args):
     msg = prepareLog(args)
