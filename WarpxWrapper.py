@@ -293,12 +293,27 @@ class ParamAction(argparse.Action):
         globals()[self.Param] = value
         LogDebug("Command line: set {} to {}".format(self.Param, value))
 
+def TypeDescription(t, NonFatal = False):
+    if t == bool:
+        return "boolean"
+    if t == int:
+        return "integer"
+    if t == float:
+        return "float"
+    if t == str:
+        return "string"
+    if NonFatal:
+        return t
+    raise TypeError("Unsupported type: {}".format(t))
+
 def AddParam(VarName, *Args, **KArgs):
     if VarName in globals():
         global parser
         NArgs = '?' if "const" in KArgs else 1
         if not "action" in KArgs:
             KArgs["action"] = ParamAction
+        if not "help" in KArgs:
+            KArgs["help"] = "Type: {}.".format(TypeDescription(type(globals()[VarName]), True))
         parser.add_argument(*Args, VarName = VarName, nargs = NArgs, **KArgs)
         Params.append(VarName)
     else:
