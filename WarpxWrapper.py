@@ -11,7 +11,7 @@ import enum
 import argparse
 import distutils
 
-class Verbosity(enum.IntEnum):
+class Verbosity(enum.Enum):
     DEBUG = logging.DEBUG
     INFO = logging.INFO
     WARNING = logging.WARNING
@@ -115,9 +115,9 @@ def prepareLog(*arg):
 
 def Log(level, *args):
     if logger.level != LogLevel: # Let user for simple LogLevel = <level> to work
-        logger.setLevel(LogLevel)
+        logger.setLevel(LogLevel.value)
     msg = prepareLog(*args)
-    logger.log(level, msg)
+    logger.log(level.value, msg)
 
 def LogDebug(*args):
     Log(Verbosity.DEBUG, *args)
