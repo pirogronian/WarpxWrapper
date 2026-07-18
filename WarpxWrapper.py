@@ -250,6 +250,20 @@ class IncludeAction(argparse.Action):
 
 parser.add_argument("-i", "--include", nargs='+', action=IncludeAction)
 
+Sources = {
+        'command': SourceType.COMMAND,
+        'file': SourceType.FILE,
+        'stdin': SourceType.STDIN
+    }
+
+class SourceAction(argparse.Action):
+    def __call__(self, parser, namespace, value, option_string):
+        global Source
+        key = value[0]
+        Source = Sources[key]
+        LogDebug("Set Source to {}".format(key))
+parser.add_argument("-s", "--source", nargs=1, action=SourceAction, choices=Sources.keys())
+
 class ParamAction(argparse.Action):
     Param = ""
     def __init__(self, option_strings, dest, nargs=None, **kwargs):
