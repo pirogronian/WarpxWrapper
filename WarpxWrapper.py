@@ -51,6 +51,7 @@ UseMpi = False
 InputFile = ""
 WaitForStart = False
 WaitForData = False
+SkipMain = False
 SkipFooter = False
 DontWaitForFooter = True
 NonDestructivePrint = False
@@ -60,7 +61,13 @@ Params = []
 def timedf(seconds):
     if seconds < 0:
         return "-/-"
-    return str(datetime.timedelta(seconds=seconds))
+    if seconds > sys.maxsize:
+        return "o-o"
+#    print(seconds, "\n", int(seconds), "\n", sys.maxsize)
+    try:
+        ret = str(datetime.timedelta(seconds=seconds))
+    except OverflowError:
+        return "o_O"
 
 def timenf(n):
     if n < 0:
@@ -278,9 +285,12 @@ def StrToType(value, t):
 
 class ParamAction(argparse.Action):
     Param = ""
+    UnpackList = False
     def __init__(self, option_strings, dest, **kwargs):
 #        print("{}.__init__({}, {}, {}, {})".format(self.__class__.__name__, option_strings, dest, nargs, kwargs))
         self.Param = kwargs.pop("VarName")
+        if kwargs["nargs"] == 1:
+            self.UnpackList = True
         super().__init__(option_strings, dest, **kwargs)
     def __call__(self, parser, namespace, values, option_string):
         """if type(values) == list:
@@ -290,11 +300,12 @@ class ParamAction(argparse.Action):
             value = values"""
         value = values
         t = type(globals()[self.Param])
-        if type(value) != list:
-            try:
-                value = StrToType(value, t)
-            except:
-                Error("Value of param {} must be convertable to {}!".format(option_string, t.__name__))
+        if self.UnpackList and type(value) == list:
+            value = value[0]
+        try:
+            value = StrToType(value, t)
+        except:
+            Error("Value of param {} must be convertable to {}!".format(option_string, t.__name__))
         globals()[self.Param] = value
         LogDebug("Command line: set {} to {}".format(self.Param, value))
 
@@ -335,6 +346,7 @@ AddParam("MaxSteps", "-x", "--max-steps")
 AddParam("MaxTime", "-t", "--max-time")
 AddParam("WaitForStart", "--wait-for-start", const = True)
 AddParam("WaitForData", "-w", "--wait", "--wait-for-data", const = True)
+AddParam("SkipFooter", "-a", "--skip-main-loop", const = True)
 AddParam("SkipFooter", "-f", "--skip-footer", const = True)
 AddParam("DontWaitForFooter", "--dont-wait-for-footer", const = True)
 AddParam("Source", "-s", "--source", action=SourceAction, choices=Sources.keys())
@@ -506,6 +518,8 @@ if DontRun:
     exit(0)
 
 while 1:
+    if SkipMain:
+        break
     if StartTime < 0:
         WaitingFor = time.time() - WaitForDataStart
         if WaitingFor > 0:
