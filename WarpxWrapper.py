@@ -238,22 +238,27 @@ class VerboseAction(argparse.Action):
         LogDebug("Setting LogLevel to '{}'.".format(value))
 parser.add_argument("-v", "--verbosity", nargs='?', action=VerboseAction, const='debug', choices = LogLevels.keys())
 
+class IncludeAction(argparse.Action):
+    Used = False
+    def __call__(self, parser, namespace, value, option_string):
+        if type(value) == str:
+            IncludeFile(value)
+        else:
+            for name in value:
+                IncludeFile(name)
+        self.__class__.Used = True
+
+parser.add_argument("-i", "--include", nargs='+', action=IncludeAction)
+
 args = parser.parse_args(sys.argv[1:])
 LogDebug("Options from command line: {}".format(args))
 
-DefaultConfigFile = "config.py"
-ConfigFile = ""
-
-if len(sys.argv) > 1:
-    ConfigFile = sys.argv[1]
-
-if ConfigFile == "":
-    if IsReadable(DefaultConfigFile): # Lack of default config name is not an error
+if not IncludeAction.Used:
+    DefaultConfigFile = "config.py"
+    if IsReadable(DefaultConfigFile):
         IncludeFile(DefaultConfigFile)
-    else:
+    else: # Lack of default config name is not an error
         LogDebug("Cannot read default config file: '{}'".format(DefaultConfigFile))
-else:
-    IncludeFile(ConfigFile)
 
 LogStream = None
 LogWritable = False
