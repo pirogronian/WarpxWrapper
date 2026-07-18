@@ -87,14 +87,6 @@ def timenf(n):
         return "{:3}".format(n)
     return "{:.2e}".format(n)
 
-LogLevels = {
-        'debug': logging.DEBUG,
-        'info': logging.INFO,
-        'warning': logging.WARNING,
-        'error' : logging.ERROR,
-        'critical' : logging.CRITICAL
-    }
-
 class ColorfulFormatter(logging.Formatter):
 
     grey = "\x1b[38;20m"
@@ -230,6 +222,14 @@ def PrintParams():
 parser = argparse.ArgumentParser(
         description = "Small script for showing realtime WarpX time and progress stats and (optionally) to help running it."
     )
+
+LogLevels = {
+        'debug': logging.DEBUG,
+        'info': logging.INFO,
+        'warning': logging.WARNING,
+        'error' : logging.ERROR,
+        'critical' : logging.CRITICAL
+    }
 
 class VerboseAction(argparse.Action):
     def __call__(self, parser, namespace, value, option_string):
