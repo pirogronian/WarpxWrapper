@@ -235,6 +235,8 @@ if len(sys.argv) > 1:
 if ConfigFile == "":
     if IsReadable(DefaultConfigFile): # Lack of default config name is not an error
         IncludeFile(DefaultConfigFile)
+    else:
+        LogDebug("Cannot read default config file: '{}'".format(DefaultConfigFile))
 else:
     IncludeFile(ConfigFile)
 
