@@ -282,15 +282,18 @@ class ParamAction(argparse.Action):
         self.Param = kwargs.pop("VarName")
         super().__init__(option_strings, dest, **kwargs)
     def __call__(self, parser, namespace, values, option_string):
-        if type(values) == list:
+        """if type(values) == list:
+            print("List?", values)
             value = values[0]
         else:
-            value = values
+            value = values"""
+        value = values
         t = type(globals()[self.Param])
-        try:
-            value = StrToType(value, t)
-        except:
-            Error("Value of param {} must be convertable to {}!".format(option_string, t.__name__))
+        if type(value) != list:
+            try:
+                value = StrToType(value, t)
+            except:
+                Error("Value of param {} must be convertable to {}!".format(option_string, t.__name__))
         globals()[self.Param] = value
         LogDebug("Command line: set {} to {}".format(self.Param, value))
 
@@ -339,7 +342,7 @@ AddParam("ExecBase", "--exec-base")
 AddParam("ExecDim", "--dim", "--exec-dim")
 AddParam("Executable", "--executable")
 AddParam("UseMpi", "-m", "--use-mpi", const = True)
-AddParam("Command", "-c", "--command")
+AddParam("Command", "-c", "--command", nargs="+")
 
 args = parser.parse_args(sys.argv[1:])
 
@@ -412,8 +415,10 @@ def PrepareCommand():
     if UseMpi:
         CmdArgs.append("mpirun")
 
-    if Command != "":
+    if type(Command) == str and Command != "":
         CmdArgs.extend(Command.split(' '))
+    elif type(Command) == list and len(Command) > 0:
+        CmdArgs += Command
     else:
         if Executable != "":
             CmdArgs.append(Executable)
