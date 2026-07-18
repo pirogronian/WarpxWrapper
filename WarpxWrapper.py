@@ -227,18 +227,18 @@ def PrintParams():
     for name in Params:
         PrintParam(name)
 
+parser = argparse.ArgumentParser(
+        description = "Small script for showing realtime WarpX time and progress stats and (optionally) to help running it."
+    )
+
 class VerboseAction(argparse.Action):
     def __call__(self, parser, namespace, value, option_string):
         global LogLevel
         LogLevel = LogLevels[value]
         LogDebug("Setting LogLevel to '{}'.".format(value))
-
-parser = argparse.ArgumentParser(
-        description = "Small script for showing realtime WarpX time and progress stats and (optionally) to help running it."
-    )
 parser.add_argument("-v", "--verbosity", nargs='?', action=VerboseAction, const='debug', choices = LogLevels.keys())
-args = parser.parse_args(sys.argv[1:])
 
+args = parser.parse_args(sys.argv[1:])
 LogDebug("Options from command line: {}".format(args))
 
 DefaultConfigFile = "config.py"
