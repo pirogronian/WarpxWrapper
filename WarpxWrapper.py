@@ -134,26 +134,26 @@ def prepareLog(*arg):
 
     return msg
 
-def log(level, *args):
+def Log(level, *args):
     if logger.level != LogLevel: # Let user for simple LogLevel = <level> to work
         logger.setLevel(LogLevel)
     msg = prepareLog(*args)
     logger.log(level, msg)
 
-def debug(*args):
-    log(DEBUG, *args)
+def LogDebug(*args):
+    Log(DEBUG, *args)
 
-def info(*args):
-    log(INFO, *args)
+def LogInfo(*args):
+    Log(INFO, *args)
 
-def warning(*args):
-    log(WARNING, *args)
+def LogWarning(*args):
+    Log(WARNING, *args)
 
-def error(*args):
-    log(ERROR, *args)
+def LogError(*args):
+    Log(ERROR, *args)
 
-def critical(*args):
-    log(CRITICAL, *args)
+def LogCritical(*args):
+    Log(CRITICAL, *args)
 
 def LogExcept(level, *args):
     if level >= LogLevel:
@@ -175,17 +175,17 @@ def LogExceptCrit(*args):
 def LogExceptError(*args):
     LogExcept(ERROR, *args)
 
-def DoError(*args):
+def Error(*args):
     if args:
-        error(*args)
+        LogError(*args)
     if ErrorIsFatal:
-        error(" ^^^^ An error occured, aborting. ^^^^")
+        LogError(" ^^^^ An error occured, aborting. ^^^^")
         exit(1)
 
-def DoFatal(*args):
+def Fatal(*args):
     if args:
-        critical(*args)
-        critical(" ^^^^ An error occured, aborting. ^^^^")
+        LogCritical(*args)
+        LogCritical(" ^^^^ An error occured, aborting. ^^^^")
         exit(1)
 
 def IsReadable(fname):
@@ -195,29 +195,29 @@ def IsWritable(fname):
     return os.access(WarpxInputFile, os.W_OK)
 
 def IncludeFile(fname):
-    debug("Including file '{}'.".format(fname))
+    LogDebug("Including file '{}'.".format(fname))
     try:
         f = open(fname, "r")
     except Exception as e:
-        error("Cannot open file '{}'.".format(fname))
-        DoError(1, e)
+        LogError("Cannot open file '{}'.".format(fname))
+        Error(1, e)
         return
     prog = f.read()
     try:
         exec(prog, globals())
     except Exception as e:
-        error("Error while executing include file: '{}'".format(fname))
+        LogError("Error while executing include file: '{}'".format(fname))
         LogExceptError(1, e)
-        DoError()
+        Error()
 
 def PrintParam(name):
     Globals = globals()
     Value = Globals[name]
     TypeName = type(Value).__name__
-    debug(1, "{} = {} ({})".format(name, Value, TypeName))
+    LogDebug(1, "{} = {} ({})".format(name, Value, TypeName))
 
 def PrintParams():
-    debug("Printing current configuration:")
+    LogDebug("Printing current configuration:")
     for name in Params:
         PrintParam(name)
 
@@ -233,19 +233,19 @@ if ConfigFile == "":
 else:
     IncludeFile(ConfigFile)
 
-Log = None
+LogStream = None
 LogWritable = False
 
 def PrepareLogging():
-    global Log
+    global LogStream
     global LogWritable
     if LogFile != "":
         try:
-            Log = open(LogFile, "w")
+            LogStream = open(LogFile, "w")
             LogWritable = True
         except Exception as e:
-            error("An exception occured while opening the log file '{0}':".format(LogFile))
-            DoError(1, e)
+            LogError("An exception occured while opening the log file '{0}':".format(LogFile))
+            Error(1, e)
             LogWritable = False
 
 InputData = None
@@ -260,7 +260,7 @@ def PrepareStdin():
 def PrepareInputFile():
     global InputData
     global IsFifo
-    debug("Opening WarpX output file: '{}'".format(InputFile))
+    LogDebug("Opening WarpX output file: '{}'".format(InputFile))
     try:
         InputData = open(InputFile, "r")
     except Exception as e:
@@ -270,18 +270,18 @@ def PrepareInputFile():
             try:
                 open(InputFile, "x")
             except Exception as e:
-                critical("Cannot open nor create data file '{}'. Aborting.".format(InputFile))
-                DoFatal(1, e)
+                LogCritical("Cannot open nor create data file '{}'. Aborting.".format(InputFile))
+                Fatal(1, e)
             try:
                 InputData = open(InputFile, "r")
             except Exception as e:
-                critical("Cannot open created data file '{}'. Aborting.".format(InputFile))
-                DoFatal(1, e)
+                LogCritical("Cannot open created data file '{}'. Aborting.".format(InputFile))
+                Fatal(1, e)
 #            WaitForData = True # Warpx is surely not sending data yet
         else:
-            critical("Cannot open data file '{}'. Aborting.".format(InputFile))
-            DoFatal(1, e)
-    debug("File '{}' successfully opened.".format(InputFile))
+            LogCritical("Cannot open data file '{}'. Aborting.".format(InputFile))
+            Fatal(1, e)
+    LogDebug("File '{}' successfully opened.".format(InputFile))
     if pathlib.Path(InputFile).is_fifo():
         IsFifo = True
 
@@ -298,7 +298,7 @@ def PrepareCommand():
             Command.append(ExecBase + ExecDim)
 
             if not IsReadable(WarpxInputFile):
-                DoFatal("Warpx input file \"{0}\" is not readable. Aborting.".format(WarpxInputFile))
+                Fatal("Warpx input file \"{0}\" is not readable. Aborting.".format(WarpxInputFile))
 
             Command.append(WarpxInputFile)
 
@@ -306,15 +306,15 @@ def PrepareCommand():
     RunMsgLen = len(RunMsg)
 
     Panel = "-" * RunMsgLen
-    debug(Panel)
-    debug(RunMsg)
-    debug(Panel)
+    LogDebug(Panel)
+    LogDebug(RunMsg)
+    LogDebug(Panel)
 
     try:
         WarpxSubproc = subprocess.Popen(args=Command,stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
     except Exception as e:
-        critical("Cannot create a subprocess to get its output. Aborting.")
-        DoFatal(1, e)
+        LogCritical("Cannot create a subprocess to get its output. Aborting.")
+        Fatal(1, e)
 
     InputData = WarpxSubproc.stdout
     IsFifo = True
@@ -361,7 +361,7 @@ ReNum   = regex.compile("[+-]?(?:[0-9]+(?:\\.[0-9]+)?|\\.[0-9]+)(?:[eE][+-]?[0-9
 #ReNum = regex.compile("[0-9]+(.[0-9]+(e[+-][0-9]+)?)?")
 
 WaitForDataStart = time.time()
-debug("\n      Start waiting for WarpX Data...\n")
+LogDebug("\n      Start waiting for WarpX Data...\n")
 
 while 1:
     if StartTime < 0:
@@ -393,7 +393,7 @@ while 1:
 
         if LogWritable:
             try:
-                Log.write(OutputLine)
+                LogStream.write(OutputLine)
             except Exception as e:
                 warning("An error while writing to log file.")
                 warning(1, e)
