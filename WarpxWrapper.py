@@ -39,7 +39,6 @@ class SourceType(enum.Enum):
 Source = SourceType.DEFAULT
 
 DefaultWarpxInputFile = "input"
-WarpxInputFile = ""
 ExecBase = "warpx."
 ExecDim = "3d"
 Executable = ""
@@ -232,7 +231,7 @@ class IncludeAction(argparse.Action):
                 IncludeFile(name)
         self.__class__.Used = True
 
-parser.add_argument("-i", "--include", nargs='+', action=IncludeAction)
+parser.add_argument("-I", "--include", nargs='+', action=IncludeAction)
 
 Sources = {
         'command': SourceType.COMMAND,
@@ -318,7 +317,7 @@ AddParam("WaitForData", "-w", "--wait", "--wait-for-data", const = True)
 AddParam("SkipFooter", "-f", "--skip-footer", const = True)
 AddParam("DontWaitForFooter", "--dont-wait-for-footer", const = True)
 AddParam("Source", "-s", "--source", action=SourceAction, choices=Sources.keys())
-AddParam("WarpxInputFile","-I", "--warpx-input-file")
+AddParam("InputFile","-i", "--input-file")
 AddParam("ExecBase", "--exec-base")
 AddParam("ExecDim", "--dim", "--exec-dim")
 AddParam("Executable", "--executable")
@@ -390,7 +389,7 @@ def PrepareInputFile():
 def PrepareCommand():
     global InputData
     global Command
-    global WarpxInputFile
+    global InputFile
 
     CmdArgs = []
 
@@ -406,12 +405,12 @@ def PrepareCommand():
             CmdArgs.append(ExecBase + ExecDim)
 
     if Command == "":
-        if WarpxInputFile == "":
-            WarpxInputFile = DefaultWarpxInputFile
-        if not IsReadable(WarpxInputFile):
-            Error("Warpx input file \"{0}\" is not readable.".format(WarpxInputFile))
+        if InputFile == "":
+            InputFile = DefaultWarpxInputFile
+        if not IsReadable(InputFile):
+            Error("Warpx input file \"{0}\" is not readable.".format(InputFile))
 
-        CmdArgs.append(WarpxInputFile)
+        CmdArgs.append(InputFile)
 
     RunMsg = "|   Running WarpX 3D with the following command: {0}   |".format(CmdArgs)
     RunMsgLen = len(RunMsg)
