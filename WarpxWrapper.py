@@ -346,15 +346,18 @@ AddParam("UseMpi", "-m", "--use-mpi", const = True)
 AddParam("Command", "-c", "--command", nargs="+")
 parser.add_argument("command", nargs="*")
 
-args = parser.parse_args(sys.argv[1:])
-Command.extend(args.command)
+DefaultConfigFile = "config.py"
+if IsReadable(DefaultConfigFile): # Always try, never cry.
+    IncludeFile(DefaultConfigFile)
+else:
+    LogDebug("Cannot read default config file: '{}'".format(DefaultConfigFile))
 
-if not IncludeAction.Used:
-    DefaultConfigFile = "config.py"
-    if IsReadable(DefaultConfigFile):
-        IncludeFile(DefaultConfigFile)
-    else: # Lack of default config name is not an error
-        LogDebug("Cannot read default config file: '{}'".format(DefaultConfigFile))
+args = parser.parse_args(sys.argv[1:])
+if len(args.command) > 0:
+    if type(Command) == list:
+        Command.extend(args.command)
+    else:
+        Command = args.command
 
 LogStream = None
 LogWritable = False
