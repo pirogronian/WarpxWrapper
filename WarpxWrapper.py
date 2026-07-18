@@ -341,7 +341,6 @@ AddParam("UseMpi", "-m", "--use-mpi", const = True)
 AddParam("Command", "-c", "--command")
 
 args = parser.parse_args(sys.argv[1:])
-LogDebug("Options from command line: {}".format(args))
 
 if not IncludeAction.Used:
     DefaultConfigFile = "config.py"
