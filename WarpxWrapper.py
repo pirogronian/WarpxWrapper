@@ -194,10 +194,10 @@ def Fatal(*args):
         exit(1)
 
 def IsReadable(fname):
-    return os.access(WarpxInputFile, os.R_OK)
+    return os.access(fname, os.R_OK)
 
 def IsWritable(fname):
-    return os.access(WarpxInputFile, os.W_OK)
+    return os.access(fname, os.W_OK)
 
 def IncludeFile(fname):
     LogDebug("Including file '{}'.".format(fname))
