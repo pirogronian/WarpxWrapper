@@ -508,6 +508,7 @@ Re1     = regex.compile("TIME")
 Re2     = regex.compile("Evolve time")
 ReHead  = regex.compile("For full input parameters, see the file\\:")
 ReFoot  = regex.compile("Total Time")
+ReAbort = regex.compile("MPI_ABORT")
 ReNum   = regex.compile("[+-]?(?:[0-9]+(?:\\.[0-9]+)?|\\.[0-9]+)(?:[eE][+-]?[0-9]+)?")
 #ReNum = regex.compile("[0-9]+(.[0-9]+(e[+-][0-9]+)?)?")
 
@@ -528,6 +529,7 @@ LogDebug(1, f"Pipe activity status: {InputPipe.IsActive()}.")
 
 while 1:
     if SkipMain:
+        LogDebug("Skipping main.")
         break
 
     char = IInput.ReadLastChar()
@@ -577,13 +579,9 @@ while 1:
             LastUpdated = CurrentTime
             MainUpdated = False
             SecondUpdated = False
-        else:
-            SkipMain = True
 
 
-    if not Footer and Re1.search(OutputLine):
-        if SkipMain:
-            continue
+    if not Footer and not MainUpdated and Re1.search(OutputLine):
         nums = ReNum.findall(OutputLine)
         Step = int(nums[0])
         SimulationElapsed = float(nums[1])
@@ -636,7 +634,7 @@ while 1:
         PreviousTime = CurrentTime
         MainUpdated = True
 
-    elif Re2.search(OutputLine):
+    elif not SecondUpdated and Re2.search(OutputLine):
         nums = ReNum.findall(OutputLine)
         #print(nums)
 
@@ -656,10 +654,14 @@ while 1:
 
     elif Footer == False and ReFoot.match(OutputLine):
         Footer = True
+        LogDebug("Footer detected.")
         if SkipFooter:
             break
         time.sleep(UpdateInterval) # Let some time to the pipe to read last of data.
         InputPipe.ExitOnEmpty = true # Don't wait for data anymore.
+    elif ReAbort.match(OutputLine):
+        LogWarning("Warpx aborted.")
+        break
 
     if Header or Footer:
         print(OutputLine, end='')
