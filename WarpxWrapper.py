@@ -10,7 +10,6 @@ import logging
 import pathlib
 import enum
 import argparse
-#import distutils
 
 from FormattedValue import FormattedNumber, FormattedTime
 from NonBlockingInput import NonBlockingInput
@@ -53,8 +52,6 @@ Command = ""
 UseMpi = False
 
 InputFile = ""
-WaitForStart = False
-WaitForData = False
 SkipMain = False
 SkipFooter = False
 DontWaitForFooter = True
@@ -341,9 +338,7 @@ AddParam("NonDestructivePrint", "-d", "--non-destructive-print", const = True)
 AddParam("UpdateInterval", "--upd-int", "--update-interval")
 AddParam("MaxSteps", "-x", "--max-steps")
 AddParam("MaxTime", "-t", "--max-time")
-AddParam("WaitForStart", "--wait-for-start", const = True)
-AddParam("WaitForData", "-w", "--wait", "--wait-for-data", const = True)
-AddParam("SkipFooter", "-a", "--skip-main-loop", const = True)
+AddParam("SkipMain", "-a", "--skip-main-loop", const = True)
 AddParam("SkipFooter", "-f", "--skip-footer", const = True)
 AddParam("DontWaitForFooter", "--dont-wait-for-footer", const = True)
 AddParam("Source", "-s", "--source", action=SourceAction, choices=Sources.keys())
@@ -404,33 +399,28 @@ def PrepareInputFile():
     try:
         InputData = open(InputFile, "r")
     except Exception as e:
-        if WaitForStart or WaitForData:
-            warning(f"Cannot open data file '{InputFile}' for reading, trying to create it...")
-            warning(1, e)
-            try:
-                open(InputFile, "x")
-            except Exception as e:
-                LogCritical(f"Cannot open nor create data file '{InputFile}'.")
-                Fatal(1, e)
-            try:
-                InputData = open(InputFile, "r")
-            except Exception as e:
-                LogCritical("Cannot open created data file '{InputFile}'.")
-                Fatal(1, e)
-#            WaitForData = True # Warpx is surely not sending data yet
-        else:
-            LogCritical("Cannot open data file '{InputFile}'.")
+        LogWarning(f"Cannot open data file '{InputFile}' for reading, trying to create it...")
+        LogWarning(1, e)
+        try:
+            open(InputFile, "x")
+        except Exception as e:
+            LogCritical(f"Cannot open nor create data file '{InputFile}'.")
             Fatal(1, e)
+        try:
+            InputData = open(InputFile, "r")
+        except Exception as e:
+            LogCritical("Cannot open created data file '{InputFile}'.")
+            Fatal(1, e)
+    InputPipe.Input = InputData
     LogDebug("File '{InputFile}' successfully opened.")
     if not pathlib.Path(InputFile).is_fifo():
+        LogDebug(f"'{InputFile}' is not a fifo, don't exit on empty read.")
         InputPipe.ExitOnEmpty = False
         InputPipe.Interval = UpdateInterval
-#        IsFifo = True
 
 WarpxProcess = None
 
 def PrepareCommand():
-#    global InputData
     global Command
     global InputFile
     global WarpxProcess
@@ -475,8 +465,6 @@ def PrepareCommand():
         Fatal(1, e)
 
     InputPipe.Input = WarpxProcess.stdout
-#    InputData = WarpxProcess.stdout
-#    IsFifo = False
 
 PrintParams()
 
@@ -565,7 +553,6 @@ while 1:
         #print("Read null string")
         if (InputPipe.IsActive()):
 #            print("InputPipe active, waiting.")
-            #if WaitForStart and StartTime < 0:
             time.sleep(UpdateInterval)
             continue # So all interactivity must take place earlier
         else:
@@ -671,10 +658,8 @@ while 1:
         Footer = True
         if SkipFooter:
             break
-        if WaitForData:
-#            WaitForData = False
-            time.sleep(UpdateInterval) # The last wait
-            InputPipe.ExitOnEmpty = true
+        time.sleep(UpdateInterval) # Let some time to the pipe to read last of data.
+        InputPipe.ExitOnEmpty = true # Don't wait for data anymore.
 
     if Header or Footer:
         print(OutputLine, end='')
