@@ -14,6 +14,8 @@ import distutils
 
 from FormattedValue import FormattedNumber, FormattedTime
 
+from NonBlockingInput import NonBlockingInput
+
 class Verbosity(enum.Enum):
     DEBUG = logging.DEBUG
     INFO = logging.INFO
@@ -59,6 +61,17 @@ DontWaitForFooter = True
 NonDestructivePrint = False
 
 Params = []
+
+BreakKey = "\x1b"
+ISOKey = "f"
+NDestPrintKey = "d"
+
+def CompareChars(c1, c2):
+    if type(c1) == type(c2):
+        return c1 == c2
+    if type(c1) == str:
+        return ord(c1) == c2
+    return c1 == ord(c2)
 
 class ColorfulFormatter(logging.Formatter):
 
@@ -505,9 +518,25 @@ LogDebug("\n      Start waiting for WarpX Data...\n")
 if DontRun:
     exit(0)
 
+IInput = NonBlockingInput()
+if Source == SourceType.STDIN: # Sorry, not interactive mode
+    IInput.IOStream = None
+IInput.DisableBlocking()
+
 while 1:
     if SkipMain:
         break
+
+    char = IInput.ReadLastChar()
+    if char != None:
+        if CompareChars(char, BreakKey):
+            LogInfo("Breaking on user demand.")
+            break
+        if CompareChars(char, ISOKey):
+            FmtTime.ISO = not FmtTime.ISO
+        elif CompareChars(char, NDestPrintKey):
+            NonDestructivePrint = not NonDestructivePrint
+
     if StartTime < 0:
         WaitingFor = time.time() - WaitForDataStart
         if WaitingFor > 0:
@@ -643,6 +672,9 @@ while 1:
             LastUpdated = CurrentTime
             MainUpdated = False
             SecondUpdated = False
+
+
+IInput.RestoreBlocking()
 
 """print(MeanStepETA, MeanTimeETA, MeanTest, Steps)
 
