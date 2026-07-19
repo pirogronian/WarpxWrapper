@@ -60,24 +60,6 @@ NonDestructivePrint = False
 
 Params = []
 
-def timedf(seconds):
-    if seconds < 0:
-        return "-/-"
-    if seconds > sys.maxsize:
-        return "o-o"
-#    print(seconds, "\n", int(seconds), "\n", sys.maxsize)
-    try:
-        return str(datetime.timedelta(seconds=seconds))
-    except OverflowError:
-        return "o_O"
-
-def timenf(n):
-    if n < 0:
-        return "-/-"
-    if type(n) == int:
-        return "{:3}".format(n)
-    return "{:.2e}".format(n)
-
 class ColorfulFormatter(logging.Formatter):
 
     grey = "\x1b[38;20m"
@@ -529,7 +511,7 @@ while 1:
     if StartTime < 0:
         WaitingFor = time.time() - WaitForDataStart
         if WaitingFor > 0:
-            msg = f"   Waiting for WarpX to start sending data for: {timedf(WaitingFor)}"
+            msg = f"   Waiting for WarpX to start sending data for: {FmtTime.Str(WaitingFor)}"
             if not NonDestructivePrint:
                 msg = '\r' + msg
             print(msg, end=MsgEnd)
@@ -670,7 +652,7 @@ MeanTest /= Steps
 
 print(MeanStepETA, MeanTimeETA, MeanTest)"""
 
-FMsg = "Finished in " + timedf(CurrentTime-StartTime)
+FMsg = "Finished in " + FmtTime.Str(CurrentTime-StartTime)
 FMsg = "|{:^77}|".format(FMsg)
 
 #EMsg = "Mean ETA: {0} / {1}".format(datetime.timedelta(seconds=MeanStepETA), datetime.timedelta(seconds=MeanTimeETA))
