@@ -489,6 +489,7 @@ PrepareLogging()
 
 FmtNmb = FormattedNumber()
 FmtTime = FormattedTime()
+FmtNmb.ForbidNegative = True
 
 CurrentTime = 0
 PreviousTime = 0
@@ -608,9 +609,9 @@ while 1:
         EffElapsed = int(PureElapsed/Elapsed*100)
         EffDelta = int(PureDelta/Delta*100)
 
-        StepsMsg = f"|   Step:  {FmtNmb.Str(Step):^15} / {FmtNmb.Str(MaxSteps):^15} : {FmtNmb.Str(RemainingSteps):^15} ({3:>3}%), ETA: {FmtTime.Str(StepsETA):>20}           "
+        StepsMsg = f"|   Step:  {FmtNmb.Str(Step):^15} / {FmtNmb.Str(MaxSteps):^15} : {FmtNmb.Str(RemainingSteps):^15} ({FmtNmb.Str(StepsProgress):>3}%), ETA: {FmtTime.Str(StepsETA):>20}           "
 
-        TimeMsg = f"|   Sim time: {FmtTime.Str(SimulationElapsed):^10}   /    {FmtTime.Str(MaxTime):^10}   :   {FmtTime.Str(RemainingSimTime):^10}    ({timenf(TimeProgress):>3}%), ETA: {FmtTime.Str(TimeETA):>20}          "
+        TimeMsg = f"|   Sim time: {FmtTime.Str(SimulationElapsed):^10}   /    {FmtTime.Str(MaxTime):^10}   :   {FmtTime.Str(RemainingSimTime):^10}    ({FmtNmb.Str(TimeProgress):>3}%), ETA: {FmtTime.Str(TimeETA):>20}          "
 
         Time2Msg = f"|   Elapsed: {FmtTime.Str(Elapsed)}, delta: {FmtTime.Str(Delta)} ({FmtTime.Str(SimulationDelta)}), eff: elapsed: {EffElapsed}%, delta: {EffDelta}%          "
 

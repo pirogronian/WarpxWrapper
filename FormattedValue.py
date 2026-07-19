@@ -8,14 +8,17 @@ SecInDay = 3600 * 24
 SecInYear = 3600 * 24 * 365
 
 class FormattedNumber:
+    ForbidNegative = False
     FixedPointRange = [99999, 0.001]
     FixedPointPrecision = 2
-    def __init__(self, Value = 0, FixedPointPrecision = None, FixedPointRange = None):
+    def __init__(self, Value = 0, FixedPointPrecision = None, FixedPointRange = None, ForbidNegative = None):
         self.Value = Value
         if FixedPointPrecision != None:
             self.FixedPointPrecision = FixedPointPrecision
         if FixedPointRange != None:
             self.FixedPointRange = FixedPointRange
+        if ForbidNegative != None:
+            self.ForbidNegative = ForbidNegative
 
     def GetFixedPointRange(self, Range = None):
         if Range == None:
@@ -33,7 +36,7 @@ class FormattedNumber:
             R2 = Range
         return R1, R2
 
-    def Str(self, Value = None, FixedPointPrecision = None, FixedPointRange = None):
+    def Str(self, Value = None, FixedPointPrecision = None, FixedPointRange = None, ForbidNegative = None):
         if Value == None:
             Value = self.Value
         if FixedPointPrecision == None:
@@ -44,9 +47,15 @@ class FormattedNumber:
             Range = self.FixedPointRange
             if Range == None:
                 Range = self.__class__.Range
+        if ForbidNegative == None:
+            ForbidNegative = self.ForbidNegative
+            if ForbidNegative == None:
+                ForbidNegative = self.__class__.ForbidNegative
         R1, R2 = self.GetFixedPointRange(FixedPointRange)
 
         #print(f"Str({Value}, {Precision}, {R1}, {R2})")
+        if Value < 0 and ForbidNegative:
+            return "-/-"
         Style = ""
         if Value == 0:
             FixedPointPrecision = 1
@@ -90,6 +99,8 @@ def TimeToSeconds(Years = 0, Days = 0, Hours = 0, Minutes = 0, Seconds = 0):
     return Ret
 
 def DateTimeStr(Seconds, ISOFormat = False, Precision = 0.02, FixedPointPrecision = 2, FixedPointRange = [9999, 0.001]):
+    if Seconds < 0:
+        return "-/-"
     ret = ""
     Ys, YsSec, RestSec = DivideToInt(Seconds, SecInYear)
     if Ys > 0:
