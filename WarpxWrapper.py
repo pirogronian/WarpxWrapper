@@ -12,6 +12,8 @@ import enum
 import argparse
 import distutils
 
+from FormattedValue import FormattedNumber, FormattedTime
+
 class Verbosity(enum.Enum):
     DEBUG = logging.DEBUG
     INFO = logging.INFO
@@ -485,6 +487,9 @@ else:
 
 PrepareLogging()
 
+FmtNmb = FormattedNumber()
+FmtTime = FormattedTime()
+
 CurrentTime = 0
 PreviousTime = 0
 StartTime = -1
@@ -603,11 +608,11 @@ while 1:
         EffElapsed = int(PureElapsed/Elapsed*100)
         EffDelta = int(PureDelta/Delta*100)
 
-        StepsMsg = "|   Step:  {0:^15} / {1:^15} : {2:^15} ({3:>3}%), ETA: {4:>20}           ".format(Step, timenf(MaxSteps), timenf(RemainingSteps), timenf(StepsProgress), timedf(StepsETA))
+        StepsMsg = f"|   Step:  {FmtNmb.Str(Step):^15} / {FmtNmb.Str(MaxSteps):^15} : {FmtNmb.Str(RemainingSteps):^15} ({3:>3}%), ETA: {FmtTime.Str(StepsETA):>20}           "
 
-        TimeMsg = "|   Sim time: {0:^10}   /    {1:^10}   :   {2:^10}    ({3:>3}%), ETA: {4:>20}          ".format(timenf(SimulationElapsed), timenf(MaxTime), timenf(RemainingSimTime), timenf(TimeProgress), timedf(TimeETA))
+        TimeMsg = f"|   Sim time: {FmtTime.Str(SimulationElapsed):^10}   /    {FmtTime.Str(MaxTime):^10}   :   {FmtTime.Str(RemainingSimTime):^10}    ({timenf(TimeProgress):>3}%), ETA: {FmtTime.Str(TimeETA):>20}          "
 
-        Time2Msg = "|   Elapsed: {0}, delta: {1:.2f} ({2:.2e}), eff: elapsed: {3}%, delta: {4}%          ".format(timedf(Elapsed), Delta, SimulationDelta, EffElapsed, EffDelta)
+        Time2Msg = f"|   Elapsed: {FmtTime.Str(Elapsed)}, delta: {FmtTime.Str(Delta)} ({FmtTime.Str(SimulationDelta)}), eff: elapsed: {EffElapsed}%, delta: {EffDelta}%          "
 
         if not NonDestructivePrint:
             print('\r\033[A\033[A\033[A\033[A\033[A', end='')
