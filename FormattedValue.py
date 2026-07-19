@@ -140,7 +140,13 @@ def DateTimeStr(Seconds, ISOFormat = False, Precision = 0.02, FixedPointPrecisio
         return ret
     if len(ret) > 0:
         ret += " "
-    if RestSec < 0.0001:
+    if type(RestSec) == int:
+        return f"{RestSec}s"
+    R = FixedPointRange
+    if type(R) == list:
+        R = R[1]
+
+    if RestSec < R:
         ret += f"{RestSec:.2e}s"
         return ret
     tmp = RestSec
