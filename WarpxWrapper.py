@@ -10,11 +10,11 @@ import logging
 import pathlib
 import enum
 import argparse
-import distutils
+#import distutils
 
 from FormattedValue import FormattedNumber, FormattedTime
-
 from NonBlockingInput import NonBlockingInput
+from NonBlockingPipe import NonBlockingPipe
 
 class Verbosity(enum.Enum):
     DEBUG = logging.DEBUG
@@ -383,18 +383,23 @@ def PrepareLogging():
             Error(1, e)
             LogWritable = False
 
-InputData = None
-IsFifo = False
+#InputData = None
+#IsFifo = False
+
+InputPipe = NonBlockingPipe()
 
 def PrepareStdin():
-    global InputData
-    global IsFifo
-    InputData = sys.stdin
-    IsFifo = True
+#    global InputData
+#    global IsFifo
+#    InputData = sys.stdin
+#    IsFifo = True
+    global InputPipe
+    InputPipe.Input = sys.stdin
 
 def PrepareInputFile():
-    global InputData
-    global IsFifo
+#    global InputData
+#    global IsFifo
+    global InputPipe
     LogDebug(f"Opening WarpX output file: '{InputFile}'")
     try:
         InputData = open(InputFile, "r")
@@ -417,13 +422,18 @@ def PrepareInputFile():
             LogCritical("Cannot open data file '{InputFile}'.")
             Fatal(1, e)
     LogDebug("File '{InputFile}' successfully opened.")
-    if pathlib.Path(InputFile).is_fifo():
-        IsFifo = True
+    if not pathlib.Path(InputFile).is_fifo():
+        InputPipe.ExitOnEmpty = False
+        InputPipe.Interval = UpdateInterval
+#        IsFifo = True
+
+WarpxProcess = None
 
 def PrepareCommand():
-    global InputData
+#    global InputData
     global Command
     global InputFile
+    global WarpxProcess
 
     CmdArgs = []
 
@@ -459,13 +469,14 @@ def PrepareCommand():
     LogDebug(Panel)
 
     try:
-        WarpxSubproc = subprocess.Popen(args=CmdArgs,stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+        WarpxProcess = subprocess.Popen(args=CmdArgs,stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
     except Exception as e:
         LogCritical("Cannot create a subprocess to get its output.")
         Fatal(1, e)
 
-    InputData = WarpxSubproc.stdout
-    IsFifo = True
+    InputPipe.Input = WarpxProcess.stdout
+#    InputData = WarpxProcess.stdout
+#    IsFifo = False
 
 PrintParams()
 
@@ -519,9 +530,13 @@ if DontRun:
     exit(0)
 
 IInput = NonBlockingInput()
-if Source == SourceType.STDIN: # Sorry, not interactive mode
+if Source == SourceType.STDIN: # Sorry, not interactive mode (or use another i/o stream)
     IInput.IOStream = None
 IInput.DisableBlocking()
+
+LogDebug("Activating input non-blocking pipe.")
+InputPipe.Activate()
+LogDebug(1, f"Pipe activity status: {InputPipe.IsActive()}.")
 
 while 1:
     if SkipMain:
@@ -545,20 +560,17 @@ while 1:
                 msg = '\r' + msg
             print(msg, end=MsgEnd)
 
-    OutputLine = InputData.readline()
-    if OutputLine == "":
+    OutputLine = InputPipe.Read()
+    if OutputLine == None:
         #print("Read null string")
-        if (IsFifo):
-            #print("Blocking input")
-            if WaitForStart and StartTime < 0:
-                time.sleep(UpdateInterval)
-                continue
-            break
-        elif WaitForData or (WaitForStart and StartTime < 0):
-            #print("Waiting for data")
+        if (InputPipe.IsActive()):
+#            print("InputPipe active, waiting.")
+            #if WaitForStart and StartTime < 0:
             time.sleep(UpdateInterval)
-            continue
-        break
+            continue # So all interactivity must take place earlier
+        else:
+            LogDebug("InputPipe inactive, finishing.")
+            break
 
     if StartTime < 0:
         StartTime = time.time()
@@ -660,8 +672,9 @@ while 1:
         if SkipFooter:
             break
         if WaitForData:
-            WaitForData = False
+#            WaitForData = False
             time.sleep(UpdateInterval) # The last wait
+            InputPipe.ExitOnEmpty = true
 
     if Header or Footer:
         print(OutputLine, end='')
