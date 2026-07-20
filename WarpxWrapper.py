@@ -10,6 +10,7 @@ import logging
 import pathlib
 import enum
 import argparse
+import signal
 
 from FormattedValue import FormattedNumber, FormattedTime
 from NonBlockingInput import NonBlockingInput
@@ -62,6 +63,7 @@ Params = []
 BreakKey = "\x1b"
 ISOKey = "f"
 NDestPrintKey = "d"
+PauseKey = ' '
 
 def CompareChars(c1, c2):
     if type(c1) == type(c2):
@@ -500,6 +502,8 @@ MainUpdated = False
 SecondUpdated = False
 LastUpdated = 0
 
+Paused = False
+
 MeanStepETA = 0
 MeanTimeETA = 0
 Steps = 0
@@ -541,6 +545,14 @@ while 1:
             FmtTime.ISO = not FmtTime.ISO
         elif CompareChars(char, NDestPrintKey):
             NonDestructivePrint = not NonDestructivePrint
+        elif CompareChars(char, PauseKey):
+            if WarpxProcess != None:
+                if Paused:
+                    WarpxProcess.send_signal(signal.SIGCONT)
+                    Paused = False
+                else:
+                    WarpxProcess.send_signal(signal.SIGSTOP)
+                    Paused = True
 
     if StartTime < 0:
         WaitingFor = time.time() - WaitForDataStart
