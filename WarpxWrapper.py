@@ -19,6 +19,7 @@ from FileWatcher import FileWatcher
 from ClearedLine import ClearedLine
 from MessageLine import MessageLine
 from Timer import Timer
+from Various import CompareSequences
 
 class Verbosity(enum.Enum):
     DEBUG = logging.DEBUG
@@ -67,17 +68,10 @@ NonDestructivePrint = False
 
 Params = []
 
-BreakKey = "\x1b"
+BreakKey = 27
 ISOKey = "f"
 NDestPrintKey = "d"
 PauseKey = ' '
-
-def CompareChars(c1, c2):
-    if type(c1) == type(c2):
-        return c1 == c2
-    if type(c1) == str:
-        return ord(c1) == c2
-    return c1 == ord(c2)
 
 class ColorfulFormatter(logging.Formatter):
 
@@ -657,18 +651,23 @@ if DontRun:
 
 IInput = NonBlockingInput()
 if Source == SourceType.STDIN: # Sorry, not interactive mode (or use another i/o stream)
-    IInput.IOStream = None
+    IInput.Input = None
 IInput.DisableBlocking()
 
 LogDebug("Activating input non-blocking pipe.")
 InputPipe.Activate()
 LogDebug(1, f"Pipe activity status: {InputPipe.IsActive()}.")
 
+LogDebug("Activating stdin non-blocking pipe.")
+IInput.Activate()
+LogDebug(1, f"Pipe activity status: {IInput.IsActive()}.")
+
 FWatcher = FileWatcher(InputFile)
 ExcludePids = []
 
 MainStats = Stats(MaxSteps, MaxTime)
 MainUI = UI(MainStats, UpdateInterval)
+MainUI.NonDestructive = NonDestructivePrint
 MainTimer = Timer(UpdateInterval)
 
 WaitMsg = ClearedLine()
@@ -680,13 +679,14 @@ while 1:
         LogDebug("Skipping main.")
         break
 
-    char = IInput.ReadLastChar()
-    if char != None:
-        if CompareChars(char, BreakKey):
+    keys = IInput.ReadSequence()
+    if keys != []:
+#        print("Keys: ", keys)
+        if CompareSequences(keys, BreakKey):
             print("\n\n")
-            LogInfo("Breaking on user demand.")
+            LogInfo(f"Breaking on user demand.")
             break
-        if CompareChars(char, ISOKey):
+        if CompareSequences(keys, ISOKey):
             FmtTime.ISO = not FmtTime.ISO
             msg = "ISO "
             if FmtTime.ISO:
@@ -694,10 +694,10 @@ while 1:
             else:
                 msg += "unset"
             MainUI.MsgLine.SetTemporary(msg)
-        elif CompareChars(char, NDestPrintKey):
+        elif CompareSequences(keys, NDestPrintKey):
             NonDestructivePrint = not NonDestructivePrint
             MainUI.NonDestructive = not MainUI.NonDestructive
-        elif CompareChars(char, PauseKey):
+        elif CompareSequences(keys, PauseKey):
             Sig = -1
             if Paused:
                 Sig = signal.SIGCONT
@@ -712,8 +712,8 @@ while 1:
                 WarpxProcess.send_signal(Sig)
             elif PID > 0:
                 os.kill(PID, Sig)
-            else:
-                MsgLine.SetTemporary(char)
+        else:
+            MainUI.MsgLine.SetTemporary(keys[0])
 
     if StartTime < 0:
         WaitingFor = time.time() - WaitForDataStart

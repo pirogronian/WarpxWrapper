@@ -3,44 +3,41 @@ import sys
 import select
 import tty
 import termios
+from NonBlockingPipe import NonBlockingPipe
 
-class NonBlockingInput:
-    IOStream = sys.stdin
-
-    def __init__(self, Stream = None):
-        if Stream != None:
-            self.IOStream = Stream
+class NonBlockingInput(NonBlockingPipe):
+    def __init__(self, Stream = sys.stdin):
+        super().__init__(Stream)
 
     def DisableBlocking(self):
-        if self.IOStream == None:
+        if self.Input == None:
             return
-        self.old_settings = termios.tcgetattr(self.IOStream)
-        tty.setcbreak(self.IOStream.fileno(), termios.TCSANOW)
+        self.old_settings = termios.tcgetattr(self.Input)
+        tty.setcbreak(self.Input.fileno(), termios.TCSANOW)
 
     def RestoreBlocking(self):
-        if self.IOStream == None or self.old_settings == None:
+        if self.Input == None or self.old_settings == None:
             return
-        termios.tcsetattr(self.IOStream, termios.TCSADRAIN, self.old_settings) #termios.TCSADRAIN
+        termios.tcsetattr(self.Input, termios.TCSADRAIN, self.old_settings) #termios.TCSADRAIN
 
     def IsData(self):
-        if self.IOStream == None:
+        if self.Input == None:
             return
-        return select.select([self.IOStream], [], [], 0) == ([self.IOStream], [], [])
+        return select.select([self.Input], [], [], 0) == ([self.Input], [], [])
 
-    def Read(self, num = 1):
-        if self.IOStream == None:
+    def DirectRead(self):
+        if self.Input == None:
             return
-        return self.IOStream.read(num)
+#        print("Reading char from input...")
+        return self.Input.read(1)
 
     def Flush(self):
-        if self.IOStream == None:
+        if self.Input == None:
             return
-        termios.tcflush(self.IOStream, termios.TCIOFLUSH)
+        termios.tcflush(self.Input, termios.TCIOFLUSH)
 
-    def ReadLastChar(self):
-        if self.IOStream == None:
-            return
-        Char = None
-        while self.IsData():
-            Char = self.Read()
-        return Char
+    def ReadSequence(self):
+        Ret = []
+        while not self.Empty():
+            Ret.append(self.Read())
+        return Ret
