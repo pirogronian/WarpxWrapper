@@ -16,6 +16,7 @@ from FormattedValue import FormattedNumber, FormattedTime
 from NonBlockingInput import NonBlockingInput
 from NonBlockingPipe import NonBlockingPipe
 from FileWatcher import FileWatcher
+from ClearedLine import ClearedLine
 
 class Verbosity(enum.Enum):
     DEBUG = logging.DEBUG
@@ -542,6 +543,13 @@ LogDebug(1, f"Pipe activity status: {InputPipe.IsActive()}.")
 FWatcher = FileWatcher(InputFile)
 ExcludePids = []
 
+WaitMsg = ClearedLine()
+StepMsg = ClearedLine()
+TimeMsg = ClearedLine()
+Time2Msg = ClearedLine()
+
+print("\n")
+
 while 1:
     if SkipMain:
         LogDebug("Skipping main.")
@@ -550,6 +558,7 @@ while 1:
     char = IInput.ReadLastChar()
     if char != None:
         if CompareChars(char, BreakKey):
+            print("\n\n")
             LogInfo("Breaking on user demand.")
             break
         if CompareChars(char, ISOKey):
@@ -572,10 +581,16 @@ while 1:
     if StartTime < 0:
         WaitingFor = time.time() - WaitForDataStart
         if WaitingFor > 0:
-            msg = f"   Waiting for WarpX to start sending data for: {FmtTime.Str(WaitingFor)}"
-            if not NonDestructivePrint:
-                msg = '\r' + msg
-            print(msg, end=MsgEnd)
+            WaitMsg.Set(f"   Waiting for WarpX to start sending data for: {FmtTime.Str(WaitingFor)}")
+            End = ''
+            Start = ''
+            if NonDestructivePrint:
+                End = '\n'
+            else:
+                Start = '\r'
+            print(Start + str(WaitMsg), end=End)
+            #print(Start + str(WaitMsg), end=End)
+#            print(".")
 
     Pids = []
     if PID == 0 and Source == SourceType.FILE:
@@ -586,7 +601,7 @@ while 1:
         #print("Read null string")
         if (InputPipe.IsActive()):
             ExcludePids = Pids # Detected processes are not our writer
-            #print("InputPipe active, waiting.")
+#            print("InputPipe active, waiting.")
             time.sleep(UpdateInterval)
             continue # So all interactivity must take place earlier
         else:
@@ -673,17 +688,17 @@ while 1:
         EffElapsed = int(PureElapsed/Elapsed*100)
         EffDelta = int(PureDelta/Delta*100)
 
-        StepsMsg = f"|   Step:  {FmtNmb.Str(Step):^15} / {FmtNmb.Str(MaxSteps):^15} : {FmtNmb.Str(RemainingSteps):^15} ({FmtNmb.Str(StepsProgress):>3}%), x{FmtNmb.Str(StepSpeed):>11}, ETA: {FmtTime.Str(StepsETA):>20}           "
+        StepMsg.Set(f"|   Step:  {FmtNmb.Str(Step):^15} / {FmtNmb.Str(MaxSteps):^15} : {FmtNmb.Str(RemainingSteps):^15} ({FmtNmb.Str(StepsProgress):>3}%), x{FmtNmb.Str(StepSpeed):>11}, ETA: {FmtTime.Str(StepsETA):>20}")
 
-        TimeMsg = f"|   Sim time: {FmtTime.Str(SimulationElapsed):^10}   /    {FmtTime.Str(MaxTime):^10}   :   {FmtTime.Str(RemainingSimTime):^10}    ({FmtNmb.Str(TimeProgress):>3}%), x{FmtNmb.Str(TimeSpeed):>11}, ETA: {FmtTime.Str(TimeETA):>20}          "
+        TimeMsg.Set(f"|   Sim time: {FmtTime.Str(SimulationElapsed):^10}   /    {FmtTime.Str(MaxTime):^10}   :   {FmtTime.Str(RemainingSimTime):^10}    ({FmtNmb.Str(TimeProgress):>3}%), x{FmtNmb.Str(TimeSpeed):>11}, ETA: {FmtTime.Str(TimeETA):>20}")
 
-        Time2Msg = f"|   Elapsed: {FmtTime.Str(Elapsed)}, delta: {FmtTime.Str(Delta)} ({FmtTime.Str(SimulationDelta * StepDelta)}), eff: elapsed: {EffElapsed}%, delta: {EffDelta}%          "
+        Time2Msg.Set(f"|   Elapsed: {FmtTime.Str(Elapsed)}, delta: {FmtTime.Str(Delta)} ({FmtTime.Str(SimulationDelta * StepDelta)}), eff: elapsed: {EffElapsed}%, delta: {EffDelta}%")
 
         if not NonDestructivePrint:
             print('\r\033[A\033[A\033[A\033[A\033[A', end='')
-        print(StepsMsg,)
-        print(TimeMsg,)
-        print(Time2Msg)
+        print(StepMsg.Get())
+        print(TimeMsg.Get())
+        print(Time2Msg.Get())
         print("|")
         print("+-----------------------------------------------------------------------------+")
 
