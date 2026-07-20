@@ -576,6 +576,48 @@ class Stats:
         self.PreviousStep = self.Step
         self.PreviousRealTime = self.CurrentRealTime
 
+class UI:
+    NonDestructive = False
+    Stats = None
+
+    def __init__(self, Stats):
+        self.First = True
+        self.Stats = Stats
+        self.StepMsg = ClearedLine()
+        self.TimeMsg = ClearedLine()
+        self.Time2Msg = ClearedLine()
+        self.MsgLine = MessageLine(Timeout = 2, FillWith = "-", LineLength = 77)
+
+    def WriteHeader(self):
+        print("+-----------------------------------------------------------------------------+")
+        print("|                            Time statistics:                                 |")
+        print("+-----------------------------------------------------------------------------+")
+        End = '\n\n\n\n\n\n'
+        if self.NonDestructive:
+            End = "\n"
+        print("|", end=End)
+
+    def WriteStats(self):
+        s = self.Stats # Less to write
+        self.StepMsg.Set(f"|   Step:  {FmtNmb.Str(s.Step):^15} / {FmtNmb.Str(s.MaxSteps):^15} : {FmtNmb.Str(s.LeftSteps):^15} ({FmtNmb.Str(s.StepsProgress):>3}%), x{FmtNmb.Str(s.StepSpeed):>11}, ETA: {FmtTime.Str(s.StepETA):>20}")
+
+        self.TimeMsg.Set(f"|   Sim time: {FmtTime.Str(s.Time):^10}   /    {FmtTime.Str(s.MaxTime):^10}   :   {FmtTime.Str(s.LeftTime):^10}    ({FmtNmb.Str(s.TimeProgress):>3}%), x{FmtNmb.Str(s.TimeSpeed):>11}, ETA: {FmtTime.Str(s.TimeETA):>20}")
+
+        self.Time2Msg.Set(f"|   Elapsed: {FmtTime.Str(s.ElapsedRealTime)}, delta: {FmtTime.Str(s.RealTimeDelta)} ({FmtTime.Str(s.TimeDelta * s.StepDelta)}), eff: elapsed: {s.ElapsedRealTimeEfficiency}%, delta: {s.RealTimeDeltaEfficiency}%")
+
+        if not self.NonDestructive:
+            print('\r\033[A\033[A\033[A\033[A\033[A', end='')
+        print(self.StepMsg.Get())
+        print(self.TimeMsg.Get())
+        print(self.Time2Msg.Get())
+        print("|")
+        print(f"+{self.MsgLine.GetLine()}+")
+
+    def Rewrite(self):
+        if self.First:
+            self.WriteHeader()
+            self.First = False
+        self.WriteStats()
 
 Header = True
 Footer = False
@@ -618,12 +660,9 @@ FWatcher = FileWatcher(InputFile)
 ExcludePids = []
 
 MainStats = Stats(MaxSteps, MaxTime)
+MainUI = UI(MainStats)
 
 WaitMsg = ClearedLine()
-StepMsg = ClearedLine()
-TimeMsg = ClearedLine()
-Time2Msg = ClearedLine()
-MsgLine = MessageLine(Timeout = 2, FillWith = "-", LineLength = 77)
 
 print("\n")
 
@@ -648,6 +687,7 @@ while 1:
             MsgLine.SetTemporary(msg)
         elif CompareChars(char, NDestPrintKey):
             NonDestructivePrint = not NonDestructivePrint
+            MainUI.NonDestructive = not MainUI.NonDestructive
         elif CompareChars(char, PauseKey):
             Sig = -1
             if Paused:
@@ -726,15 +766,6 @@ while 1:
 
     if not Footer and not MainUpdated and Re1.search(OutputLine):
         Header = False # Just in case we missed something
-        if UpdateCount == 0:
-            print("+-----------------------------------------------------------------------------+")
-            print("|                            Time statistics:                                 |")
-            print("+-----------------------------------------------------------------------------+")
-            End = '\n\n\n\n\n\n'
-            if NonDestructivePrint:
-                End = "\n"
-            print("|", end=End)
-        UpdateCount += 1
         nums = ReNum.findall(OutputLine)
 
         MainStats.Step = int(nums[0])
@@ -743,20 +774,7 @@ while 1:
 
         MainStats.Recalculate(time.time())
 
-        s = MainStats # Less to write
-        StepMsg.Set(f"|   Step:  {FmtNmb.Str(s.Step):^15} / {FmtNmb.Str(s.MaxSteps):^15} : {FmtNmb.Str(s.LeftSteps):^15} ({FmtNmb.Str(s.StepsProgress):>3}%), x{FmtNmb.Str(s.StepSpeed):>11}, ETA: {FmtTime.Str(s.StepETA):>20}")
-
-        TimeMsg.Set(f"|   Sim time: {FmtTime.Str(s.Time):^10}   /    {FmtTime.Str(s.MaxTime):^10}   :   {FmtTime.Str(s.LeftTime):^10}    ({FmtNmb.Str(s.TimeProgress):>3}%), x{FmtNmb.Str(s.TimeSpeed):>11}, ETA: {FmtTime.Str(s.TimeETA):>20}")
-
-        Time2Msg.Set(f"|   Elapsed: {FmtTime.Str(s.ElapsedRealTime)}, delta: {FmtTime.Str(s.RealTimeDelta)} ({FmtTime.Str(s.TimeDelta * s.StepDelta)}), eff: elapsed: {s.ElapsedRealTimeEfficiency}%, delta: {s.RealTimeDeltaEfficiency}%")
-
-        if not NonDestructivePrint:
-            print('\r\033[A\033[A\033[A\033[A\033[A', end='')
-        print(StepMsg.Get())
-        print(TimeMsg.Get())
-        print(Time2Msg.Get())
-        print("|")
-        print(f"+{MsgLine.GetLine()}+")
+        MainUI.Rewrite()
 
         PreviousTime = CurrentTime
         MainUpdated = True
