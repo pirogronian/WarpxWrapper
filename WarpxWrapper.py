@@ -416,10 +416,10 @@ def PrepareInputFile():
         try:
             InputData = open(InputFile, "r")
         except Exception as e:
-            LogCritical("Cannot open created data file '{InputFile}'.")
+            LogCritical(f"Cannot open created data file '{InputFile}'.")
             Fatal(1, e)
     InputPipe.Input = InputData
-    LogDebug("File '{InputFile}' successfully opened.")
+    LogDebug(f"File '{InputFile}' successfully opened.")
     if not pathlib.Path(InputFile).is_fifo():
         LogDebug(f"'{InputFile}' is not a fifo, don't exit on empty read.")
         InputPipe.ExitOnEmpty = False
