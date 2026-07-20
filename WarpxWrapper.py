@@ -492,8 +492,8 @@ FmtNmb = FormattedNumber()
 FmtTime = FormattedTime()
 FmtNmb.ForbidNegative = True
 
-CurrentTime = 0
-PreviousTime = 0
+CurrentTime = time.time()
+PreviousTime = CurrentTime
 StartTime = -1
 
 PureElapsed = 0
