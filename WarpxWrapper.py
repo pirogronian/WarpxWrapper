@@ -15,6 +15,7 @@ import signal
 from FormattedValue import FormattedNumber, FormattedTime
 from NonBlockingInput import NonBlockingInput
 from NonBlockingPipe import NonBlockingPipe
+from FileWatcher import FileWatcher
 
 class Verbosity(enum.Enum):
     DEBUG = logging.DEBUG
@@ -53,6 +54,9 @@ Command = ""
 UseMpi = False
 
 InputFile = ""
+
+PID = 0
+
 SkipMain = False
 SkipFooter = False
 DontWaitForFooter = True
@@ -344,6 +348,7 @@ AddParam("SkipMain", "-a", "--skip-main-loop", const = True)
 AddParam("SkipFooter", "-f", "--skip-footer", const = True)
 AddParam("DontWaitForFooter", "--dont-wait-for-footer", const = True)
 AddParam("Source", "-s", "--source", action=SourceAction, choices=Sources.keys())
+AddParam("PID", "-p", "--pid")
 AddParam("InputFile","-i", "--input-file")
 AddParam("ExecBase", "--exec-base")
 AddParam("ExecDim", "--dim", "--exec-dim")
@@ -531,6 +536,9 @@ LogDebug("Activating input non-blocking pipe.")
 InputPipe.Activate()
 LogDebug(1, f"Pipe activity status: {InputPipe.IsActive()}.")
 
+FWatcher = FileWatcher(InputFile)
+ExcludePids = []
+
 while 1:
     if SkipMain:
         LogDebug("Skipping main.")
@@ -546,13 +554,17 @@ while 1:
         elif CompareChars(char, NDestPrintKey):
             NonDestructivePrint = not NonDestructivePrint
         elif CompareChars(char, PauseKey):
+            Sig = -1
+            if Paused:
+                Sig = signal.SIGCONT
+                Paused = False
+            else:
+                Sig = signal.SIGSTOP
+                Paused = True
             if WarpxProcess != None:
-                if Paused:
-                    WarpxProcess.send_signal(signal.SIGCONT)
-                    Paused = False
-                else:
-                    WarpxProcess.send_signal(signal.SIGSTOP)
-                    Paused = True
+                WarpxProcess.send_signal(Sig)
+            elif PID > 0:
+                os.kill(PID, Sig)
 
     if StartTime < 0:
         WaitingFor = time.time() - WaitForDataStart
@@ -562,16 +574,30 @@ while 1:
                 msg = '\r' + msg
             print(msg, end=MsgEnd)
 
+    Pids = []
+    if PID == 0 and Source == SourceType.FILE:
+        Pids = FWatcher.DetectPids(Exclude = ExcludePids)
+
     OutputLine = InputPipe.Read()
     if OutputLine == None:
         #print("Read null string")
         if (InputPipe.IsActive()):
+            ExcludePids = Pids # Detected processes are not our writer
 #            print("InputPipe active, waiting.")
             time.sleep(UpdateInterval)
             continue # So all interactivity must take place earlier
         else:
             LogDebug("InputPipe inactive, finishing.")
             break
+
+    if PID == 0 and Source == SourceType.FILE:
+        if ExcludePids == []: # Probably the first process is the writer
+            ExcludePids.append(os.getpid())
+            PID = FWatcher.DetectFirstPid(Exclude = ExcludePids)
+        else:
+            PID = FWatcher.DetectLastPid(Exclude = ExcludePids)
+        LogDebug(f"\nDetected PID: {PID} (excluded: {ExcludePids}).")
+
 
     if StartTime < 0:
         StartTime = time.time()
