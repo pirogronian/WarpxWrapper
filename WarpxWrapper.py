@@ -60,6 +60,7 @@ UseMpi = False
 InputFile = ""
 
 PID = 0
+AbortOnExit = False
 
 SkipMain = False
 SkipFooter = False
@@ -346,6 +347,7 @@ AddParam("SkipFooter", "-f", "--skip-footer", const = True)
 AddParam("DontWaitForFooter", "--dont-wait-for-footer", const = True)
 AddParam("Source", "-s", "--source", action=SourceAction, choices=Sources.keys())
 AddParam("PID", "-p", "--pid")
+AddParam("AbortOnExit", "-k", "--abort-on-exit", const = True)
 AddParam("InputFile","-i", "--input-file")
 AddParam("ExecBase", "--exec-base")
 AddParam("ExecDim", "--dim", "--exec-dim")
@@ -747,6 +749,11 @@ while 1:
             PID = FWatcher.DetectFirstPid(Exclude = ExcludePids)
         else:
             PID = FWatcher.DetectLastPid(Exclude = ExcludePids)
+        if PID == None:
+            if OutputLine == None:
+                PID = 0
+            else: # File has data, clearly is already written.
+                PID = -1
         LogDebug(f"\nDetected PID: {PID} (excluded: {ExcludePids}).")
 
 
@@ -816,6 +823,9 @@ MeanTimeETA /= Steps
 MeanTest /= Steps
 
 print(MeanStepETA, MeanTimeETA, MeanTest)"""
+
+if AbortOnExit and PID > 0:
+    os.kill(PID, signal.SIGABRT)
 
 FMsg = "Finished in " + FmtTime.Str(time.time() - StartTime)
 FMsg = "|{:^77}|".format(FMsg)
