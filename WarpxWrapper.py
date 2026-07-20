@@ -18,6 +18,7 @@ from NonBlockingPipe import NonBlockingPipe
 from FileWatcher import FileWatcher
 from ClearedLine import ClearedLine
 from MessageLine import MessageLine
+from Timer import Timer
 
 class Verbosity(enum.Enum):
     DEBUG = logging.DEBUG
@@ -579,10 +580,12 @@ class Stats:
 class UI:
     NonDestructive = False
     Stats = None
+    UpdateTimer = None
 
-    def __init__(self, Stats):
+    def __init__(self, Stats, Interval):
         self.First = True
         self.Stats = Stats
+        self.UpdateTimer = Timer(Interval)
         self.StepMsg = ClearedLine()
         self.TimeMsg = ClearedLine()
         self.Time2Msg = ClearedLine()
@@ -618,6 +621,11 @@ class UI:
             self.WriteHeader()
             self.First = False
         self.WriteStats()
+
+    def Update(self):
+        if self.UpdateTimer.Expired():
+            self.Rewrite()
+            self.UpdateTimer.Reset()
 
 Header = True
 Footer = False
@@ -660,7 +668,8 @@ FWatcher = FileWatcher(InputFile)
 ExcludePids = []
 
 MainStats = Stats(MaxSteps, MaxTime)
-MainUI = UI(MainStats)
+MainUI = UI(MainStats, UpdateInterval)
+MainTimer = Timer(UpdateInterval)
 
 WaitMsg = ClearedLine()
 
@@ -684,7 +693,7 @@ while 1:
                 msg += "set"
             else:
                 msg += "unset"
-            MsgLine.SetTemporary(msg)
+            MainUI.MsgLine.SetTemporary(msg)
         elif CompareChars(char, NDestPrintKey):
             NonDestructivePrint = not NonDestructivePrint
             MainUI.NonDestructive = not MainUI.NonDestructive
@@ -693,12 +702,12 @@ while 1:
             if Paused:
                 Sig = signal.SIGCONT
                 Paused = False
-                MsgLine.SetPersistent()
-                MsgLine.SetTemporary("Resumed")
+                MainUI.MsgLine.SetPersistent()
+                MainUI.MsgLine.SetTemporary("Resumed")
             else:
                 Sig = signal.SIGSTOP
                 Paused = True
-                MsgLine.SetPersistent("Paused")
+                MainUI.MsgLine.SetPersistent("Paused")
             if WarpxProcess != None:
                 WarpxProcess.send_signal(Sig)
             elif PID > 0:
@@ -756,14 +765,6 @@ while 1:
                 warning("An error while writing to log file.")
                 warning(1, e)
 
-    if MainUpdated and SecondUpdated:
-        CurrentTime = time.time()
-        if CurrentTime - LastUpdated > UpdateInterval:
-            LastUpdated = CurrentTime
-            MainUpdated = False
-            SecondUpdated = False
-
-
     if not Footer and not MainUpdated and Re1.search(OutputLine):
         Header = False # Just in case we missed something
         nums = ReNum.findall(OutputLine)
@@ -805,11 +806,13 @@ while 1:
         print(OutputLine, end='')
 
     if MainUpdated and SecondUpdated:
-        CurrentTime = time.time()
-        if CurrentTime - LastUpdated > UpdateInterval:
-            LastUpdated = CurrentTime
+        if MainTimer.Expired():
+            MainTimer.Reset()
             MainUpdated = False
             SecondUpdated = False
+
+    if not (Header or Footer):
+        MainUI.Update()
 
 
 IInput.RestoreBlocking()
