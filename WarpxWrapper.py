@@ -506,7 +506,7 @@ Paused = False
 
 MeanStepETA = 0
 MeanTimeETA = 0
-Steps = 0
+UpdateCount = 0
 
 Re1     = regex.compile("TIME")
 Re2     = regex.compile("Evolve time")
@@ -594,6 +594,16 @@ while 1:
 
 
     if not Footer and not MainUpdated and Re1.search(OutputLine):
+        Header = False # Just in case we missed something
+        if UpdateCount == 0:
+            print("+-----------------------------------------------------------------------------+")
+            print("|                            Time statistics:                                 |")
+            print("+-----------------------------------------------------------------------------+")
+            End = '\n\n\n\n\n\n'
+            if NonDestructivePrint:
+                End = "\n"
+            print("|", end=End)
+        UpdateCount += 1
         nums = ReNum.findall(OutputLine)
         Step = int(nums[0])
         SimulationElapsed = float(nums[1])
@@ -655,13 +665,6 @@ while 1:
         SecondUpdated = True
 
     elif Header == True and ReHead.match(OutputLine):
-        print("+-----------------------------------------------------------------------------+")
-        print("|                            Time statistics:                                 |")
-        print("+-----------------------------------------------------------------------------+")
-        End = '\n\n\n\n\n\n'
-        if NonDestructivePrint:
-            End = "\n"
-        print("|", end=End)
         Header = False
 
     elif Footer == False and ReFoot.match(OutputLine):
