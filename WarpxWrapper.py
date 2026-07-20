@@ -508,14 +508,20 @@ class Stats:
     Step = -1 # These two are replenished externally
     Time = -1
 
-    MaxStep = -1 # These two are set once at the beginning
+    MaxSteps = -1 # These two are set once at the beginning
     MaxTime = -1
 
     LeftSteps = -1
     LeftTime = -1
 
+    StepsProgress = -1
+    TimeProgress = -1
+
     CurrentRealTime = 0 # This is replenished automatically
     PreviousRealTime = 0
+
+    StartRealTime = 0
+    ElapsedRealTime = 0
 
     PreviousStep = 0
 
@@ -529,14 +535,29 @@ class Stats:
     StepETA = -1
     TimeETA = -1
 
+    ElapsedInternalRealTime = -1
+    InternalRealTimeDelta = -1
+
+    ElapsedRealTimeEfficiency = -1
+    RealTimeDeltaEfficiency = -1
+
+    def __init__(self, MaxSteps = -1, MaxTime = -1):
+        self.MaxSteps = MaxSteps
+        self.MaxTime = MaxTime
+        self.StartRealTime = time.time()
+
     def Recalculate(self, Time):
         self.CurrentRealTime = Time
+        self.ElapsedRealTime = self.CurrentRealTime - self.StartRealTime
 
-        if self.Step >= 0 and self.MaxStep > 0:
-            self.LeftSteps = self.MaxStep - self.Step
+        if self.Step >= 0 and self.MaxSteps > 0:
+            self.LeftSteps = self.MaxSteps - self.Step
 
         if self.Time >= 0 and self.MaxTime > 0:
             self.LeftTime = self.MaxTime - self.Time
+
+        self.StepsProgress = int((self.Step / self.MaxSteps) * 100)
+        self.TimeProgress = int((self.Time / self.MaxTime) * 100)
 
         self.StepDelta = self.Step - self.PreviousStep
         # TimeDelta is provided externally
@@ -546,9 +567,13 @@ class Stats:
             self.StepSpeed = self.StepDelta / self.RealTimeDelta
             self.TimeSpeed = self.TimeDelta / self.RealTimeDelta
 
-        self.StepETA = self.StepSpeed * self.LeftSteps
-        self.TimeEta = self.TimeSpeed * self.LeftTime
+        self.StepETA = self.LeftSteps / self.StepSpeed
+        self.TimeETA = self.LeftTime / self.TimeSpeed
 
+        self.ElapsedRealTimeEfficiency = int((self.ElapsedInternalRealTime /  self.ElapsedRealTime) * 100)
+        self.RealTimeDeltaEfficiency = int((self.InternalRealTimeDelta / self.RealTimeDelta) * 100)
+
+        self.PreviousStep = self.Step
         self.PreviousRealTime = self.CurrentRealTime
 
 
@@ -591,6 +616,8 @@ LogDebug(1, f"Pipe activity status: {InputPipe.IsActive()}.")
 
 FWatcher = FileWatcher(InputFile)
 ExcludePids = []
+
+MainStats = Stats(MaxSteps, MaxTime)
 
 WaitMsg = ClearedLine()
 StepMsg = ClearedLine()
@@ -709,51 +736,19 @@ while 1:
             print("|", end=End)
         UpdateCount += 1
         nums = ReNum.findall(OutputLine)
-        Step = int(nums[0])
-        SimulationElapsed = float(nums[1])
-        SimulationDelta = float(nums[2])
-        #print(nums)
-        #print(Step, SimulationElapsed, SimulationDelta)
-        #print(OutputLine)
 
-        CurrentTime = time.time()
-        Elapsed = CurrentTime-StartTime
-        Delta = CurrentTime-PreviousTime
+        MainStats.Step = int(nums[0])
+        MainStats.Time = float(nums[1])
+        MainStats.TimeDelta = float(nums[2])
 
-        StepDelta = Step - PreviousStep
-        StepSpeed = Delta / StepDelta
-        PreviousStep = Step
-        RemainingSteps = -1
-        StepsProgress = -1
-        StepsETA = -1
-        if MaxSteps > 0:
-            RemainingSteps = MaxSteps-Step
-            StepsProgress = int(Step / MaxSteps * 100)
-            StepsETA = RemainingSteps * StepSpeed
-            MeanStepETA += StepsETA
+        MainStats.Recalculate(time.time())
 
-        TimeDelta = SimulationElapsed - PreviousSimTime
-        TimeSpeed = Delta / TimeDelta
-        PreviousSimTime = SimulationElapsed
-        RemainingSimTime = -1
-        TimeProgress = -1
-        TimeETA = -1
-        if MaxTime > 0:
-            RemainingSimTime = MaxTime-SimulationElapsed
-            TimeProgress = int(SimulationElapsed / MaxTime * 100)
-            TimeETA = RemainingSimTime * TimeSpeed
-            MeanTimeETA += TimeETA
+        s = MainStats # Less to write
+        StepMsg.Set(f"|   Step:  {FmtNmb.Str(s.Step):^15} / {FmtNmb.Str(s.MaxSteps):^15} : {FmtNmb.Str(s.LeftSteps):^15} ({FmtNmb.Str(s.StepsProgress):>3}%), x{FmtNmb.Str(s.StepSpeed):>11}, ETA: {FmtTime.Str(s.StepETA):>20}")
 
-        Steps = Step
+        TimeMsg.Set(f"|   Sim time: {FmtTime.Str(s.Time):^10}   /    {FmtTime.Str(s.MaxTime):^10}   :   {FmtTime.Str(s.LeftTime):^10}    ({FmtNmb.Str(s.TimeProgress):>3}%), x{FmtNmb.Str(s.TimeSpeed):>11}, ETA: {FmtTime.Str(s.TimeETA):>20}")
 
-        EffElapsed = int(PureElapsed/Elapsed*100)
-        EffDelta = int(PureDelta/Delta*100)
-
-        StepMsg.Set(f"|   Step:  {FmtNmb.Str(Step):^15} / {FmtNmb.Str(MaxSteps):^15} : {FmtNmb.Str(RemainingSteps):^15} ({FmtNmb.Str(StepsProgress):>3}%), x{FmtNmb.Str(StepSpeed):>11}, ETA: {FmtTime.Str(StepsETA):>20}")
-
-        TimeMsg.Set(f"|   Sim time: {FmtTime.Str(SimulationElapsed):^10}   /    {FmtTime.Str(MaxTime):^10}   :   {FmtTime.Str(RemainingSimTime):^10}    ({FmtNmb.Str(TimeProgress):>3}%), x{FmtNmb.Str(TimeSpeed):>11}, ETA: {FmtTime.Str(TimeETA):>20}")
-
-        Time2Msg.Set(f"|   Elapsed: {FmtTime.Str(Elapsed)}, delta: {FmtTime.Str(Delta)} ({FmtTime.Str(SimulationDelta * StepDelta)}), eff: elapsed: {EffElapsed}%, delta: {EffDelta}%")
+        Time2Msg.Set(f"|   Elapsed: {FmtTime.Str(s.ElapsedRealTime)}, delta: {FmtTime.Str(s.RealTimeDelta)} ({FmtTime.Str(s.TimeDelta * s.StepDelta)}), eff: elapsed: {s.ElapsedRealTimeEfficiency}%, delta: {s.RealTimeDeltaEfficiency}%")
 
         if not NonDestructivePrint:
             print('\r\033[A\033[A\033[A\033[A\033[A', end='')
@@ -770,8 +765,8 @@ while 1:
         nums = ReNum.findall(OutputLine)
         #print(nums)
 
-        PureElapsed = float(nums[0])
-        PureDelta = float(nums[1])
+        MainStats.ElapsedInternalRealTime = float(nums[0])
+        MainStats.InternalRealTimeDelta = float(nums[1])
         SecondUpdated = True
 
     elif Header == True and ReHead.match(OutputLine):
