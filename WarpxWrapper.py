@@ -17,6 +17,7 @@ from NonBlockingInput import NonBlockingInput
 from NonBlockingPipe import NonBlockingPipe
 from FileWatcher import FileWatcher
 from ClearedLine import ClearedLine
+from MessageLine import MessageLine
 
 class Verbosity(enum.Enum):
     DEBUG = logging.DEBUG
@@ -547,6 +548,7 @@ WaitMsg = ClearedLine()
 StepMsg = ClearedLine()
 TimeMsg = ClearedLine()
 Time2Msg = ClearedLine()
+MsgLine = MessageLine(Timeout = 2, FillWith = "-", LineLength = 77)
 
 print("\n")
 
@@ -563,6 +565,12 @@ while 1:
             break
         if CompareChars(char, ISOKey):
             FmtTime.ISO = not FmtTime.ISO
+            msg = "ISO "
+            if FmtTime.ISO:
+                msg += "set"
+            else:
+                msg += "unset"
+            MsgLine.SetTemporary(msg)
         elif CompareChars(char, NDestPrintKey):
             NonDestructivePrint = not NonDestructivePrint
         elif CompareChars(char, PauseKey):
@@ -570,13 +578,18 @@ while 1:
             if Paused:
                 Sig = signal.SIGCONT
                 Paused = False
+                MsgLine.SetPersistent()
+                MsgLine.SetTemporary("Resumed")
             else:
                 Sig = signal.SIGSTOP
                 Paused = True
+                MsgLine.SetPersistent("Paused")
             if WarpxProcess != None:
                 WarpxProcess.send_signal(Sig)
             elif PID > 0:
                 os.kill(PID, Sig)
+            else:
+                MsgLine.SetTemporary(char)
 
     if StartTime < 0:
         WaitingFor = time.time() - WaitForDataStart
@@ -700,7 +713,7 @@ while 1:
         print(TimeMsg.Get())
         print(Time2Msg.Get())
         print("|")
-        print("+-----------------------------------------------------------------------------+")
+        print(f"+{MsgLine.GetLine()}+")
 
         PreviousTime = CurrentTime
         MainUpdated = True
