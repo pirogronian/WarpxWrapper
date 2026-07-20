@@ -504,6 +504,54 @@ PreviousSimTime = 0
 PureElapsed = 0
 PureDelta = 0
 
+class Stats:
+    Step = -1 # These two are replenished externally
+    Time = -1
+
+    MaxStep = -1 # These two are set once at the beginning
+    MaxTime = -1
+
+    LeftSteps = -1
+    LeftTime = -1
+
+    CurrentRealTime = 0 # This is replenished automatically
+    PreviousRealTime = 0
+
+    PreviousStep = 0
+
+    StepDelta = -1
+    TimeDelta = -1 # This also is replenished externally
+    RealTimeDelta = -1
+
+    StepSpeed = 0
+    TimeSpeed = 0
+
+    StepETA = -1
+    TimeETA = -1
+
+    def Recalculate(self, Time):
+        self.CurrentRealTime = Time
+
+        if self.Step >= 0 and self.MaxStep > 0:
+            self.LeftSteps = self.MaxStep - self.Step
+
+        if self.Time >= 0 and self.MaxTime > 0:
+            self.LeftTime = self.MaxTime - self.Time
+
+        self.StepDelta = self.Step - self.PreviousStep
+        # TimeDelta is provided externally
+        self.RealTimeDelta = self.CurrentRealTime - self.PreviousRealTime
+
+        if self.RealTimeDelta > 0:
+            self.StepSpeed = self.StepDelta / self.RealTimeDelta
+            self.TimeSpeed = self.TimeDelta / self.RealTimeDelta
+
+        self.StepETA = self.StepSpeed * self.LeftSteps
+        self.TimeEta = self.TimeSpeed * self.LeftTime
+
+        self.PreviousRealTime = self.CurrentRealTime
+
+
 Header = True
 Footer = False
 SkipMain = False
