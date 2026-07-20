@@ -341,7 +341,7 @@ AddParam("DontRun", "-r", "--dont-run", const = True)
 AddParam("ErrorIsFatal", "--error-fatal", const = True)
 AddParam("LogFile", "-l", "--log-file")
 AddParam("NonDestructivePrint", "-d", "--non-destructive-print", const = True)
-AddParam("UpdateInterval", "--upd-int", "--update-interval")
+AddParam("UpdateInterval", "-u", "--upd-int", "--update-interval")
 AddParam("MaxSteps", "-x", "--max-steps")
 AddParam("MaxTime", "-t", "--max-time")
 AddParam("SkipMain", "-a", "--skip-main-loop", const = True)
@@ -496,6 +496,9 @@ CurrentTime = time.time()
 PreviousTime = CurrentTime
 StartTime = -1
 
+PreviousStep = 0
+PreviousSimTime = 0
+
 PureElapsed = 0
 PureDelta = 0
 
@@ -583,7 +586,7 @@ while 1:
         #print("Read null string")
         if (InputPipe.IsActive()):
             ExcludePids = Pids # Detected processes are not our writer
-#            print("InputPipe active, waiting.")
+            #print("InputPipe active, waiting.")
             time.sleep(UpdateInterval)
             continue # So all interactivity must take place earlier
         else:
@@ -609,7 +612,6 @@ while 1:
             except Exception as e:
                 warning("An error while writing to log file.")
                 warning(1, e)
-
 
     if MainUpdated and SecondUpdated:
         CurrentTime = time.time()
@@ -641,23 +643,29 @@ while 1:
         CurrentTime = time.time()
         Elapsed = CurrentTime-StartTime
         Delta = CurrentTime-PreviousTime
+
+        StepDelta = Step - PreviousStep
+        StepSpeed = Delta / StepDelta
+        PreviousStep = Step
         RemainingSteps = -1
         StepsProgress = -1
         StepsETA = -1
         if MaxSteps > 0:
             RemainingSteps = MaxSteps-Step
-            StepsProgress = int(Step/MaxSteps*100)
-            StepsETA = Delta*RemainingSteps
+            StepsProgress = int(Step / MaxSteps * 100)
+            StepsETA = RemainingSteps * StepSpeed
             MeanStepETA += StepsETA
 
+        TimeDelta = SimulationElapsed - PreviousSimTime
+        TimeSpeed = Delta / TimeDelta
+        PreviousSimTime = SimulationElapsed
         RemainingSimTime = -1
         TimeProgress = -1
         TimeETA = -1
         if MaxTime > 0:
             RemainingSimTime = MaxTime-SimulationElapsed
-            TimeProgress = int(SimulationElapsed/MaxTime*100)
-            RealToSimTime = Delta/SimulationDelta
-            TimeETA = RealToSimTime*RemainingSimTime
+            TimeProgress = int(SimulationElapsed / MaxTime * 100)
+            TimeETA = RemainingSimTime * TimeSpeed
             MeanTimeETA += TimeETA
 
         Steps = Step
@@ -665,11 +673,11 @@ while 1:
         EffElapsed = int(PureElapsed/Elapsed*100)
         EffDelta = int(PureDelta/Delta*100)
 
-        StepsMsg = f"|   Step:  {FmtNmb.Str(Step):^15} / {FmtNmb.Str(MaxSteps):^15} : {FmtNmb.Str(RemainingSteps):^15} ({FmtNmb.Str(StepsProgress):>3}%), ETA: {FmtTime.Str(StepsETA):>20}           "
+        StepsMsg = f"|   Step:  {FmtNmb.Str(Step):^15} / {FmtNmb.Str(MaxSteps):^15} : {FmtNmb.Str(RemainingSteps):^15} ({FmtNmb.Str(StepsProgress):>3}%), x{FmtNmb.Str(StepSpeed):>11}, ETA: {FmtTime.Str(StepsETA):>20}           "
 
-        TimeMsg = f"|   Sim time: {FmtTime.Str(SimulationElapsed):^10}   /    {FmtTime.Str(MaxTime):^10}   :   {FmtTime.Str(RemainingSimTime):^10}    ({FmtNmb.Str(TimeProgress):>3}%), ETA: {FmtTime.Str(TimeETA):>20}          "
+        TimeMsg = f"|   Sim time: {FmtTime.Str(SimulationElapsed):^10}   /    {FmtTime.Str(MaxTime):^10}   :   {FmtTime.Str(RemainingSimTime):^10}    ({FmtNmb.Str(TimeProgress):>3}%), x{FmtNmb.Str(TimeSpeed):>11}, ETA: {FmtTime.Str(TimeETA):>20}          "
 
-        Time2Msg = f"|   Elapsed: {FmtTime.Str(Elapsed)}, delta: {FmtTime.Str(Delta)} ({FmtTime.Str(SimulationDelta)}), eff: elapsed: {EffElapsed}%, delta: {EffDelta}%          "
+        Time2Msg = f"|   Elapsed: {FmtTime.Str(Elapsed)}, delta: {FmtTime.Str(Delta)} ({FmtTime.Str(SimulationDelta * StepDelta)}), eff: elapsed: {EffElapsed}%, delta: {EffDelta}%          "
 
         if not NonDestructivePrint:
             print('\r\033[A\033[A\033[A\033[A\033[A', end='')
