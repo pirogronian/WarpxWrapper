@@ -463,7 +463,11 @@ def PrepareCommand():
     LogDebug(Panel)
 
     try:
-        WarpxProcess = subprocess.Popen(args=CmdArgs,stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+        WarpxProcess = subprocess.Popen(args=CmdArgs,
+                                        stdin=subprocess.DEVNULL,
+                                        stdout=subprocess.PIPE,
+                                        stderr=subprocess.STDOUT,
+                                        text=True)
     except Exception as e:
         LogCritical("Cannot create a subprocess to get its output.")
         Fatal(1, e)
@@ -471,10 +475,6 @@ def PrepareCommand():
     InputPipe.Input = WarpxProcess.stdout
 
 PrintParams()
-
-MsgEnd = ''
-if NonDestructivePrint:
-    MsgEnd = '\n'
 
 if Source == SourceType.STDIN:
     PrepareStdin()
@@ -489,15 +489,7 @@ FmtNmb = FormattedNumber()
 FmtTime = FormattedTime()
 FmtNmb.ForbidNegative = True
 
-CurrentTime = time.time()
-PreviousTime = CurrentTime
 StartTime = -1
-
-PreviousStep = 0
-PreviousSimTime = 0
-
-PureElapsed = 0
-PureDelta = 0
 
 class Stats:
     Step = -1 # These two are replenished externally
@@ -611,12 +603,16 @@ class UI:
         print(f"+{self.MsgLine.GetLine()}+")
 
     def Rewrite(self):
+#        print("+", end = '')
+#        sys.stdout.flush()
+#        return
         if self.First:
             self.WriteHeader()
             self.First = False
         self.WriteStats()
 
     def Update(self):
+#        print(".", end = '')
         if self.UpdateTimer.Expired():
             self.Rewrite()
             self.UpdateTimer.Reset()
@@ -627,7 +623,6 @@ SkipMain = False
 
 MainUpdated = False
 SecondUpdated = False
-LastUpdated = 0
 
 Paused = False
 
@@ -681,7 +676,7 @@ while 1:
 
     keys = IInput.ReadSequence()
     if keys != []:
-#        print("Keys: ", keys)
+        #print("Keys: ", keys)
         if CompareSequences(keys, BreakKey):
             print("\n\n")
             LogInfo(f"Breaking on user demand.")
@@ -726,12 +721,13 @@ while 1:
             else:
                 Start = '\r'
             print(Start + str(WaitMsg), end=End)
-            #print(Start + str(WaitMsg), end=End)
-#            print(".")
 
     Pids = []
     if PID == 0 and Source == SourceType.FILE:
         Pids = FWatcher.DetectPids(Exclude = ExcludePids)
+
+    if not (Header or Footer):
+        MainUI.Update()
 
     OutputLine = InputPipe.Read()
     if OutputLine == None:
@@ -777,7 +773,6 @@ while 1:
 
         MainUI.Rewrite()
 
-        PreviousTime = CurrentTime
         MainUpdated = True
 
     elif not SecondUpdated and Re2.search(OutputLine):
@@ -811,9 +806,6 @@ while 1:
             MainUpdated = False
             SecondUpdated = False
 
-    if not (Header or Footer):
-        MainUI.Update()
-
 
 IInput.RestoreBlocking()
 
@@ -825,7 +817,7 @@ MeanTest /= Steps
 
 print(MeanStepETA, MeanTimeETA, MeanTest)"""
 
-FMsg = "Finished in " + FmtTime.Str(CurrentTime-StartTime)
+FMsg = "Finished in " + FmtTime.Str(time.time() - StartTime)
 FMsg = "|{:^77}|".format(FMsg)
 
 #EMsg = "Mean ETA: {0} / {1}".format(datetime.timedelta(seconds=MeanStepETA), datetime.timedelta(seconds=MeanTimeETA))
