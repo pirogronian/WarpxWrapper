@@ -142,7 +142,8 @@ def LogCritical(*args):
     Log(Verbosity.CRITICAL, *args)
 
 def LogExcept(level, *args):
-    if level >= LogLevel:
+#    print(level, LogLevel)
+    if level.value >= LogLevel.value:
         msg = prepareLog(args)
         logger.exception(msg)
 
@@ -721,9 +722,6 @@ print("\n")
 ControlInput.DisableBlocking()
 
 try:
-
-    #arlkg
-
     while 1:
         if SkipMain:
             LogDebug("Skipping main.")
