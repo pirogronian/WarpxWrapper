@@ -11,12 +11,13 @@ import pathlib
 import enum
 import argparse
 import signal
+import shutil
 
 from FormattedValue import FormattedNumber, FormattedTime
 from NonBlockingInput import NonBlockingInput
 from NonBlockingPipe import NonBlockingPipe
 from FileWatcher import FileWatcher
-from ClearedLine import ClearedLine
+from FitLine import ExtendLine, CutLine, FitLine
 from MessageLine import MessageLine
 from Timer import Timer
 from Various import CompareSequences
@@ -566,57 +567,105 @@ class Stats:
         self.PreviousRealTime = self.CurrentRealTime
 
 class UI:
+    class Section(enum.Enum):
+        WAIT = 0
+        HEADER = 1
+        MAIN = 2
+        FOOTER = 3
+
     NonDestructive = False
     Stats = None
     UpdateTimer = None
+    MinLen = 0
+    MaxLen = 0
+    CurrentSection = Section.WAIT
 
     def __init__(self, Stats, Interval):
         self.First = True
         self.Stats = Stats
         self.UpdateTimer = Timer(Interval)
-        self.StepMsg = ClearedLine()
-        self.TimeMsg = ClearedLine()
-        self.Time2Msg = ClearedLine()
         self.MsgLine = MessageLine(Timeout = 2, FillWith = "-", LineLength = 77)
 
-    def WriteHeader(self):
-        print("+-----------------------------------------------------------------------------+")
-        print("|                            Time statistics:                                 |")
-        print("+-----------------------------------------------------------------------------+")
+    def IsDestructive(self):
+        d = self.NonDestructive
+        if d == None:
+            d = self.__class__.NonDestructive
+        return d
+
+    def GetMinLen(self, Length = None):
+        if Length == None:
+            Length = self.MinLen
+            if Length == None:
+                Length = self.__class__.MinLen
+        return Length
+
+    def CacheMaxLen(self, MaxLen = None):
+        if MaxLen == None:
+            self.MaxLen = shutil.get_terminal_size().columns
+        else:
+            self.MaxLen = MaxLen
+
+    def GetMaxLen(self, MaxLen = None):
+        if MaxLen == None:
+            return self.MaxLen
+        return self.MaxLen
+
+    def GetLen(self, Min = None, Max = None):
+        Min = self.GetMinLen(Min)
+        Max = self.GetMaxLen(Max)
+        return min(Min, Max), Max
+
+    def PrintLine(self, Text, End = "\n"):
+        d = self.IsDestructive()
+        Max = self.GetMaxLen()
+        if not d:
+            Text = CutLine(Text, Max)
+            Text = ExtendLine(Text, Max)
+        print(Text, end = End)
+
+    def WriteHeader(self, Length):
+        lmin, lmax = self.GetLen()
+        d = self.IsDestructive()
+        self.PrintLine("+" + "-" * (lmin - 2) + "+")
+        fmt = f"|{{:^{lmin - 2}}}|"
+        self.PrintLine(fmt.format("Time statistics:"))
+        self.PrintLine("+" + "-" * (lmin - 2) + "+")
         End = '\n\n\n\n\n\n'
         if self.NonDestructive:
             End = "\n"
         print("|", end=End)
 
-    def WriteStats(self):
+    def WriteStats(self, Length):
         s = self.Stats # Less to write
-        self.StepMsg.Set(f"|   Step:  {FmtNmb.Str(s.Step):^15} / {FmtNmb.Str(s.MaxSteps):^15} : {FmtNmb.Str(s.LeftSteps):^15} ({FmtNmb.Str(s.StepsProgress):>3}%), x{FmtNmb.Str(s.StepSpeed):>11}, ETA: {FmtTime.Str(s.StepETA):>20}")
+        s1 = f"|   Step:  {FmtNmb.Str(s.Step):^15} / {FmtNmb.Str(s.MaxSteps):^15} : {FmtNmb.Str(s.LeftSteps):^15} ({FmtNmb.Str(s.StepsProgress):>3}%), x{FmtNmb.Str(s.StepSpeed):>11}, ETA: {FmtTime.Str(s.StepETA):>20}"
 
-        self.TimeMsg.Set(f"|   Sim time: {FmtTime.Str(s.Time):^10}   /    {FmtTime.Str(s.MaxTime):^10}   :   {FmtTime.Str(s.LeftTime):^10}    ({FmtNmb.Str(s.TimeProgress):>3}%), x{FmtNmb.Str(s.TimeSpeed):>11}, ETA: {FmtTime.Str(s.TimeETA):>20}")
+        s2 = f"|   Sim time: {FmtTime.Str(s.Time):^10}   /    {FmtTime.Str(s.MaxTime):^10}   :   {FmtTime.Str(s.LeftTime):^10}    ({FmtNmb.Str(s.TimeProgress):>3}%), x{FmtNmb.Str(s.TimeSpeed):>11}, ETA: {FmtTime.Str(s.TimeETA):>20}"
 
-        self.Time2Msg.Set(f"|   Elapsed: {FmtTime.Str(s.ElapsedRealTime)}, delta: {FmtTime.Str(s.RealTimeDelta)} ({FmtTime.Str(s.TimeDelta * s.StepDelta)}), eff: elapsed: {s.ElapsedRealTimeEfficiency}%, delta: {s.RealTimeDeltaEfficiency}%")
+        s3 = f"|   Elapsed: {FmtTime.Str(s.ElapsedRealTime)}, delta: {FmtTime.Str(s.RealTimeDelta)} ({FmtTime.Str(s.TimeDelta * s.StepDelta)}), eff: elapsed: {s.ElapsedRealTimeEfficiency}%, delta: {s.RealTimeDeltaEfficiency}%"
 
         if not self.NonDestructive:
             print('\r\033[A\033[A\033[A\033[A\033[A', end='')
-        print(self.StepMsg.Get())
-        print(self.TimeMsg.Get())
-        print(self.Time2Msg.Get())
-        print("|")
-        print(f"+{self.MsgLine.GetLine()}+")
+        self.PrintLine(s1)
+        self.PrintLine(s2)
+        self.PrintLine(s3)
+        self.PrintLine("|")
+        self.PrintLine(f"+{self.MsgLine.GetLine()}+")
 
-    def Rewrite(self):
+    def Rewrite(self, Length = None):
 #        print("+", end = '')
 #        sys.stdout.flush()
 #        return
         if self.First:
-            self.WriteHeader()
+            self.WriteHeader(Length)
             self.First = False
-        self.WriteStats()
+        self.WriteStats(Length)
 
     def Update(self):
 #        print(".", end = '')
         if self.UpdateTimer.Expired():
-            self.Rewrite()
+            self.CacheMaxLen()
+            if self.CurrentSection == self.Section.MAIN:
+                self.Rewrite()
             self.UpdateTimer.Reset()
 
 Header = True
@@ -665,9 +714,8 @@ ExcludePids = []
 MainStats = Stats(MaxSteps, MaxTime)
 MainUI = UI(MainStats, UpdateInterval)
 MainUI.NonDestructive = NonDestructivePrint
+MainUI.MinLen = 79
 MainTimer = Timer(UpdateInterval)
-
-WaitMsg = ClearedLine()
 
 print("\n")
 
@@ -715,21 +763,19 @@ while 1:
     if StartTime < 0:
         WaitingFor = time.time() - WaitForDataStart
         if WaitingFor > 0:
-            WaitMsg.Set(f"   Waiting for WarpX to start sending data for: {FmtTime.Str(WaitingFor)}")
             End = ''
             Start = ''
             if NonDestructivePrint:
                 End = '\n'
             else:
                 Start = '\r'
-            print(Start + str(WaitMsg), end=End)
+            MainUI.PrintLine(f"{Start}   Waiting for WarpX to start sending data for: {FmtTime.Str(WaitingFor)}", End)
 
     Pids = []
     if PID == 0 and Source == SourceType.FILE:
         Pids = FWatcher.DetectPids(Exclude = ExcludePids)
 
-    if not (Header or Footer):
-        MainUI.Update()
+    MainUI.Update()
 
     OutputLine = DataInput.Read()
     if OutputLine == None:
@@ -759,6 +805,7 @@ while 1:
 
     if StartTime < 0:
         StartTime = time.time()
+        MainUI.CurrentSection = UI.Section.HEADER
         print("\n   Got data, starting processing.\n")
 
         if LogWritable:
@@ -791,10 +838,12 @@ while 1:
         SecondUpdated = True
 
     elif Header == True and ReHead.match(OutputLine):
+        MainUI.CurrentSection = UI.Section.MAIN
         Header = False
 
     elif Footer == False and ReFoot.match(OutputLine):
         Footer = True
+        MainUI.CurrentSection = UI.Section.FOOTER
         LogDebug("Footer detected.")
         if SkipFooter:
             break
@@ -815,6 +864,8 @@ while 1:
 
 
 ControlInput.RestoreBlocking()
+
+MainUI.CurrentSection = UI.Section.FOOTER
 
 """print(MeanStepETA, MeanTimeETA, MeanTest, Steps)
 
