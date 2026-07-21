@@ -637,6 +637,7 @@ class UI:
 
     def WriteStats(self, Length):
         s = self.Stats # Less to write
+        minl, maxl = self.GetLen()
         s1 = f"|   Step:  {FmtNmb.Str(s.Step):^15} / {FmtNmb.Str(s.MaxSteps):^15} : {FmtNmb.Str(s.LeftSteps):^15} ({FmtNmb.Str(s.StepsProgress):>3}%), x{FmtNmb.Str(s.StepSpeed):>11}, ETA: {FmtTime.Str(s.StepETA):>20}"
 
         s2 = f"|   Sim time: {FmtTime.Str(s.Time):^10}   /    {FmtTime.Str(s.MaxTime):^10}   :   {FmtTime.Str(s.LeftTime):^10}    ({FmtNmb.Str(s.TimeProgress):>3}%), x{FmtNmb.Str(s.TimeSpeed):>11}, ETA: {FmtTime.Str(s.TimeETA):>20}"
@@ -649,7 +650,7 @@ class UI:
         self.PrintLine(s2)
         self.PrintLine(s3)
         self.PrintLine("|")
-        self.PrintLine(f"+{self.MsgLine.GetLine()}+")
+        self.PrintLine(f"+{self.MsgLine.GetLine(LineLen = minl - 2)}+")
 
     def Rewrite(self, Length = None):
 #        print("+", end = '')
