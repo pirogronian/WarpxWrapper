@@ -65,4 +65,5 @@ class NonBlockingPipe:
 #            if hasattr(self, "old_settings"):
 #                print("Read: ", ret)
             return ret
+        return ""
 

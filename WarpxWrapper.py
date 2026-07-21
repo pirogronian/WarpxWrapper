@@ -20,7 +20,7 @@ from FileWatcher import FileWatcher
 import FitLine
 from MessageLine import MessageLine
 from Timer import Timer
-from Various import CompareSequences
+from Various import CompareKeys
 
 class Verbosity(enum.Enum):
     DEBUG = logging.DEBUG
@@ -70,7 +70,7 @@ NonDestructivePrint = False
 
 Params = []
 
-BreakKey = "\27"
+BreakKey = 27
 ISOKey = "f"
 NDestPrintKey = "d"
 PauseKey = ' '
@@ -730,11 +730,11 @@ try:
         key = ControlInput.Read()
         if key != "":
         #print("Keys: ", keys)
-            if CompareSequences(key, BreakKey):
+            if CompareKeys(key, BreakKey):
                 print("\n\n")
                 LogInfo(f"Breaking on user demand.")
                 break
-            if CompareSequences(key, ISOKey):
+            if CompareKeys(key, ISOKey):
                 FmtTime.ISO = not FmtTime.ISO
                 msg = "ISO "
                 if FmtTime.ISO:
@@ -742,10 +742,10 @@ try:
                 else:
                     msg += "unset"
                 MainUI.MsgLine.SetTemporary(msg)
-            elif CompareSequences(key, NDestPrintKey):
+            elif CompareKeys(key, NDestPrintKey):
                 NonDestructivePrint = not NonDestructivePrint
                 MainUI.NonDestructive = not MainUI.NonDestructive
-            elif CompareSequences(key, PauseKey):
+            elif CompareKeys(key, PauseKey):
                 Sig = -1
                 if Paused:
                     Sig = signal.SIGCONT
