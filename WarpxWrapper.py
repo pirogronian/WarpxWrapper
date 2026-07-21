@@ -70,7 +70,7 @@ NonDestructivePrint = False
 
 Params = []
 
-BreakKey = 27
+BreakKey = "\27"
 ISOKey = "f"
 NDestPrintKey = "d"
 PauseKey = ' '
@@ -719,7 +719,7 @@ MainTimer = Timer(UpdateInterval)
 
 print("\n")
 
-ControlInput.DisableBlocking()
+ControlInput.DisableBuffering()
 
 try:
     while 1:
@@ -727,14 +727,14 @@ try:
             LogDebug("Skipping main.")
             break
 
-        keys = ControlInput.ReadSequence()
-        if keys != []:
+        key = ControlInput.Read()
+        if key != "":
         #print("Keys: ", keys)
-            if CompareSequences(keys, BreakKey):
+            if CompareSequences(key, BreakKey):
                 print("\n\n")
                 LogInfo(f"Breaking on user demand.")
                 break
-            if CompareSequences(keys, ISOKey):
+            if CompareSequences(key, ISOKey):
                 FmtTime.ISO = not FmtTime.ISO
                 msg = "ISO "
                 if FmtTime.ISO:
@@ -742,10 +742,10 @@ try:
                 else:
                     msg += "unset"
                 MainUI.MsgLine.SetTemporary(msg)
-            elif CompareSequences(keys, NDestPrintKey):
+            elif CompareSequences(key, NDestPrintKey):
                 NonDestructivePrint = not NonDestructivePrint
                 MainUI.NonDestructive = not MainUI.NonDestructive
-            elif CompareSequences(keys, PauseKey):
+            elif CompareSequences(key, PauseKey):
                 Sig = -1
                 if Paused:
                     Sig = signal.SIGCONT
@@ -761,7 +761,7 @@ try:
                 elif PID > 0:
                     os.kill(PID, Sig)
             else:
-                MainUI.MsgLine.SetTemporary(keys[0])
+                MainUI.MsgLine.SetTemporary(key)
 
         if StartTime < 0:
             WaitingFor = time.time() - WaitForDataStart
@@ -867,11 +867,11 @@ try:
 
 except Exception as e:
     LogCritical("Unhandled exception, restoring terminal settings.")
-    ControlInput.RestoreBlocking()
+    ControlInput.RestoreBuffering()
     LogExceptCrit(e)
     exit(1)
 
-ControlInput.RestoreBlocking()
+ControlInput.RestoreBuffering()
 
 MainUI.CurrentSection = UI.Section.FOOTER
 
