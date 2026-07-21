@@ -698,7 +698,6 @@ if DontRun:
 ControlInput = NonBlockingInput()
 if Source == SourceType.STDIN: # Sorry, not interactive mode (or use another i/o stream)
     ControlInput.Input = None
-ControlInput.DisableBlocking()
 
 LogDebug("Activating input non-blocking pipe.")
 DataInput.Activate()
@@ -719,149 +718,160 @@ MainTimer = Timer(UpdateInterval)
 
 print("\n")
 
-while 1:
-    if SkipMain:
-        LogDebug("Skipping main.")
-        break
+ControlInput.DisableBlocking()
 
-    keys = ControlInput.ReadSequence()
-    if keys != []:
+try:
+
+    #arlkg
+
+    while 1:
+        if SkipMain:
+            LogDebug("Skipping main.")
+            break
+
+        keys = ControlInput.ReadSequence()
+        if keys != []:
         #print("Keys: ", keys)
-        if CompareSequences(keys, BreakKey):
-            print("\n\n")
-            LogInfo(f"Breaking on user demand.")
-            break
-        if CompareSequences(keys, ISOKey):
-            FmtTime.ISO = not FmtTime.ISO
-            msg = "ISO "
-            if FmtTime.ISO:
-                msg += "set"
+            if CompareSequences(keys, BreakKey):
+                print("\n\n")
+                LogInfo(f"Breaking on user demand.")
+                break
+            if CompareSequences(keys, ISOKey):
+                FmtTime.ISO = not FmtTime.ISO
+                msg = "ISO "
+                if FmtTime.ISO:
+                    msg += "set"
+                else:
+                    msg += "unset"
+                MainUI.MsgLine.SetTemporary(msg)
+            elif CompareSequences(keys, NDestPrintKey):
+                NonDestructivePrint = not NonDestructivePrint
+                MainUI.NonDestructive = not MainUI.NonDestructive
+            elif CompareSequences(keys, PauseKey):
+                Sig = -1
+                if Paused:
+                    Sig = signal.SIGCONT
+                    Paused = False
+                    MainUI.MsgLine.SetPersistent()
+                    MainUI.MsgLine.SetTemporary("Resumed")
+                else:
+                    Sig = signal.SIGSTOP
+                    Paused = True
+                    MainUI.MsgLine.SetPersistent("Paused")
+                if WarpxProcess != None:
+                    WarpxProcess.send_signal(Sig)
+                elif PID > 0:
+                    os.kill(PID, Sig)
             else:
-                msg += "unset"
-            MainUI.MsgLine.SetTemporary(msg)
-        elif CompareSequences(keys, NDestPrintKey):
-            NonDestructivePrint = not NonDestructivePrint
-            MainUI.NonDestructive = not MainUI.NonDestructive
-        elif CompareSequences(keys, PauseKey):
-            Sig = -1
-            if Paused:
-                Sig = signal.SIGCONT
-                Paused = False
-                MainUI.MsgLine.SetPersistent()
-                MainUI.MsgLine.SetTemporary("Resumed")
+                MainUI.MsgLine.SetTemporary(keys[0])
+
+        if StartTime < 0:
+            WaitingFor = time.time() - WaitForDataStart
+            if WaitingFor > 0:
+                End = ''
+                Start = ''
+                if NonDestructivePrint:
+                    End = '\n'
+                else:
+                    Start = '\r'
+                MainUI.PrintLine(f"{Start}   Waiting for WarpX to start sending data for: {FmtTime.Str(WaitingFor)}", End)
+
+        Pids = []
+        if PID == 0 and Source == SourceType.FILE:
+            Pids = FWatcher.DetectPids(Exclude = ExcludePids)
+
+        MainUI.Update()
+
+        OutputLine = DataInput.Read()
+        if OutputLine == None:
+            #print("Read null string")
+            if (DataInput.IsActive()):
+                ExcludePids = Pids # Detected processes are not our writer
+    #            print("DataInput active, waiting.")
+                time.sleep(UpdateInterval)
+                continue # So all interactivity must take place earlier
             else:
-                Sig = signal.SIGSTOP
-                Paused = True
-                MainUI.MsgLine.SetPersistent("Paused")
-            if WarpxProcess != None:
-                WarpxProcess.send_signal(Sig)
-            elif PID > 0:
-                os.kill(PID, Sig)
-        else:
-            MainUI.MsgLine.SetTemporary(keys[0])
+                LogDebug("DataInput inactive, finishing.")
+                break
 
-    if StartTime < 0:
-        WaitingFor = time.time() - WaitForDataStart
-        if WaitingFor > 0:
-            End = ''
-            Start = ''
-            if NonDestructivePrint:
-                End = '\n'
+        if PID == 0 and Source == SourceType.FILE:
+            if ExcludePids == []: # Probably the first process is the writer
+                ExcludePids.append(os.getpid())
+                PID = FWatcher.DetectFirstPid(Exclude = ExcludePids)
             else:
-                Start = '\r'
-            MainUI.PrintLine(f"{Start}   Waiting for WarpX to start sending data for: {FmtTime.Str(WaitingFor)}", End)
-
-    Pids = []
-    if PID == 0 and Source == SourceType.FILE:
-        Pids = FWatcher.DetectPids(Exclude = ExcludePids)
-
-    MainUI.Update()
-
-    OutputLine = DataInput.Read()
-    if OutputLine == None:
-        #print("Read null string")
-        if (DataInput.IsActive()):
-            ExcludePids = Pids # Detected processes are not our writer
-#            print("DataInput active, waiting.")
-            time.sleep(UpdateInterval)
-            continue # So all interactivity must take place earlier
-        else:
-            LogDebug("DataInput inactive, finishing.")
-            break
-
-    if PID == 0 and Source == SourceType.FILE:
-        if ExcludePids == []: # Probably the first process is the writer
-            ExcludePids.append(os.getpid())
-            PID = FWatcher.DetectFirstPid(Exclude = ExcludePids)
-        else:
-            PID = FWatcher.DetectLastPid(Exclude = ExcludePids)
-        if PID == None:
-            if OutputLine == None:
-                PID = 0
-            else: # File has data, clearly is already written.
-                PID = -1
-        LogDebug(f"\nDetected PID: {PID} (excluded: {ExcludePids}).")
+                PID = FWatcher.DetectLastPid(Exclude = ExcludePids)
+            if PID == None:
+                if OutputLine == None:
+                    PID = 0
+                else: # File has data, clearly is already written.
+                    PID = -1
+            LogDebug(f"\nDetected PID: {PID} (excluded: {ExcludePids}).")
 
 
-    if StartTime < 0:
-        StartTime = time.time()
-        MainUI.CurrentSection = UI.Section.HEADER
-        print("\n   Got data, starting processing.\n")
+        if StartTime < 0:
+            StartTime = time.time()
+            MainUI.CurrentSection = UI.Section.HEADER
+            print("\n   Got data, starting processing.\n")
 
-        if LogWritable:
-            try:
-                LogStream.write(OutputLine)
-            except Exception as e:
-                warning("An error while writing to log file.")
-                warning(1, e)
+            if LogWritable:
+                try:
+                    LogStream.write(OutputLine)
+                except Exception as e:
+                    warning("An error while writing to log file.")
+                    warning(1, e)
 
-    if not Footer and not MainUpdated and Re1.search(OutputLine):
-        Header = False # Just in case we missed something
-        nums = ReNum.findall(OutputLine)
+        if not Footer and not MainUpdated and Re1.search(OutputLine):
+            Header = False # Just in case we missed something
+            nums = ReNum.findall(OutputLine)
 
-        MainStats.Step = int(nums[0])
-        MainStats.Time = float(nums[1])
-        MainStats.TimeDelta = float(nums[2])
+            MainStats.Step = int(nums[0])
+            MainStats.Time = float(nums[1])
+            MainStats.TimeDelta = float(nums[2])
 
-        MainStats.Recalculate(time.time())
+            MainStats.Recalculate(time.time())
 
-        MainUI.Rewrite()
+            MainUI.Rewrite()
 
-        MainUpdated = True
+            MainUpdated = True
 
-    elif not SecondUpdated and Re2.search(OutputLine):
-        nums = ReNum.findall(OutputLine)
+        elif not SecondUpdated and Re2.search(OutputLine):
+            nums = ReNum.findall(OutputLine)
         #print(nums)
 
-        MainStats.ElapsedInternalRealTime = float(nums[0])
-        MainStats.InternalRealTimeDelta = float(nums[1])
-        SecondUpdated = True
+            MainStats.ElapsedInternalRealTime = float(nums[0])
+            MainStats.InternalRealTimeDelta = float(nums[1])
+            SecondUpdated = True
 
-    elif Header == True and ReHead.match(OutputLine):
-        MainUI.CurrentSection = UI.Section.MAIN
-        Header = False
+        elif Header == True and ReHead.match(OutputLine):
+            MainUI.CurrentSection = UI.Section.MAIN
+            Header = False
 
-    elif Footer == False and ReFoot.match(OutputLine):
-        Footer = True
-        MainUI.CurrentSection = UI.Section.FOOTER
-        LogDebug("Footer detected.")
-        if SkipFooter:
+        elif Footer == False and ReFoot.match(OutputLine):
+            Footer = True
+            MainUI.CurrentSection = UI.Section.FOOTER
+            LogDebug("Footer detected.")
+            if SkipFooter:
+                break
+            time.sleep(UpdateInterval) # Let some time to the pipe to read last of data.
+            DataInput.ExitOnEmpty = true # Don't wait for data anymore.
+        elif ReAbort.match(OutputLine):
+            LogWarning("Warpx aborted.")
             break
-        time.sleep(UpdateInterval) # Let some time to the pipe to read last of data.
-        DataInput.ExitOnEmpty = true # Don't wait for data anymore.
-    elif ReAbort.match(OutputLine):
-        LogWarning("Warpx aborted.")
-        break
 
-    if Header or Footer:
-        print(OutputLine, end='')
+        if Header or Footer:
+            print(OutputLine, end='')
 
-    if MainUpdated and SecondUpdated:
-        if MainTimer.Expired():
-            MainTimer.Reset()
-            MainUpdated = False
-            SecondUpdated = False
+        if MainUpdated and SecondUpdated:
+            if MainTimer.Expired():
+                MainTimer.Reset()
+                MainUpdated = False
+                SecondUpdated = False
 
+except Exception as e:
+    LogCritical("Unhandled exception, restoring terminal settings.")
+    ControlInput.RestoreBlocking()
+    LogExceptCrit(e)
+    exit(1)
 
 ControlInput.RestoreBlocking()
 
