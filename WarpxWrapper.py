@@ -49,7 +49,7 @@ class SourceType(enum.Enum):
 
 Source = SourceType.DEFAULT
 
-DefaultWarpxInputFile = "input"
+DefaultWarpxInputFileName = "input"
 ExecBase = "warpx."
 ExecDim = "3d"
 Executable = ""
@@ -57,7 +57,7 @@ Command = ""
 
 UseMpi = False
 
-InputFile = ""
+InputFileName = ""
 
 PID = 0
 AbortOnExit = False
@@ -348,7 +348,7 @@ AddParam("DontWaitForFooter", "--dont-wait-for-footer", const = True)
 AddParam("Source", "-s", "--source", action=SourceAction, choices=Sources.keys())
 AddParam("PID", "-p", "--pid")
 AddParam("AbortOnExit", "-k", "--abort-on-exit", const = True)
-AddParam("InputFile","-i", "--input-file")
+AddParam("InputFileName","-i", "--input-file")
 AddParam("ExecBase", "--exec-base")
 AddParam("ExecDim", "--dim", "--exec-dim")
 AddParam("Executable", "--executable")
@@ -384,51 +384,51 @@ def PrepareLogging():
             Error(1, e)
             LogWritable = False
 
-#InputData = None
+#DataStream = None
 #IsFifo = False
 
-InputPipe = NonBlockingPipe()
+DataInput = NonBlockingPipe()
 
 def PrepareStdin():
-#    global InputData
+#    global DataStream
 #    global IsFifo
-#    InputData = sys.stdin
+#    DataStream = sys.stdin
 #    IsFifo = True
-    global InputPipe
-    InputPipe.Input = sys.stdin
+    global DataInput
+    DataInput.Input = sys.stdin
 
-def PrepareInputFile():
-#    global InputData
+def PrepareInputFileName():
+#    global DataStream
 #    global IsFifo
-    global InputPipe
-    LogDebug(f"Opening WarpX output file: '{InputFile}'")
+    global DataInput
+    LogDebug(f"Opening WarpX output file: '{InputFileName}'")
     try:
-        InputData = open(InputFile, "r")
+        DataStream = open(InputFileName, "r")
     except Exception as e:
-        LogWarning(f"Cannot open data file '{InputFile}' for reading, trying to create it...")
+        LogWarning(f"Cannot open data file '{InputFileName}' for reading, trying to create it...")
         LogWarning(1, e)
         try:
-            open(InputFile, "x")
+            open(InputFileName, "x")
         except Exception as e:
-            LogCritical(f"Cannot open nor create data file '{InputFile}'.")
+            LogCritical(f"Cannot open nor create data file '{InputFileName}'.")
             Fatal(1, e)
         try:
-            InputData = open(InputFile, "r")
+            DataStream = open(InputFileName, "r")
         except Exception as e:
-            LogCritical(f"Cannot open created data file '{InputFile}'.")
+            LogCritical(f"Cannot open created data file '{InputFileName}'.")
             Fatal(1, e)
-    InputPipe.Input = InputData
-    LogDebug(f"File '{InputFile}' successfully opened.")
-    if not pathlib.Path(InputFile).is_fifo():
-        LogDebug(f"'{InputFile}' is not a fifo, don't exit on empty read.")
-        InputPipe.ExitOnEmpty = False
-        InputPipe.Interval = UpdateInterval
+    DataInput.Input = DataStream
+    LogDebug(f"File '{InputFileName}' successfully opened.")
+    if not pathlib.Path(InputFileName).is_fifo():
+        LogDebug(f"'{InputFileName}' is not a fifo, don't exit on empty read.")
+        DataInput.ExitOnEmpty = False
+        DataInput.Interval = UpdateInterval
 
 WarpxProcess = None
 
 def PrepareCommand():
     global Command
-    global InputFile
+    global InputFileName
     global WarpxProcess
 
     CmdArgs = []
@@ -449,12 +449,12 @@ def PrepareCommand():
             CmdArgs.append(ExecBase + ExecDim)
 
     if Command == "":
-        if InputFile == "":
-            InputFile = DefaultWarpxInputFile
-        if not IsReadable(InputFile):
-            Error(f"Warpx input file \"{InputFile}\" is not readable.")
+        if InputFileName == "":
+            InputFileName = DefaultWarpxInputFileName
+        if not IsReadable(InputFileName):
+            Error(f"Warpx input file \"{InputFileName}\" is not readable.")
 
-        CmdArgs.append(InputFile)
+        CmdArgs.append(InputFileName)
 
     RunMsg = f"|   Running WarpX 3D with the following command: {CmdArgs}   |"
     RunMsgLen = len(RunMsg)
@@ -474,14 +474,14 @@ def PrepareCommand():
         LogCritical("Cannot create a subprocess to get its output.")
         Fatal(1, e)
 
-    InputPipe.Input = WarpxProcess.stdout
+    DataInput.Input = WarpxProcess.stdout
 
 PrintParams()
 
 if Source == SourceType.STDIN:
     PrepareStdin()
 elif Source == SourceType.FILE:
-    PrepareInputFile()
+    PrepareInputFileName()
 else:
     PrepareCommand()
 
@@ -646,20 +646,20 @@ LogDebug("\n      Start waiting for WarpX Data...\n")
 if DontRun:
     exit(0)
 
-IInput = NonBlockingInput()
+ControlInput = NonBlockingInput()
 if Source == SourceType.STDIN: # Sorry, not interactive mode (or use another i/o stream)
-    IInput.Input = None
-IInput.DisableBlocking()
+    ControlInput.Input = None
+ControlInput.DisableBlocking()
 
 LogDebug("Activating input non-blocking pipe.")
-InputPipe.Activate()
-LogDebug(1, f"Pipe activity status: {InputPipe.IsActive()}.")
+DataInput.Activate()
+LogDebug(1, f"Pipe activity status: {DataInput.IsActive()}.")
 
 LogDebug("Activating stdin non-blocking pipe.")
-IInput.Activate()
-LogDebug(1, f"Pipe activity status: {IInput.IsActive()}.")
+ControlInput.Activate()
+LogDebug(1, f"Pipe activity status: {ControlInput.IsActive()}.")
 
-FWatcher = FileWatcher(InputFile)
+FWatcher = FileWatcher(InputFileName)
 ExcludePids = []
 
 MainStats = Stats(MaxSteps, MaxTime)
@@ -676,7 +676,7 @@ while 1:
         LogDebug("Skipping main.")
         break
 
-    keys = IInput.ReadSequence()
+    keys = ControlInput.ReadSequence()
     if keys != []:
         #print("Keys: ", keys)
         if CompareSequences(keys, BreakKey):
@@ -731,16 +731,16 @@ while 1:
     if not (Header or Footer):
         MainUI.Update()
 
-    OutputLine = InputPipe.Read()
+    OutputLine = DataInput.Read()
     if OutputLine == None:
         #print("Read null string")
-        if (InputPipe.IsActive()):
+        if (DataInput.IsActive()):
             ExcludePids = Pids # Detected processes are not our writer
-#            print("InputPipe active, waiting.")
+#            print("DataInput active, waiting.")
             time.sleep(UpdateInterval)
             continue # So all interactivity must take place earlier
         else:
-            LogDebug("InputPipe inactive, finishing.")
+            LogDebug("DataInput inactive, finishing.")
             break
 
     if PID == 0 and Source == SourceType.FILE:
@@ -799,7 +799,7 @@ while 1:
         if SkipFooter:
             break
         time.sleep(UpdateInterval) # Let some time to the pipe to read last of data.
-        InputPipe.ExitOnEmpty = true # Don't wait for data anymore.
+        DataInput.ExitOnEmpty = true # Don't wait for data anymore.
     elif ReAbort.match(OutputLine):
         LogWarning("Warpx aborted.")
         break
@@ -814,7 +814,7 @@ while 1:
             SecondUpdated = False
 
 
-IInput.RestoreBlocking()
+ControlInput.RestoreBlocking()
 
 """print(MeanStepETA, MeanTimeETA, MeanTest, Steps)
 
