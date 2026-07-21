@@ -1,21 +1,73 @@
 
-def ExtendLine(line, minl, char = " "):
+import math
+
+def ExtendRight(line, minl, char = " "):
     l = len(line)
     if l < minl:
         line = line + char * (minl - l)
     return line
 
-def CutLine(line, maxl):
+def ExtendLeft(line, minl, Char = " "):
+    l = len(line)
+    if l < minl:
+        line = Char * (minl - l) + line
+    return line
+
+def CutRight(line, maxl):
     l = len(line)
     if l > maxl:
         line = line[:maxl]
     return line
 
-def FitLine(line, Min = None, Max = None, char = " "):
-    if Min != None:
-        line = CutLine(line, Min)
-    if Max != None:
-        line = ExtendLine(line, Max, char)
+def CutLeft(line, maxl):
+    l = len(line)
+    if l > maxl:
+        line = line[l-maxl:]
+    return line
+
+def FitRight(line, Len, char = " "):
+    line = CutLeft(line, Len)
+    line = ExtendLeft(line, Len, char)
+    return line
+
+def FitLeft(line, Len, Char = " "):
+    line = CutRight(line, Len)
+    line = ExtendRight(line, Len, Char)
+    return line
+
+def CutCenter(line, Min):
+    l = len(line)
+    if l <= Min:
+        return line
+    diff = l - Min
+    half = math.floor(diff / 2)
+#    print("Cut by: ", half)
+    line = line[:(l - half)]
+#    print("Right cut:", line)
+    line = line[half:]
+#    print("Left cut:", line)
+    if len(line) > Min:
+#        print(f"Still more than Min, trimming to {Min}.")
+        line = line[:Min]
+#        print("Trimmed: ", line)
+    return line
+
+def ExtendCenter(line, Max, Char = " "):
+    l = len(line)
+#    print(f"len({line}) = {l}")
+    if l >= Max:
+#        print("Arg longer than Max.")
+        return line
+    Max = Max - l
+    half = math.floor(Max / 2)
+    line = Char * half + line + Char * half
+    if len(line) < Max:
+        line += Char
+    return line
+
+def FitCenter(line, Len, Char = " "):
+    line = CutCenter(line, Len)
+    line = ExtendCenter(line, Len, Char)
     return line
 
 """ # We dont longer need this stuff

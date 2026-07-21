@@ -17,7 +17,7 @@ from FormattedValue import FormattedNumber, FormattedTime
 from NonBlockingInput import NonBlockingInput
 from NonBlockingPipe import NonBlockingPipe
 from FileWatcher import FileWatcher
-from FitLine import ExtendLine, CutLine, FitLine
+import FitLine
 from MessageLine import MessageLine
 from Timer import Timer
 from Various import CompareSequences
@@ -585,7 +585,7 @@ class UI:
         self.First = True
         self.Stats = Stats
         self.UpdateTimer = Timer(Interval)
-        self.MsgLine = MessageLine(Timeout = 2, FillWith = "-", LineLength = 77)
+        self.MsgLine = MessageLine(Timeout = 2, FillWith = "-", LineLen = 77)
 
     def IsDestructive(self):
         d = self.NonDestructive
@@ -620,8 +620,7 @@ class UI:
         d = self.IsDestructive()
         Max = self.GetMaxLen()
         if not d:
-            Text = CutLine(Text, Max)
-            Text = ExtendLine(Text, Max)
+            Text = FitLine.FitLeft(Text, Max)
         print(Text, end = End)
 
     def WriteHeader(self, Length):

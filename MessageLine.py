@@ -1,24 +1,25 @@
 
 import time
+import FitLine
 
 class MessageLine:
     Persistent = None
     Temporary = None
-    LineLength = 0
+    LineLen = 0
     Timeout = 0
     CurrentTimeout = 0
     StartTime = 0
     FillWith = " "
 
-    def __init__(self, Timeout = None, Msg = None, FillWith = None, LineLength = None):
+    def __init__(self, Timeout = None, Msg = None, FillWith = None, LineLen = None):
         if Timeout != None:
             self.Timeout = Timeout
         if Msg != None:
             self.Set(Msg, Timeout)
         if FillWith != None:
             self.FillWith = FillWith
-        if LineLength != None:
-            self.LineLength = LineLength
+        if LineLen != None:
+            self.LineLen = LineLen
 
     def GetTimeout(self, Timeout = None):
         if Timeout == None:
@@ -34,12 +35,12 @@ class MessageLine:
                 FillWith = self.__class__.FillWith
         return FillWith
 
-    def GetLineLength(self, LineLength):
-        if LineLength == None:
-            LineLength = self.LineLength
-            if LineLength == None:
-                LineLength = self.__class__.LineLength
-        return LineLength
+    def GetLineLen(self, LineLen = None):
+        if LineLen == None:
+            LineLen = self.LineLen
+            if LineLen == None:
+                LineLen = self.__class__.LineLen
+        return LineLen
 
     def SetPersistent(self, Msg = None):
         self.Persistent = Msg
@@ -70,24 +71,12 @@ class MessageLine:
         #print("Return persistent")
         return self.Temporary
 
-    def GetLine(self, Msg = None, FillWith = None):
+    def GetLine(self, Msg = None, LineLen = None, FillWith = None):
         Msg = self.GetMsg(Msg)
-        if Msg == None:
-            Msg = ""
-        MsgLen = len(Msg)
-        if MsgLen > 0:
-            MsgLen += 4
-            if MsgLen >= self.LineLength:
-                return Msg
-
-            Msg = f"| {Msg} |"
-
-        FlankLenF = (self.LineLength - MsgLen) / 2
-        FlankLen = int(FlankLenF)
+        if Msg == None or len(Msg) == 0:
+            fmt = ""
+        else:
+            fmt = f"| {Msg} |"
+        LineLen =self.GetLineLen(LineLen)
         FillWith = self.GetFillWith(FillWith)
-        Msg = FillWith * FlankLen + Msg + FillWith * FlankLen
-        if FlankLenF > FlankLen:
-            Msg += FillWith
-
-        return Msg
-
+        return FitLine.FitCenter(fmt, LineLen, FillWith)
