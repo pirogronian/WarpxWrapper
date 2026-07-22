@@ -808,16 +808,16 @@ try:
             #print("Read null string")
             if (DataInput.IsActive()):
                 ExcludePids = Pids # Detected processes are not our writer
-                #print(f"DataInput active, waiting for {UpdateInterval}.")
+#                print(f"DataInput active, waiting for {Config.UpdateInterval}.")
                 Event = None
                 try:
-                    Event = EventQueue.get(timeout=UpdateInterval)
+                    Event = EventQueue.get(timeout=Config.UpdateInterval)
                 except Exception as e:
                     #LogDebug("Exception while waiting for event.")
                     #LogExceptDebug(e)
                     pass
 #                t = type(Event)
-#                print("Got event:", t)
+#                print("Got event:", Event, t)
 #                if t == float:
 #                    print("Time delay:", time.time() - Event)
                 continue # So all interactivity must take place earlier
