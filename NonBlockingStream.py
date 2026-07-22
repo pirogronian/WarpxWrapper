@@ -53,6 +53,7 @@ class CommonStream:
 #        print(f"Checking threshold: {self.Queue.qsize()} > {self.QueueSizeThreshold}.")
         if self.Queue.qsize() > self.QueueSizeThreshold:
             self.EventQueue.put_nowait(self.Event)
+#            self.EventQueue.put_nowait(time.time())
 #            print(f"Send event {self.Event} from stream.")
 
 class InputStream(CommonStream):
@@ -76,10 +77,10 @@ class InputStream(CommonStream):
                     time.sleep(self.Interval)
                     continue
 #            print("Got data:", data)
-            self.SendEvent()
 #            print("Put data to queue.")
 #            print("Got data: ", data)
             self.Queue.put_nowait(data)
+            self.SendEvent()
 
     def Read(self):
         if not self.Queue.empty():

@@ -32,6 +32,8 @@ class Verbosity(enum.Enum):
 
 LogLevel = Verbosity.INFO
 
+Quiet = False
+
 ErrorIsFatal = True
 
 UpdateInterval = 0.5
@@ -338,6 +340,7 @@ def AddParam(VarName, *Args, **KArgs):
         raise NameError("Variable {} not found.".format(VarName))
 
 AddParam("LogLevel", "-v", "--verbosity", action=VerbosityAction, const='debug', choices=LogLevels.keys())
+AddParam("Quiet", "-q", "--quiet", const = True)
 AddParam("DontRun", "-r", "--dont-run", const = True)
 AddParam("ErrorIsFatal", "--error-fatal", const = True)
 AddParam("LogFile", "-l", "--log-file")
@@ -658,6 +661,9 @@ class UI:
 #        print("+", end = '')
 #        sys.stdout.flush()
         #return
+        global Quiet
+        if Quiet:
+            return
         if self.First:
             self.WriteHeader(Length)
             self.First = False
@@ -742,7 +748,6 @@ try:
             key = ControlInput.Read()
             if key == None:
                 break
-            print("Keys: ", key)
             if CompareKeys(key, BreakKey):
                 print("\n\n")
                 LogInfo(f"Breaking on user demand.")
@@ -803,12 +808,17 @@ try:
             if (DataInput.IsActive()):
                 ExcludePids = Pids # Detected processes are not our writer
                 #print(f"DataInput active, waiting for {UpdateInterval}.")
+                Event = None
                 try:
-                    EventQueue.get(timeout=UpdateInterval)
+                    Event = EventQueue.get(timeout=UpdateInterval)
                 except Exception as e:
                     #LogDebug("Exception while waiting for event.")
                     #LogExceptDebug(e)
                     pass
+#                t = type(Event)
+#                print("Got event:", t)
+#                if t == float:
+#                    print("Time delay:", time.time() - Event)
                 continue # So all interactivity must take place earlier
             else:
                 LogDebug("DataInput inactive, finishing.")
