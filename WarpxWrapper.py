@@ -763,6 +763,7 @@ try:
                     os.kill(PID, Sig)
             else:
                 MainUI.MsgLine.SetTemporary(key)
+            MainUI.Rewrite()
 
         if StartTime < 0:
             WaitingFor = time.time() - WaitForDataStart
