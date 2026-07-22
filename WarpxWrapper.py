@@ -803,6 +803,8 @@ try:
                 MainUI.MsgLine.SetTemporary(key)
             MainUI.Rewrite()
         if Finishing:
+            if StartTime < 0:
+                StartTime = time.time()
             break
 
         if StartTime < 0:
@@ -939,7 +941,7 @@ if Config.AbortOnExit and PID > 0:
     os.kill(PID, signal.SIGABRT)
 
 FMsg = "Finished in " + FmtTime.Str(time.time() - StartTime)
-FMsg = "|{:^77}|".format(FMsg)
+FMsg = f"|{FMsg:^77}|"
 
 #EMsg = "Mean ETA: {0} / {1}".format(datetime.timedelta(seconds=MeanStepETA), datetime.timedelta(seconds=MeanTimeETA))
 #EMsg = "|{:^77}|".format(EMsg)
