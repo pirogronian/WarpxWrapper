@@ -14,8 +14,7 @@ import signal
 import shutil
 
 from FormattedValue import FormattedNumber, FormattedTime
-from NonBlockingInput import NonBlockingInput
-from NonBlockingPipe import NonBlockingPipe
+from NonBlockingStream import TextInputStream, InputTerminal
 from FileWatcher import FileWatcher
 import FitLine
 from MessageLine import MessageLine
@@ -389,7 +388,7 @@ def PrepareLogging():
 #DataStream = None
 #IsFifo = False
 
-DataInput = NonBlockingPipe()
+DataInput = TextInputStream()
 
 def PrepareStdin():
 #    global DataStream
@@ -419,11 +418,10 @@ def PrepareInputFileName():
         except Exception as e:
             LogCritical(f"Cannot open created data file '{InputFileName}'.")
             Fatal(1, e)
-    DataInput.Input = DataStream
+    DataInput.Stream = DataStream
     LogDebug(f"File '{InputFileName}' successfully opened.")
     if not pathlib.Path(InputFileName).is_fifo():
         LogDebug(f"'{InputFileName}' is not a fifo, don't exit on empty read.")
-        DataInput.ExitOnEmpty = False
         DataInput.Interval = UpdateInterval
 
 WarpxProcess = None
@@ -476,7 +474,7 @@ def PrepareCommand():
         LogCritical("Cannot create a subprocess to get its output.")
         Fatal(1, e)
 
-    DataInput.Input = WarpxProcess.stdout
+    DataInput.Stream = WarpxProcess.stdout
 
 PrintParams()
 
@@ -696,7 +694,7 @@ LogDebug("\n      Start waiting for WarpX Data...\n")
 if DontRun:
     exit(0)
 
-ControlInput = NonBlockingInput()
+ControlInput = InputTerminal()
 if Source == SourceType.STDIN: # Sorry, not interactive mode (or use another i/o stream)
     ControlInput.Input = None
 
@@ -719,16 +717,16 @@ MainTimer = Timer(UpdateInterval)
 
 print("\n")
 
-ControlInput.DisableBuffering()
-
 try:
+    ControlInput.DisableBuffering()
+
     while 1:
         if SkipMain:
             LogDebug("Skipping main.")
             break
 
         key = ControlInput.Read()
-        if key != "":
+        if key != None:
         #print("Keys: ", keys)
             if CompareKeys(key, BreakKey):
                 print("\n\n")
@@ -851,7 +849,7 @@ try:
             if SkipFooter:
                 break
             time.sleep(UpdateInterval) # Let some time to the pipe to read last of data.
-            DataInput.ExitOnEmpty = true # Don't wait for data anymore.
+            DataInput.Interval = 0 # Don't wait for data anymore.
         elif ReAbort.match(OutputLine):
             LogWarning("Warpx aborted.")
             break
