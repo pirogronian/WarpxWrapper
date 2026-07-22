@@ -102,7 +102,7 @@ class InputTerminal(InputStream):
 
     def __init__(self, Terminal = None, *args, **kargs):
         if Terminal == None:
-            Terminal = blessed.Terminal(*args, **kargs, force_styling=None)
+            Terminal = blessed.Terminal(*args, **kargs)
 
         self.CBreakContext = Terminal.cbreak()
         self.Terminal = Terminal

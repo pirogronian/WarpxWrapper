@@ -12,6 +12,7 @@ import enum
 import argparse
 import signal
 import shutil
+from blessed import Terminal
 
 from FormattedValue import FormattedNumber, FormattedTime
 from NonBlockingStream import TextInputStream, InputTerminal
@@ -580,6 +581,8 @@ class UI:
     CurrentSection = Section.WAIT
 
     def __init__(self, Stats, Interval):
+        self.Terminal = Terminal()
+        print(self.Terminal.clear_bol)
         self.First = True
         self.Stats = Stats
         self.UpdateTimer = Timer(Interval)
@@ -694,7 +697,13 @@ LogDebug("\n      Start waiting for WarpX Data...\n")
 if DontRun:
     exit(0)
 
-ControlInput = InputTerminal()
+MainStats = Stats(MaxSteps, MaxTime)
+MainUI = UI(MainStats, UpdateInterval)
+MainUI.NonDestructive = NonDestructivePrint
+MainUI.MinLen = 79
+MainTimer = Timer(UpdateInterval)
+
+ControlInput = InputTerminal(MainUI.Terminal)
 if Source == SourceType.STDIN: # Sorry, not interactive mode (or use another i/o stream)
     ControlInput.Input = None
 
@@ -708,12 +717,6 @@ LogDebug(1, f"Pipe activity status: {ControlInput.IsActive()}.")
 
 FWatcher = FileWatcher(InputFileName)
 ExcludePids = []
-
-MainStats = Stats(MaxSteps, MaxTime)
-MainUI = UI(MainStats, UpdateInterval)
-MainUI.NonDestructive = NonDestructivePrint
-MainUI.MinLen = 79
-MainTimer = Timer(UpdateInterval)
 
 print("\n")
 
