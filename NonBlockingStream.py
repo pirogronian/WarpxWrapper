@@ -9,10 +9,13 @@ import blessed
 
 class CommonStream:
     Interval = 0.0
+    DataSizeThreshold = 0.0
+    ItemsNumberThreshold = 0
 
-    def __init__(self, Stream = None):
+    def __init__(self, Stream = None, Listener = None):
         self.Queue = queue.Queue()
         self.Stream = Stream
+        self.Listener = Listener
 
     def Activate(self, Stream = None):
         if Stream != None:
@@ -37,10 +40,16 @@ class CommonStream:
         return self.Queue.empty()
 
     def QueueSize(self):
-        return len(self.ReadQueue)
+        return len(self.Queue)
 
     def DataSize(self):
         return self.Queue.qsize()
+
+    def NotifyListener(self):
+        if self.Listener == None:
+            return
+        if self.Queue.qsize() > self.DataSizeThreshold or len(self.Queue) > self.ItemsNumberThreshold:
+            self.Listener.notify()
 
 class InputStream(CommonStream):
 
@@ -65,6 +74,7 @@ class InputStream(CommonStream):
 #            print("Put data to queue.")
 #            print("Got data: ", data)
             self.Queue.put_nowait(data)
+            self.NotifyListener()
 
     def Read(self):
         if not self.Queue.empty():

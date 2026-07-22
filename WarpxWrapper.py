@@ -13,6 +13,7 @@ import argparse
 import signal
 import shutil
 from blessed import Terminal
+from threading import Contition()
 
 from FormattedValue import FormattedNumber, FormattedTime
 from NonBlockingStream import TextInputStream, InputTerminal
