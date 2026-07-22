@@ -706,15 +706,16 @@ MainTimer = Timer(UpdateInterval)
 
 ControlInput = InputTerminal(MainUI.Terminal)
 if Source == SourceType.STDIN: # Sorry, not interactive mode (or use another i/o stream)
-    ControlInput.Input = None
+    ControlInput.Source = None
 
 LogDebug("Activating input non-blocking pipe.")
 DataInput.Activate()
 LogDebug(1, f"Pipe activity status: {DataInput.IsActive()}.")
 
-LogDebug("Activating stdin non-blocking pipe.")
-ControlInput.Activate()
-LogDebug(1, f"Pipe activity status: {ControlInput.IsActive()}.")
+if ControlInput.Stream != None:
+    LogDebug("Activating stdin non-blocking pipe.")
+    ControlInput.Activate()
+    LogDebug(1, f"Pipe activity status: {ControlInput.IsActive()}.")
 
 FWatcher = FileWatcher(InputFileName)
 ExcludePids = []
