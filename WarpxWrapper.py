@@ -39,6 +39,7 @@ class SourceType(enum.Enum):
 DefaultWarpxInputFileName = "input"
 
 class Config:
+    MaxParamLength = 0
     LogLevel = Verbosity.INFO
     Quiet = False
     ErrorIsFatal = True
@@ -218,15 +219,21 @@ def IncludeFile(fname):
     finally:
         SyncConfig(mod)
 
-def PrintParam(name):
+def PrintParam(name, MinLength = 0):
     Value = getattr(Config, name)
-    TypeName = type(Value).__name__
-    LogDebug(1, "{} = {} ({})".format(name, Value, TypeName))
+    Type = type(Value)
+    Extra = MinLength - len(name)
+    if Extra < 0:
+        Extra = 0
+    if Type == str:
+        Value = f"\"{Value}\""
+    fmt = f"{name} = " + Extra * "-" + f" {Value} ({Type.__name__})"
+    LogDebug(1, fmt)
 
 def PrintParams():
     LogDebug("Printing current configuration:")
     for name in Params:
-        PrintParam(name)
+        PrintParam(name, Config.MaxParamLength)
 
 parser = argparse.ArgumentParser(
         description = "Small script for showing realtime WarpX time and progress stats and (optionally) to help running it."
@@ -344,6 +351,7 @@ def TypeDescription(t, NonFatal = False):
     raise TypeError("Unsupported type: {}".format(t))
 
 def AddParam(VarName, *Args, **KArgs):
+    global Config
     v = getattr(Config, VarName)
     if v != None:
         global parser
@@ -355,8 +363,10 @@ def AddParam(VarName, *Args, **KArgs):
             KArgs["help"] = "Type: {}.".format(TypeDescription(type(v), True))
         parser.add_argument(*Args, VarName = VarName, **KArgs)
         Params.append(VarName)
+
+        Config.MaxParamLength = max(Config.MaxParamLength, len(VarName))
     else:
-        raise NameError("Variable {} not found.".format(VarName))
+        raise NameError("Variable {VarName} not found.")
 
 AddParam("LogLevel", "-v", "--verbosity", action=VerbosityAction, const='debug', choices=LogLevels.keys())
 AddParam("Quiet", "-q", "--quiet", const = True)
