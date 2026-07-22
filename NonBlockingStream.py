@@ -12,7 +12,7 @@ class CommonStream:
     QueueSizeThreshold = 0
 
     def __init__(self, Stream = None, EventQueue = None, Event = True):
-        self.Queue = queue.Queue()
+        self.Queue = queue.SimpleQueue()
         self.Stream = Stream
 #        print("Got event queue with value: ", EventQueue)
         self.EventQueue = EventQueue

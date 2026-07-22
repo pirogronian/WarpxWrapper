@@ -13,7 +13,7 @@ import argparse
 import signal
 import shutil
 from blessed import Terminal
-from queue import Queue
+from queue import SimpleQueue
 
 from FormattedValue import FormattedNumber, FormattedTime
 from NonBlockingStream import TextInputStream, InputTerminal
@@ -704,7 +704,7 @@ LogDebug("\n      Start waiting for WarpX Data...\n")
 if DontRun:
     exit(0)
 
-EventQueue = Queue()
+EventQueue = SimpleQueue()
 
 MainStats = Stats(MaxSteps, MaxTime)
 MainUI = UI(MainStats, UpdateInterval)
