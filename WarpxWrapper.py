@@ -183,21 +183,40 @@ def IsReadable(fname):
 def IsWritable(fname):
     return os.access(fname, os.W_OK)
 
+def CreateExecEnv():
+    Ret = { "Config" : Config, "Verbosity" : Verbosity, "SourceType" : SourceType }
+    cd = vars(Config)
+    for name in cd:
+        if name[:2] != "__":
+            Ret[name] = cd[name]
+    return Ret
+
+def SyncConfig(glob):
+    global Config
+    cd = vars(Config)
+    for name in cd:
+        if name[:2] != "__" and name in glob:
+            setattr(Config, name, glob[name])
+
 def IncludeFile(fname):
-    LogDebug("Including file '{}'.".format(fname))
+    LogDebug(f"Including file '{fname}'.")
     try:
         f = open(fname, "r")
     except Exception as e:
-        LogError("Cannot open file '{}'.".format(fname))
+        LogError(f"Cannot open file '{fname}'.")
         Error(1, e)
         return
     prog = f.read()
+    env = CreateExecEnv()
+    mod = {}
     try:
-        exec(prog, { "Config" : Config, "Verbosity" : Verbosity, "SourceType" : SourceType })
+        exec(prog, env, mod)
     except Exception as e:
-        LogError("Error while executing include file: '{}'".format(fname))
+        LogError(f"Error while executing include file: '{fname}'")
         LogExceptError(1, e)
         Error()
+    finally:
+        SyncConfig(mod)
 
 def PrintParam(name):
     Value = getattr(Config, name)
