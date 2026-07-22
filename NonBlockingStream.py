@@ -9,13 +9,14 @@ import blessed
 
 class CommonStream:
     Interval = 0.0
-    DataSizeThreshold = 0.0
-    ItemsNumberThreshold = 0
+    QueueSizeThreshold = 0
 
-    def __init__(self, Stream = None, Listener = None):
+    def __init__(self, Stream = None, EventQueue = None, Event = True):
         self.Queue = queue.Queue()
         self.Stream = Stream
-        self.Listener = Listener
+#        print("Got event queue with value: ", EventQueue)
+        self.EventQueue = EventQueue
+        self.Event = Event
 
     def Activate(self, Stream = None):
         if Stream != None:
@@ -45,11 +46,14 @@ class CommonStream:
     def DataSize(self):
         return self.Queue.qsize()
 
-    def NotifyListener(self):
-        if self.Listener == None:
+    def SendEvent(self):
+        if self.EventQueue == None:
+#            print("No even queue!")
             return
-        if self.Queue.qsize() > self.DataSizeThreshold or len(self.Queue) > self.ItemsNumberThreshold:
-            self.Listener.notify()
+#        print(f"Checking threshold: {self.Queue.qsize()} > {self.QueueSizeThreshold}.")
+        if self.Queue.qsize() > self.QueueSizeThreshold:
+            self.EventQueue.put_nowait(self.Event)
+#            print(f"Send event {self.Event} from stream.")
 
 class InputStream(CommonStream):
 
@@ -68,13 +72,14 @@ class InputStream(CommonStream):
 #                    print("   Input empty, exiting.")
                     break
                 else:
-#                    print("   Input empty, waiting.")
+#                    print(f"   Input empty, waiting for {self.Interval}.")
                     time.sleep(self.Interval)
                     continue
+#            print("Got data:", data)
+            self.SendEvent()
 #            print("Put data to queue.")
 #            print("Got data: ", data)
             self.Queue.put_nowait(data)
-            self.NotifyListener()
 
     def Read(self):
         if not self.Queue.empty():
@@ -98,6 +103,7 @@ class OutputStream(CommonStream):
                 else:
                     time.sleep(self.WriteInterval)
                     continue
+            self.SendEvent()
 
     def Write(self, Data):
         self.WriteQueue.put_nowait(data)
@@ -110,13 +116,13 @@ class InputTerminal(InputStream):
     Buffered = True
     UseBlessed = False
 
-    def __init__(self, Terminal = None, *args, **kargs):
+    def __init__(self, Terminal = None, EventQueue = None, Event = True, *args, **kargs):
         if Terminal == None:
             Terminal = blessed.Terminal(*args, **kargs)
 
         self.CBreakContext = Terminal.cbreak()
         self.Terminal = Terminal
-        super().__init__(sys.stdin)
+        super().__init__(sys.stdin, EventQueue, Event)
 
     def DisableBuffering(self):
         self.CBreakContext.__enter__()
@@ -144,6 +150,7 @@ class InputTerminal(InputStream):
             else:
                 #print("End sequence, return data.")
                 break
+#        print(f"Red: {Data}")
         return Data
 
     def DirectRead(self):

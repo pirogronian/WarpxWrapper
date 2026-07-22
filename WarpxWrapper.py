@@ -13,7 +13,7 @@ import argparse
 import signal
 import shutil
 from blessed import Terminal
-from threading import Contition()
+from queue import Queue
 
 from FormattedValue import FormattedNumber, FormattedTime
 from NonBlockingStream import TextInputStream, InputTerminal
@@ -657,7 +657,7 @@ class UI:
     def Rewrite(self, Length = None):
 #        print("+", end = '')
 #        sys.stdout.flush()
-#        return
+        #return
         if self.First:
             self.WriteHeader(Length)
             self.First = False
@@ -698,15 +698,21 @@ LogDebug("\n      Start waiting for WarpX Data...\n")
 if DontRun:
     exit(0)
 
+EventQueue = Queue()
+
 MainStats = Stats(MaxSteps, MaxTime)
 MainUI = UI(MainStats, UpdateInterval)
 MainUI.NonDestructive = NonDestructivePrint
 MainUI.MinLen = 79
 MainTimer = Timer(UpdateInterval)
 
-ControlInput = InputTerminal(MainUI.Terminal)
+ControlInput = InputTerminal(MainUI.Terminal, EventQueue)
 if Source == SourceType.STDIN: # Sorry, not interactive mode (or use another i/o stream)
     ControlInput.Source = None
+
+DataInput.EventQueue = EventQueue
+DataInput.Event = False
+DataInput.QueueSizeThreshold = 100
 
 LogDebug("Activating input non-blocking pipe.")
 DataInput.Activate()
@@ -722,6 +728,8 @@ ExcludePids = []
 
 print("\n")
 
+Finishing = False
+
 try:
     ControlInput.DisableBuffering()
 
@@ -730,12 +738,15 @@ try:
             LogDebug("Skipping main.")
             break
 
-        key = ControlInput.Read()
-        if key != None:
-        #print("Keys: ", keys)
+        while 1:
+            key = ControlInput.Read()
+            if key == None:
+                break
+            print("Keys: ", key)
             if CompareKeys(key, BreakKey):
                 print("\n\n")
                 LogInfo(f"Breaking on user demand.")
+                Finishing = True
                 break
             if CompareKeys(key, ISOKey):
                 FmtTime.ISO = not FmtTime.ISO
@@ -766,6 +777,8 @@ try:
             else:
                 MainUI.MsgLine.SetTemporary(key)
             MainUI.Rewrite()
+        if Finishing:
+            break
 
         if StartTime < 0:
             WaitingFor = time.time() - WaitForDataStart
@@ -789,8 +802,13 @@ try:
             #print("Read null string")
             if (DataInput.IsActive()):
                 ExcludePids = Pids # Detected processes are not our writer
-    #            print("DataInput active, waiting.")
-                time.sleep(UpdateInterval)
+                #print(f"DataInput active, waiting for {UpdateInterval}.")
+                try:
+                    EventQueue.get(timeout=UpdateInterval)
+                except Exception as e:
+                    #LogDebug("Exception while waiting for event.")
+                    #LogExceptDebug(e)
+                    pass
                 continue # So all interactivity must take place earlier
             else:
                 LogDebug("DataInput inactive, finishing.")
