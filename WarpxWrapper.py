@@ -60,7 +60,7 @@ class Config:
 
     UseMpi = False
 
-    InputFileName = ""
+    InputFile = ""
 
     PID = 0
     AbortOnExit = False
@@ -167,7 +167,7 @@ def LogExceptError(*args):
 def Error(*args):
     if args:
         LogError(*args)
-    if ErrorIsFatal:
+    if Config.ErrorIsFatal:
         LogError(" ^^^^ An error occured, aborting. ^^^^")
         exit(1)
 
@@ -373,7 +373,7 @@ AddParam("DontWaitForFooter", "--dont-wait-for-footer", const = True)
 AddParam("Source", "-s", "--source", action=SourceAction, choices=Sources.keys())
 AddParam("PID", "-p", "--pid")
 AddParam("AbortOnExit", "-k", "--abort-on-exit", const = True)
-AddParam("InputFileName","-i", "--input-file")
+AddParam("InputFile","-i", "--input-file")
 AddParam("ExecBase", "--exec-base")
 AddParam("ExecDim", "--dim", "--exec-dim")
 AddParam("Executable", "--executable")
@@ -426,26 +426,26 @@ def PrepareInputFileName():
 #    global DataStream
 #    global IsFifo
     global DataInput
-    LogDebug(f"Opening WarpX output file: '{Config.InputFileName}'")
+    LogDebug(f"Opening WarpX output file: '{Config.InputFile}'")
     try:
-        DataStream = open(Config.InputFileName, "r")
+        DataStream = open(Config.InputFile, "r")
     except Exception as e:
-        LogWarning(f"Cannot open data file '{Config.InputFileName}' for reading, trying to create it...")
+        LogWarning(f"Cannot open data file '{Config.InputFile}' for reading, trying to create it...")
         LogWarning(1, e)
         try:
-            open(Config.InputFileName, "x")
+            open(Config.InputFile, "x")
         except Exception as e:
-            LogCritical(f"Cannot open nor create data file '{Config.InputFileName}'.")
+            LogCritical(f"Cannot open nor create data file '{Config.InputFile}'.")
             Fatal(1, e)
         try:
-            DataStream = open(Config.InputFileName, "r")
+            DataStream = open(Config.InputFile, "r")
         except Exception as e:
-            LogCritical(f"Cannot open created data file '{Config.InputFileName}'.")
+            LogCritical(f"Cannot open created data file '{Config.InputFile}'.")
             Fatal(1, e)
     DataInput.Stream = DataStream
-    LogDebug(f"File '{Config.InputFileName}' successfully opened.")
-    if not pathlib.Path(Config.InputFileName).is_fifo():
-        LogDebug(f"'{Config.InputFileName}' is not a fifo, don't exit on empty read.")
+    LogDebug(f"File '{Config.InputFile}' successfully opened.")
+    if not pathlib.Path(Config.InputFile).is_fifo():
+        LogDebug(f"'{Config.InputFile}' is not a fifo, don't exit on empty read.")
         DataInput.Interval = Config.UpdateInterval
 
 WarpxProcess = None
@@ -473,12 +473,12 @@ def PrepareCommand():
             CmdArgs.append(Config.ExecBase + Config.ExecDim)
 
     if Config.Command == "":
-        if Config.InputFileName == "":
-            Config.InputFileName = DefaultWarpxInputFileName
-        if not IsReadable(Config.InputFileName):
-            Error(f"Warpx input file \"{Config.InputFileName}\" is not readable.")
+        if Config.InputFile == "":
+            Config.InputFile = DefaultWarpxInputFileName
+        if not IsReadable(Config.InputFile):
+            Error(f"Warpx input file \"{Config.InputFile}\" is not readable.")
 
-        CmdArgs.append(Config.InputFileName)
+        CmdArgs.append(Config.InputFile)
 
     RunMsg = f"|   Running WarpX 3D with the following command: {CmdArgs}   |"
     RunMsgLen = len(RunMsg)
@@ -747,7 +747,7 @@ if ControlInput.Stream != None:
     ControlInput.Activate()
     LogDebug(1, f"Pipe activity status: {ControlInput.IsActive()}.")
 
-FWatcher = FileWatcher(Config.InputFileName)
+FWatcher = FileWatcher(Config.InputFile)
 ExcludePids = []
 
 print("\n")
@@ -900,9 +900,9 @@ try:
             Footer = True
             MainUI.CurrentSection = UI.Section.FOOTER
             LogDebug("Footer detected.")
-            if SkipFooter:
+            if Config.SkipFooter:
                 break
-            time.sleep(UpdateInterval) # Let some time to the pipe to read last of data.
+            time.sleep(Config.UpdateInterval) # Let some time to the pipe to read last of data.
             DataInput.Interval = 0 # Don't wait for data anymore.
         elif ReAbort.match(OutputLine):
             LogWarning("Warpx aborted.")
