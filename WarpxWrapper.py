@@ -30,6 +30,7 @@ class Verbosity(enum.Enum):
     ERROR = logging.ERROR
     CRITICAL = logging.CRITICAL
 
+
 class SourceType(enum.Enum):
     DEFAULT = 0 # It means the COMMAND
     COMMAND = 1
@@ -184,11 +185,23 @@ def IsReadable(fname):
 def IsWritable(fname):
     return os.access(fname, os.W_OK)
 
+def setLogLevel(level):
+    global Config
+    Config.LofLevel = level
+
+def getLogLevel():
+    return Config.LogLevel
+
 def CreateExecEnv():
-    Ret = { "Config" : Config, "Verbosity" : Verbosity, "SourceType" : SourceType }
+    Ret = {
+        "Verbosity" : Verbosity,
+        "SourceType" : SourceType,
+        "getLogLevel" : getLogLevel,
+        "setLogLevel" : setLogLevel
+        }
     cd = vars(Config)
     for name in cd:
-        if name[:2] != "__":
+        if name[:2] != "__" and name != "LogLevel":
             Ret[name] = cd[name]
     return Ret
 
@@ -196,7 +209,7 @@ def SyncConfig(glob):
     global Config
     cd = vars(Config)
     for name in cd:
-        if name[:2] != "__" and name in glob:
+        if name[:2] != "__" and name != "LogLevel" and name in glob:
             setattr(Config, name, glob[name])
 
 def IncludeFile(fname):
