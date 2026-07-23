@@ -21,10 +21,10 @@ class CommonStream:
         self.Event = Event
 
     def IsOpen(self):
-        return type(self.Stream) == io.IOBase and not self.Stream.closed()
+        return issubclass(io.IOBase, self.Stream) and not self.Stream.closed()
 
     def IsClosed(self):
-        return type(self.Stream) == io.IOBase and self.Stream.closed()
+        return issubclass(io.IOBase, self.Stream) and self.Stream.closed()
 
     def Open(self):
         if type(self.Stream) == str:
