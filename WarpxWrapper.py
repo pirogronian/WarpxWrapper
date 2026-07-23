@@ -12,6 +12,7 @@ import enum
 import argparse
 import signal
 import shutil
+import stat
 from blessed import Terminal
 from queue import SimpleQueue
 
@@ -372,12 +373,12 @@ def PrepareInputFileName():
         if IsFifo:
             os.mkfifo(Config.InputFile)
         else:
-            os.mknode(Config.InputFile, stat.S_IFREG | 0o600)
+            os.mknod(Config.InputFile, stat.S_IFREG | 0o600)
     if IsFifo:
         Logger.Debug("Input file is a pipe. Open it inside thread.")
         DataInput.Stream = Config.InputFile
     else:
-        Logger.Debug("Input fle is an ordinary file. Don't exit if read zero bytes.'")
+        Logger.Debug("Input fle is an ordinary file. Don't exit if read zero bytes.")
         DataInput.Interval = Config.UpdateInterval
         try:
             DataStream = open(Config.InputFile, "r")
