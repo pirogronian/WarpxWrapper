@@ -11,12 +11,39 @@ class CommonStream:
     Interval = 0.0
     QueueSizeThreshold = 0
 
-    def __init__(self, Stream = None, EventQueue = None, Event = True):
+    def __init__(self, Stream = None, EventQueue = None, Event = True, Binary = False, Lines = False):
         self.Queue = queue.SimpleQueue()
         self.Stream = Stream
+        self.Binary = Binary
+        self.Lines = Lines
 #        print("Got event queue with value: ", EventQueue)
         self.EventQueue = EventQueue
         self.Event = Event
+
+    def IsOpen(self):
+        return type(self.Stream) == io.IOBase and not self.Stream.closed()
+
+    def IsClosed(self):
+        return type(self.Stream) == io.IOBase and self.Stream.closed()
+
+    def Open(self):
+        if type(self.Stream) == str:
+            Mode = self.Mode
+            if self.Binary:
+                Mode += "b"
+            self.Stream = open(self.Stream, self.Mode)
+            self.SendEvent()
+
+    def Daemon(self):
+        self.Open()
+
+        while 1:
+            ret = self.MainLoop()
+            if ret == 0:
+                if self.Interval > 0:
+                    time.sleep(self.Interval)
+                else:
+                    break
 
     def Activate(self, Stream = None):
         if Stream != None:
@@ -57,30 +84,27 @@ class CommonStream:
 #            print(f"Send event {self.Event} from stream.")
 
 class InputStream(CommonStream):
+    Mode = "r"
 
     def DirectRead(self):
+        if self.Lines:
+            return self.Stream.readline()
         return self.Stream.read()
 
-    def Daemon(self):
+    def MainLoop(self):
 #        print("Self given:", self)
 #        print("An extra argument given:", extra)
 #        print(f"Deamon started. Activity status: {self.IsActive()}")
-        while 1:
-            data = self.DirectRead()
-#            print("   Got line of data.")
-            if len(data) == 0:
-                if self.Interval == 0:
-#                    print("   Input empty, exiting.")
-                    break
-                else:
-#                    print(f"   Input empty, waiting for {self.Interval}.")
-                    time.sleep(self.Interval)
-                    continue
+
+        data = self.DirectRead()
+        if len(data) == 0:
+            return 0
 #            print("Got data:", data)
 #            print("Put data to queue.")
 #            print("Got data: ", data)
-            self.Queue.put_nowait(data)
-            self.SendEvent()
+        self.Queue.put_nowait(data)
+        self.SendEvent()
+        return 1
 
     def Read(self):
         if not self.Queue.empty():
@@ -90,28 +114,26 @@ class InputStream(CommonStream):
             return ret
 
 class OutputStream(CommonStream):
+    Mode = "w"
 
     def DirectWrite(self, Data):
+        if self.Lines:
+            return self.Stream.writelines(Data)
         return self.Stream.write(Data)
 
-    def Daemon(self):
-        while 1:
-            data = self.Queue.get()
-            ret = self.DirectWrite(data)
-            if not ret:
-                if self.Interval == 0:
-                    break
-                else:
-                    time.sleep(self.WriteInterval)
-                    continue
-            self.SendEvent()
+    def MainLoop(self):
+        data = self.Queue.get()
+        ret = self.DirectWrite(data)
+        if ret == 0:
+            return 0
+        self.SendEvent()
+        return 1
 
     def Write(self, Data):
         self.WriteQueue.put_nowait(data)
 
-class TextInputStream(InputStream):
-    def DirectRead(self):
-        return self.Stream.readline()
+class AppendStream(OutputStream):
+    Mode = "a"
 
 class InputTerminal(InputStream):
     Buffered = True

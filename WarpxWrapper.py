@@ -16,7 +16,7 @@ from blessed import Terminal
 from queue import SimpleQueue
 
 from FormattedValue import FormattedNumber, FormattedTime
-from NonBlockingStream import TextInputStream, InputTerminal
+from NonBlockingStream import InputStream, InputTerminal
 from FileWatcher import FileWatcher
 import FitLine
 from MessageLine import MessageLine
@@ -34,7 +34,7 @@ DefaultWarpxInputFileName = "input"
 
 class Config:
     MaxParamLength = 0
-    LogLevel = Verbosity.INFO
+    LogLevel = Verbosity.INFO # It does nothig, but must be due to AddParam() requirements
     Quiet = False
     ErrorIsFatal = True
     UpdateInterval = 0.5
@@ -56,6 +56,7 @@ class Config:
     UseMpi = False
 
     InputFile = ""
+    IsFifo = True
 
     PID = 0
     AbortOnExit = False
@@ -94,11 +95,10 @@ def IsWritable(fname):
     return os.access(fname, os.W_OK)
 
 def setLogLevel(level):
-    global Config
-    Config.LofLevel = level
+    Logger.Level = level
 
 def getLogLevel():
-    return Config.LogLevel
+    return Logger.Level
 
 def CreateExecEnv():
     Ret = {
@@ -174,7 +174,7 @@ class VerbosityAction(argparse.Action):
         super().__init__(option_strings, dest, **kwargs)
     def __call__(self, parser, namespace, value, option_string):
         global Config
-        Config.LogLevel = LogLevels[value]
+        setLogLevel(LogLevels[value])
         Logger.Debug("Command line: set LogLevel to '{}'.".format(value))
 #parser.add_argument("-v", "--verbosity", nargs='?', action=VerboseAction, const='debug', choices = LogLevels.keys())
 
@@ -305,6 +305,7 @@ AddParam("Source", "-s", "--source", action=SourceAction, choices=Sources.keys()
 AddParam("PID", "-p", "--pid")
 AddParam("AbortOnExit", "-k", "--abort-on-exit", const = True)
 AddParam("InputFile","-i", "--input-file")
+AddParam("IsFifo", "--fifo", "--pipe", const = True)
 AddParam("ExecBase", "--exec-base")
 AddParam("ExecDim", "--dim", "--exec-dim")
 AddParam("Executable", "--executable")
@@ -343,7 +344,7 @@ def PrepareLogging():
 #DataStream = None
 #IsFifo = False
 
-DataInput = TextInputStream()
+DataInput = InputStream(Lines = True)
 
 def PrepareStdin():
 #    global DataStream
@@ -357,27 +358,34 @@ def PrepareInputFileName():
 #    global DataStream
 #    global IsFifo
     global DataInput
+    IsFifo = Config.IsFifo
     Logger.Debug(f"Opening WarpX output file: '{Config.InputFile}'")
-    try:
-        DataStream = open(Config.InputFile, "r")
-    except Exception as e:
-        Logger.Warning(f"Cannot open data file '{Config.InputFile}' for reading, trying to create it...")
-        Logger.Warning(1, e)
-        try:
-            open(Config.InputFile, "x")
-        except Exception as e:
-            Logger.Critical(f"Cannot open nor create data file '{Config.InputFile}'.")
-            Fatal(1, e)
+    Path = pathlib.Path(Config.InputFile)
+    if Path.is_file():
+        if Path.is_fifo():
+            IsFifo = True
+        else:
+            IsFifo = False
+    elif Path.is_fifo():
+        IsFifo = True
+    else:
+        if IsFifo:
+            os.mkfifo(Config.InputFile)
+        else:
+            os.mknode(Config.InputFile, stat.S_IFREG | 0o600)
+    if IsFifo:
+        Logger.Debug("Input file is a pipe. Open it inside thread.")
+        DataInput.Stream = Config.InputFile
+    else:
+        Logger.Debug("Input fle is an ordinary file. Don't exit if read zero bytes.'")
+        DataInput.Interval = Config.UpdateInterval
         try:
             DataStream = open(Config.InputFile, "r")
         except Exception as e:
-            Logger.Critical(f"Cannot open created data file '{Config.InputFile}'.")
-            Fatal(1, e)
-    DataInput.Stream = DataStream
-    Logger.Debug(f"File '{Config.InputFile}' successfully opened.")
-    if not pathlib.Path(Config.InputFile).is_fifo():
-        Logger.Debug(f"'{Config.InputFile}' is not a fifo, don't exit on empty read.")
-        DataInput.Interval = Config.UpdateInterval
+            Logger.ExceptCritic(e)
+            Fatal(f"Cannot open data file '{Config.InputFile}' for reading.")
+        DataInput.Stream = DataStream
+        Logger.Debug(f"File '{Config.InputFile}' successfully opened.")
 
 WarpxProcess = None
 
@@ -751,7 +759,11 @@ try:
 
         Pids = []
         if PID == 0 and Config.Source == SourceType.FILE:
-            Pids = FWatcher.DetectPids(Exclude = ExcludePids)
+            try:
+                Pids = FWatcher.DetectPids(Exclude = ExcludePids)
+            except Exception as e:
+                pass
+                #Logger.ExceptWarn(e)
 
         MainUI.Update()
 

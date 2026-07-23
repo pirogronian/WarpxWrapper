@@ -80,7 +80,7 @@ class Logger:
 
     def Except(self, level, *args):
 #    print(level, LogLevel)
-        if level.value >= self.LogLevel.value:
+        if level.value >= self.Level.value:
             msg = Prepare(args)
             self.Inner.exception(msg)
 
