@@ -6,24 +6,24 @@ import subprocess
 import regex
 import time
 import datetime
-import logging
 import pathlib
 import enum
 import argparse
 import signal
 import shutil
 import stat
+import psutil
 from blessed import Terminal
 from queue import SimpleQueue
 
 from FormattedValue import FormattedNumber, FormattedTime
 from NonBlockingStream import InputStream, InputTerminal
-from FileWatcher import FileWatcher
 import FitLine
 from MessageLine import MessageLine
 from Timer import Timer
 from Various import CompareKeys
 from Logger import Logger, Verbosity
+import Processes
 
 class SourceType(enum.Enum):
     DEFAULT = 0 # It means the COMMAND
@@ -429,14 +429,14 @@ def PrepareCommand():
     Logger.Debug(Panel)
 
     try:
-        WarpxProcess = subprocess.Popen(args=CmdArgs,
-                                        stdin=subprocess.DEVNULL,
-                                        stdout=subprocess.PIPE,
-                                        stderr=subprocess.STDOUT,
-                                        text=True)
+        WarpxProcess = psutil.Popen(args=CmdArgs,
+                                    stdin=subprocess.DEVNULL,
+                                    stdout=subprocess.PIPE,
+                                    stderr=subprocess.STDOUT,
+                                    text=True)
     except Exception as e:
-        Logger.Critical("Cannot create a subprocess to get its output.")
-        Fatal(1, e)
+        Logger.ExceptCrit(e)
+        Fatal("Cannot create a subprocess to get its output.")
 
     DataInput.Stream = WarpxProcess.stdout
 
@@ -589,6 +589,7 @@ class UI:
 
     def WriteHeader(self, Length):
         lmin, lmax = self.GetLen()
+#        print(lmin, lmax, Length)
         d = self.IsDestructive()
         self.PrintLine("+" + "-" * (lmin - 2) + "+")
         fmt = f"|{{:^{lmin - 2}}}|"
@@ -620,6 +621,7 @@ class UI:
 #        print("+", end = '')
 #        sys.stdout.flush()
         #return
+        self.CacheMaxLen()
         if Config.Quiet:
             return
         if self.First:
@@ -641,6 +643,7 @@ SkipMain = False
 
 MainUpdated = False
 SecondUpdated = False
+ThirdUpdated = False
 
 Paused = False
 
@@ -687,14 +690,16 @@ if ControlInput.Stream != None:
     ControlInput.Activate()
     Logger.Debug(1, f"Pipe activity status: {ControlInput.IsActive()}.")
 
-FWatcher = FileWatcher(Config.InputFile)
-ExcludePids = []
-
 print("\n")
 
 Finishing = False
 
-PID = Config.PID
+if WarpxProcess == None and Config.PID > 0:
+    try:
+        WarpxProcess = psutil.Process(Config.PID)
+    except Exception as e:
+        Logger.ExceptError(e)
+        Logger.Error(f"Cannot assign Warpx process from given PID: {Config.PID}")
 
 try:
     ControlInput.DisableBuffering()
@@ -703,6 +708,8 @@ try:
         if SkipMain:
             Logger.Debug("Skipping main.")
             break
+
+        MainUI.CacheMaxLen()
 
         while 1:
             key = ControlInput.Read()
@@ -725,20 +732,17 @@ try:
                 NonDestructivePrint = not NonDestructivePrint
                 MainUI.NonDestructive = not MainUI.NonDestructive
             elif CompareKeys(key, Config.PauseKey):
-                Sig = -1
                 if Paused:
-                    Sig = signal.SIGCONT
+                    if WarpxProcess != None:
+                        Processes.ResumeTree(WarpxProcess)
                     Paused = False
                     MainUI.MsgLine.SetPersistent()
                     MainUI.MsgLine.SetTemporary("Resumed")
                 else:
-                    Sig = signal.SIGSTOP
+                    if WarpxProcess != None:
+                        Processes.PauseTree(WarpxProcess)
                     Paused = True
                     MainUI.MsgLine.SetPersistent("Paused")
-                if WarpxProcess != None:
-                    WarpxProcess.send_signal(Sig)
-                elif PID > 0:
-                    os.kill(PID, Sig)
             else:
                 MainUI.MsgLine.SetTemporary(key)
             MainUI.Rewrite()
@@ -758,21 +762,13 @@ try:
                     Start = '\r'
                 MainUI.PrintLine(f"{Start}   Waiting for WarpX to start sending data for: {FmtTime.Str(WaitingFor)}", End)
 
-        Pids = []
-        if PID == 0 and Config.Source == SourceType.FILE:
-            try:
-                Pids = FWatcher.DetectPids(Exclude = ExcludePids)
-            except Exception as e:
-                pass
-                #Logger.ExceptWarn(e)
-
-        MainUI.Update()
+        #if not (Header or Footer):
+        #    MainUI.Update()
 
         OutputLine = DataInput.Read()
         if OutputLine == None:
             #print("Read null string")
             if (DataInput.IsActive()):
-                ExcludePids = Pids # Detected processes are not our writer
 #                print(f"DataInput active, waiting for {Config.UpdateInterval}.")
                 Event = None
                 try:
@@ -790,18 +786,14 @@ try:
                 Logger.Debug("DataInput inactive, finishing.")
                 break
 
-        if PID == 0 and Config.Source == SourceType.FILE:
-            if ExcludePids == []: # Probably the first process is the writer
-                ExcludePids.append(os.getpid())
-                PID = FWatcher.DetectFirstPid(Exclude = ExcludePids)
-            else:
-                PID = FWatcher.DetectLastPid(Exclude = ExcludePids)
-            if PID == None:
-                if OutputLine == None:
-                    PID = 0
-                else: # File has data, clearly is already written.
-                    PID = -1
-            Logger.Debug(f"\nDetected PID: {PID} (excluded: {ExcludePids}).")
+        if not ThirdUpdated and WarpxProcess == None and Config.Source == SourceType.FILE and Config.PID == 0:
+            Ps = Processes.FileUsers(Config.InputFile, ["w", "a"])
+            Me = psutil.Process()
+            for P in Ps:
+                if P != Me:
+                    WarpxProcess = P
+                    Logger.Debug(f"\nDetected Warpx process: {WarpxProcess.name()} ({WarpxProcess.pid()}).")
+            ThirdUpdated = True
 
 
         if StartTime < 0:
@@ -862,6 +854,7 @@ try:
                 MainTimer.Reset()
                 MainUpdated = False
                 SecondUpdated = False
+                ThirdUpdated = False
 
 except Exception as e:
     Logger.Critical("Unhandled exception, restoring terminal settings.")
