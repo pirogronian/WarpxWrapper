@@ -22,14 +22,7 @@ import FitLine
 from MessageLine import MessageLine
 from Timer import Timer
 from Various import CompareKeys
-
-class Verbosity(enum.Enum):
-    DEBUG = logging.DEBUG
-    INFO = logging.INFO
-    WARNING = logging.WARNING
-    ERROR = logging.ERROR
-    CRITICAL = logging.CRITICAL
-
+from Logger import Logger, Verbosity
 
 class SourceType(enum.Enum):
     DEFAULT = 0 # It means the COMMAND
@@ -79,104 +72,19 @@ class Config:
 
 Params = []
 
-class ColorfulFormatter(logging.Formatter):
-
-    grey = "\x1b[38;20m"
-    yellow = "\x1b[33;20m"
-    red = "\x1b[31;20m"
-    bold_red = "\x1b[31;1m"
-    reset = "\x1b[0m"
-    format = "%(levelname)s - %(message)s"
-
-    FORMATS = {
-        logging.DEBUG: grey + format + reset,
-        logging.INFO: grey + format + reset,
-        logging.WARNING: yellow + format + reset,
-        logging.ERROR: red + format + reset,
-        logging.CRITICAL: bold_red + format + reset
-    }
-
-    def format(self, record):
-        log_fmt = self.FORMATS.get(record.levelno)
-        formatter = logging.Formatter(log_fmt)
-        return formatter.format(record)
-
-logger = logging.getLogger("WarpxWrapper")
-logHandler = logging.StreamHandler()
-logFormatter = ColorfulFormatter()
-logHandler.setFormatter(logFormatter)
-logger.addHandler(logHandler)
-logger.setLevel(logging.DEBUG)
-
-def prepareLog(*arg):
-    args = list(arg)
-    nest = 0
-    prefix = ""
-#    prefix += "   "
-    if len(args) > 1:
-        nest = args[0]
-    if isinstance(nest, int) and nest > 0:
-        prefix = "   " * nest
-        args.pop(0)
-
-    msg = "".join(str(item) for item in args)
-    msg = prefix + msg
-
-    return msg
-
-def Log(level, *args):
-    if logger.level != Config.LogLevel: # Let user for simple LogLevel = <level> to work
-        logger.setLevel(Config.LogLevel.value)
-    msg = prepareLog(*args)
-    logger.log(level.value, msg)
-
-def LogDebug(*args):
-    Log(Verbosity.DEBUG, *args)
-
-def LogInfo(*args):
-    Log(Verbosity.INFO, *args)
-
-def LogWarning(*args):
-    Log(Verbosity.WARNING, *args)
-
-def LogError(*args):
-    Log(Verbosity.ERROR, *args)
-
-def LogCritical(*args):
-    Log(Verbosity.CRITICAL, *args)
-
-def LogExcept(level, *args):
-#    print(level, LogLevel)
-    if level.value >= Config.LogLevel.value:
-        msg = prepareLog(args)
-        logger.exception(msg)
-
-def LogExceptDebug(*args):
-    LogExcept(Verbosity.DEBUG, *args)
-
-def LogExceptInfo(*args):
-    LogExcept(Verbosity.INFO, *args)
-
-def LogExceptWarn(*args):
-    LogExcept(Verbosity.WARNING, *args)
-
-def LogExceptCrit(*args):
-    LogExcept(Verbosity.CRITICAL, *args)
-
-def LogExceptError(*args):
-    LogExcept(Verbosity.ERROR, *args)
+Logger = Logger("WarpxWrapper")
 
 def Error(*args):
     if args:
-        LogError(*args)
+        Logger.Error(*args)
     if Config.ErrorIsFatal:
-        LogError(" ^^^^ An error occured, aborting. ^^^^")
+        Logger.Error(" ^^^^ An error occured, aborting. ^^^^")
         exit(1)
 
 def Fatal(*args):
     if args:
-        LogCritical(*args)
-        LogCritical(" ^^^^ An error occured, aborting. ^^^^")
+        Logger.Critical(*args)
+        Logger.Critical(" ^^^^ An error occured, aborting. ^^^^")
         exit(1)
 
 def IsReadable(fname):
@@ -213,11 +121,11 @@ def SyncConfig(glob):
             setattr(Config, name, glob[name])
 
 def IncludeFile(fname):
-    LogDebug(f"Including file '{fname}'.")
+    Logger.Debug(f"Including file '{fname}'.")
     try:
         f = open(fname, "r")
     except Exception as e:
-        LogError(f"Cannot open file '{fname}'.")
+        Logger.Error(f"Cannot open file '{fname}'.")
         Error(1, e)
         return
     prog = f.read()
@@ -226,8 +134,8 @@ def IncludeFile(fname):
     try:
         exec(prog, env, mod)
     except Exception as e:
-        LogError(f"Error while executing include file: '{fname}'")
-        LogExceptError(1, e)
+        Logger.Error(f"Error while executing include file: '{fname}'")
+        Logger.ExceptError(1, e)
         Error()
     finally:
         SyncConfig(mod)
@@ -241,10 +149,10 @@ def PrintParam(name, MinLength = 0):
     if Type == str:
         Value = f"\"{Value}\""
     fmt = f"{name} = " + Extra * "-" + f" {Value} ({Type.__name__})"
-    LogDebug(1, fmt)
+    Logger.Debug(1, fmt)
 
 def PrintParams():
-    LogDebug("Printing current configuration:")
+    Logger.Debug("Printing current configuration:")
     for name in Params:
         PrintParam(name, Config.MaxParamLength)
 
@@ -267,7 +175,7 @@ class VerbosityAction(argparse.Action):
     def __call__(self, parser, namespace, value, option_string):
         global Config
         Config.LogLevel = LogLevels[value]
-        LogDebug("Command line: set LogLevel to '{}'.".format(value))
+        Logger.Debug("Command line: set LogLevel to '{}'.".format(value))
 #parser.add_argument("-v", "--verbosity", nargs='?', action=VerboseAction, const='debug', choices = LogLevels.keys())
 
 class IncludeAction(argparse.Action):
@@ -296,7 +204,7 @@ class SourceAction(argparse.Action):
         global Source
         key = value[0]
         Config.Source = Sources[key]
-        LogDebug("Command line: set Source to {}".format(key))
+        Logger.Debug("Command line: set Source to {}".format(key))
 #parser.add_argument("-s", "--source", nargs=1, action=SourceAction, choices=Sources.keys())
 
 def StrToBool(value):
@@ -348,7 +256,7 @@ class ParamAction(argparse.Action):
         except:
             Error("Value of param {} must be convertable to {}!".format(option_string, t.__name__))
         setattr(Config, self.Param, value)
-        LogDebug("Command line: set {} to {}".format(self.Param, value))
+        Logger.Debug("Command line: set {} to {}".format(self.Param, value))
 
 def TypeDescription(t, NonFatal = False):
     if t == bool:
@@ -408,7 +316,7 @@ DefaultConfigFile = "config.py"
 if IsReadable(DefaultConfigFile): # Always try, never cry.
     IncludeFile(DefaultConfigFile)
 else:
-    LogDebug(f"Cannot read default config file: '{DefaultConfigFile}'")
+    Logger.Debug(f"Cannot read default config file: '{DefaultConfigFile}'")
 
 args = parser.parse_args(sys.argv[1:])
 if len(args.command) > 0:
@@ -428,7 +336,7 @@ def PrepareLogging():
             LogStream = open(Config.LogFile, "w")
             LogWritable = True
         except Exception as e:
-            LogError(f"An exception occured while opening the log file '{Config.LogFile}':")
+            Logger.Error(f"An exception occured while opening the log file '{Config.LogFile}':")
             Error(1, e)
             LogWritable = False
 
@@ -449,26 +357,26 @@ def PrepareInputFileName():
 #    global DataStream
 #    global IsFifo
     global DataInput
-    LogDebug(f"Opening WarpX output file: '{Config.InputFile}'")
+    Logger.Debug(f"Opening WarpX output file: '{Config.InputFile}'")
     try:
         DataStream = open(Config.InputFile, "r")
     except Exception as e:
-        LogWarning(f"Cannot open data file '{Config.InputFile}' for reading, trying to create it...")
-        LogWarning(1, e)
+        Logger.Warning(f"Cannot open data file '{Config.InputFile}' for reading, trying to create it...")
+        Logger.Warning(1, e)
         try:
             open(Config.InputFile, "x")
         except Exception as e:
-            LogCritical(f"Cannot open nor create data file '{Config.InputFile}'.")
+            Logger.Critical(f"Cannot open nor create data file '{Config.InputFile}'.")
             Fatal(1, e)
         try:
             DataStream = open(Config.InputFile, "r")
         except Exception as e:
-            LogCritical(f"Cannot open created data file '{Config.InputFile}'.")
+            Logger.Critical(f"Cannot open created data file '{Config.InputFile}'.")
             Fatal(1, e)
     DataInput.Stream = DataStream
-    LogDebug(f"File '{Config.InputFile}' successfully opened.")
+    Logger.Debug(f"File '{Config.InputFile}' successfully opened.")
     if not pathlib.Path(Config.InputFile).is_fifo():
-        LogDebug(f"'{Config.InputFile}' is not a fifo, don't exit on empty read.")
+        Logger.Debug(f"'{Config.InputFile}' is not a fifo, don't exit on empty read.")
         DataInput.Interval = Config.UpdateInterval
 
 WarpxProcess = None
@@ -507,9 +415,9 @@ def PrepareCommand():
     RunMsgLen = len(RunMsg)
 
     Panel = "-" * RunMsgLen
-    LogDebug(Panel)
-    LogDebug(RunMsg)
-    LogDebug(Panel)
+    Logger.Debug(Panel)
+    Logger.Debug(RunMsg)
+    Logger.Debug(Panel)
 
     try:
         WarpxProcess = subprocess.Popen(args=CmdArgs,
@@ -518,7 +426,7 @@ def PrepareCommand():
                                         stderr=subprocess.STDOUT,
                                         text=True)
     except Exception as e:
-        LogCritical("Cannot create a subprocess to get its output.")
+        Logger.Critical("Cannot create a subprocess to get its output.")
         Fatal(1, e)
 
     DataInput.Stream = WarpxProcess.stdout
@@ -740,7 +648,7 @@ ReNum   = regex.compile("[+-]?(?:[0-9]+(?:\\.[0-9]+)?|\\.[0-9]+)(?:[eE][+-]?[0-9
 #ReNum = regex.compile("[0-9]+(.[0-9]+(e[+-][0-9]+)?)?")
 
 WaitForDataStart = time.time()
-LogDebug("\n      Start waiting for WarpX Data...\n")
+Logger.Debug("\n      Start waiting for WarpX Data...\n")
 
 if Config.DontRun:
     exit(0)
@@ -761,14 +669,14 @@ DataInput.EventQueue = EventQueue
 DataInput.Event = False
 DataInput.QueueSizeThreshold = 100
 
-LogDebug("Activating input non-blocking pipe.")
+Logger.Debug("Activating input non-blocking pipe.")
 DataInput.Activate()
-LogDebug(1, f"Pipe activity status: {DataInput.IsActive()}.")
+Logger.Debug(1, f"Pipe activity status: {DataInput.IsActive()}.")
 
 if ControlInput.Stream != None:
-    LogDebug("Activating stdin non-blocking pipe.")
+    Logger.Debug("Activating stdin non-blocking pipe.")
     ControlInput.Activate()
-    LogDebug(1, f"Pipe activity status: {ControlInput.IsActive()}.")
+    Logger.Debug(1, f"Pipe activity status: {ControlInput.IsActive()}.")
 
 FWatcher = FileWatcher(Config.InputFile)
 ExcludePids = []
@@ -784,7 +692,7 @@ try:
 
     while 1:
         if SkipMain:
-            LogDebug("Skipping main.")
+            Logger.Debug("Skipping main.")
             break
 
         while 1:
@@ -793,7 +701,7 @@ try:
                 break
             if CompareKeys(key, Config.BreakKey):
                 print("\n\n")
-                LogInfo(f"Breaking on user demand.")
+                Logger.Info(f"Breaking on user demand.")
                 Finishing = True
                 break
             if CompareKeys(key, Config.ISOKey):
@@ -857,8 +765,8 @@ try:
                 try:
                     Event = EventQueue.get(timeout=Config.UpdateInterval)
                 except Exception as e:
-                    #LogDebug("Exception while waiting for event.")
-                    #LogExceptDebug(e)
+                    #Logger.Debug("Exception while waiting for event.")
+                    #Logger.ExceptDebug(e)
                     pass
 #                t = type(Event)
 #                print("Got event:", Event, t)
@@ -866,7 +774,7 @@ try:
 #                    print("Time delay:", time.time() - Event)
                 continue # So all interactivity must take place earlier
             else:
-                LogDebug("DataInput inactive, finishing.")
+                Logger.Debug("DataInput inactive, finishing.")
                 break
 
         if PID == 0 and Config.Source == SourceType.FILE:
@@ -880,7 +788,7 @@ try:
                     PID = 0
                 else: # File has data, clearly is already written.
                     PID = -1
-            LogDebug(f"\nDetected PID: {PID} (excluded: {ExcludePids}).")
+            Logger.Debug(f"\nDetected PID: {PID} (excluded: {ExcludePids}).")
 
 
         if StartTime < 0:
@@ -924,13 +832,13 @@ try:
         elif Footer == False and ReFoot.match(OutputLine):
             Footer = True
             MainUI.CurrentSection = UI.Section.FOOTER
-            LogDebug("Footer detected.")
+            Logger.Debug("Footer detected.")
             if Config.SkipFooter:
                 break
             time.sleep(Config.UpdateInterval) # Let some time to the pipe to read last of data.
             DataInput.Interval = 0 # Don't wait for data anymore.
         elif ReAbort.match(OutputLine):
-            LogWarning("Warpx aborted.")
+            Logger.Warning("Warpx aborted.")
             break
 
         if Header or Footer:
@@ -943,9 +851,9 @@ try:
                 SecondUpdated = False
 
 except Exception as e:
-    LogCritical("Unhandled exception, restoring terminal settings.")
+    Logger.Critical("Unhandled exception, restoring terminal settings.")
     ControlInput.RestoreBuffering()
-    LogExceptCrit(e)
+    Logger.ExceptCrit(e)
     exit(1)
 
 ControlInput.RestoreBuffering()
