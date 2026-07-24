@@ -652,6 +652,7 @@ class UI:
         self.PrintLine(fmt.format("Time statistics:"))
         self.PrintLine("+" + "-" * (lmin - 2) + "+")
         print("|")
+        print("\n\n\n")
 
     def WriteSimStats(self):
         s = self.SimStats # Less to write
@@ -695,8 +696,8 @@ class UI:
                     MoveUp = self.SimStatsHeight
                 else:
                     MoveUp = self.RtStatsHeight
+#            print(f"MoveUp: {MoveUp}")
             if MoveUp and not self.NonDestructive:
-#            print(f"Move up by: {MoveUp}")
                 print(self.Terminal.move_up(MoveUp + 1))
             if self.SimStats.Updated or Force:
                 self.WriteSimStats()
