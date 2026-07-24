@@ -711,6 +711,9 @@ try:
 
         MainUI.CacheMaxLen()
 
+        while not EventQueue.empty():
+            EventQueue.get_nowait() # eat stalled events
+
         while 1:
             key = ControlInput.Read()
             if key == None:
