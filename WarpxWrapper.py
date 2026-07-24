@@ -551,40 +551,60 @@ class SimulationStats:
         self.LastRealTime = self.CurrentRealTime
         self.Updated = True
 
-class RuntimeStats:
+class DataStats:
     UpdNr = 0
-    Loop = 0
+    Step = 0
+    LastStep = 0
     DataSize = 0
-    PrevLoop = 0
     PrevDataSize = 0
+    PrevStepDataSize = 0
 
-    LoopDelta = 0
-    DataDelta = 0
+    StartTime = -1
+    Elapsed = 0
 
     CurrentTime = 0
     PrevTime = 0
 
-    LoopSpeed = 0
     DataSpeed = 0
+    TotalDataSpeed = 0
+
+    DataStepSpeed = 0
+    TotalDataStepSpeed = 0
 
     def Recalculate(self):
         self.UpdNr += 1
         self.CurrentTime = time.time()
+        if self.StartTime < 0:
+            self.StartTime = self.CurrentTime
+        self.Elapsed = self.CurrentTime - self.StartTime
         #print(f"Upd # {self.UpdNr}. Loop: {self.Loop}.")
         #print(f"CTime: {self.CurrentTime:.2f}, prev time: {self.PrevTime:.2f}")
 
         self.Delta = self.CurrentTime - self.PrevTime
-        self.LoopDelta = self.Loop - self.PrevLoop
         self.DataDelta = self.DataSize - self.PrevDataSize
 
         if self.Delta > 0:
-            self.LoopSpeed = self.LoopDelta / self.Delta
             self.DataSpeed = self.DataDelta / self.Delta
 
+        if self.Elapsed > 0:
+            self.TotalDataSpeed = self.DataSize / self.Elapsed
+
         self.PrevTime = self.CurrentTime
-        self.PrevLoop = self.Loop
         self.PrevDataSize = self.DataSize
         #print(f"DDelta: {self.DataDelta} / {self.Delta:.2f}, {self.DataSpeed:.2f}/s")
+
+    def RecalculateStep(self):
+        if self.Step <= self.LastStep:
+            Logger.Warning(f"Step: {self.Step} <= LastStep: {self.LastStep}. Nothing to calculate.")
+            return
+
+        self.StepDelta = self.Step - self.LastStep
+        self.DataStepDelta = self.DataSize - self.PrevStepDataSize
+        if self.DataStepDelta > 0:
+            self.DataStepSpeed = self.DataStepDelta / self.StepDelta
+        if self.Step > 0:
+            self.TotalDataStepSpeed = self.DataSize / self.Step
+        self.LastStep = self.Step
 
 class UI:
     class Section(enum.Enum):
@@ -600,15 +620,15 @@ class UI:
     CurrentSection = Section.WAIT
 
     SimStatsHeight = 7
-    RtStatsHeight = 3
+    DataStatsHeight = 3
     MessageLineHeight = 1
 
-    def __init__(self, SimStats, RtStats):
+    def __init__(self, SimStats, DataStats):
         self.Terminal = Terminal()
         print(self.Terminal.clear_bol)
         self.First = True
         self.SimStats = SimStats
-        self.RtStats = RtStats
+        self.DataStats = DataStats
         self.MsgLine = MessageLine(Timeout = 2, FillWith = "-", LineLen = 77)
 
     def IsDestructive(self):
@@ -671,11 +691,11 @@ class UI:
         self.PrintLine("|")
         s.Updated = False
 
-    def WriteRtStats(self):
-        s = self.RtStats
+    def WriteDataStats(self):
+        s = self.DataStats
         minl, maxl = self.GetLen()
         self.PrintLine("+" + "-" * (minl - 2) + "+")
-        self.PrintLine(f"|   Proc. data: {SizeStr(s.DataSize):>10}, {SizeStr(s.DataSpeed):>10}/s")
+        self.PrintLine(f"|   Data: {SizeStr(s.DataSize):>9}, {SizeStr(s.DataSpeed):>8}/s (avg: {SizeStr(s.TotalDataSpeed):>8}/s)|{SizeStr(s.DataStepSpeed):>8}/st (avg: {SizeStr(s.TotalDataStepSpeed):>8}/st)")
 
 
     def WriteMessageLine(self):
@@ -695,13 +715,13 @@ class UI:
                 if self.SimStats.Updated or Force:
                     MoveUp = self.SimStatsHeight
                 else:
-                    MoveUp = self.RtStatsHeight
+                    MoveUp = self.DataStatsHeight
 #            print(f"MoveUp: {MoveUp}")
             if MoveUp and not self.NonDestructive:
                 print(self.Terminal.move_up(MoveUp + 1))
             if self.SimStats.Updated or Force:
                 self.WriteSimStats()
-            self.WriteRtStats()
+            self.WriteDataStats()
             self.WriteMessageLine()
 
 class WarpxWrapper:
@@ -710,8 +730,8 @@ class WarpxWrapper:
     def __init__(self, Interval, MaxStep, MaxTime):
         self.UpdateInterval = Interval
         self.SimStats = SimulationStats(MaxStep, MaxTime)
-        self.RtStats = RuntimeStats()
-        self.UI = UI(self.SimStats, self.RtStats)
+        self.DataStats = DataStats()
+        self.UI = UI(self.SimStats, self.DataStats)
         self.Timer = Timer(self.UpdateInterval)
 
     def UpdateUI(self, Force = False):
@@ -723,7 +743,7 @@ class WarpxWrapper:
     def Update(self, Force = False):
         if self.Timer.Expired() or Force:
             #self.SimStats.Recalculate() # only if there are new step data avaliable.
-            self.RtStats.Recalculate()
+            self.DataStats.Recalculate()
             if not Config.Quiet:
                 self.UI.Rewrite(Force)
             self.Timer.Reset()
@@ -799,7 +819,6 @@ try:
             Logger.Debug("Skipping main.")
             break
 
-        WarpxWr.RtStats.Loop += 1
         WarpxWr.Update()
 
         while not EventQueue.empty():
@@ -880,8 +899,8 @@ try:
                 Logger.Debug("DataInput inactive, finishing.")
                 break
 
-        WarpxWr.RtStats.DataSize += len(OutputLine)
-        #print(f"Increasing data size: {RtStats.DataSize}.")
+        WarpxWr.DataStats.DataSize += len(OutputLine)
+        #print(f"Increasing data size: {DataStats.DataSize}.")
 
         if not ThirdUpdated and WarpxProcess == None and Config.Source == SourceType.FILE and Config.PID == 0:
             Ps = Processes.FileUsers(Config.InputFile, ["w", "a"])
@@ -914,10 +933,12 @@ try:
             nums = ReNum.findall(OutputLine)
 
             WarpxWr.SimStats.Step = int(nums[0])
+            WarpxWr.DataStats.Step = int(nums[0])
             WarpxWr.SimStats.Time = float(nums[1])
             WarpxWr.SimStats.TimeDelta = float(nums[2])
 
             WarpxWr.SimStats.Recalculate()
+            WarpxWr.DataStats.RecalculateStep()
 
             MainUpdated = True
 
