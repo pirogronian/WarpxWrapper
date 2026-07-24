@@ -754,8 +754,8 @@ class UI:
         minl, maxl = self.GetLen()
         SpeedStep, Speed = self.GetDataSpeeds()
         StepESA,TimeESA = self.GetDataESAs()
-        self.PrintLine("+" + "-" * (minl - 2) + "+")
-        self.PrintLine(f"|   Data: {SizeStr(s.DataSize):>9}, {SizeStr(Speed):>8}/s |{SizeStr(SpeedStep):>8}/st | ESA:{SizeStr(TimeESA):>8}/{SizeStr(StepESA):>8}.")
+        self.PrintSeparator()
+        self.PrintLeftPadding(f"Data: {SizeStr(s.DataSize):>9}, {SizeStr(Speed):>8}/s |{SizeStr(SpeedStep):>8}/st | ESA:{SizeStr(TimeESA):>8}/{SizeStr(StepESA):>8}.")
 
 
     def WriteMessageLine(self):
@@ -808,15 +808,41 @@ class WWapper:
         self.Timer = Timer(self.UpdateInterval)
 
     def Pause(self):
+        if WarpxProcess != None:
+            Processes.PauseTree(WarpxProcess)
         self.PausedAt = time.time()
         self.Paused = True
         self.UI.MsgLine.SetPersistent("Paused")
 
     def Resume(self):
+        if WarpxProcess != None:
+            Processes.ResumeTree(WarpxProcess)
         self.Pausedtime += time.time() - self.PausedAt
         self.Paused = False
         self.UI.MsgLine.SetPersistent()
         self.UI.MsgLine.SetTemporary("Resumed")
+
+    def SwitchRunningState(self):
+        if self.Paused:
+            self.Resume()
+        else:
+            self.Pause()
+
+    def SwitchDestrictive(self):
+        self.UI.NonDestructive = not self.UI.NonDestructive
+
+    def SwitchAvgStats(self):
+        self.UI.Avg = not WW.UI.Avg
+        self.UI.MsgLine.SetTemporary(f"Avg: {WW.UI.Avg}")
+
+    def SwitchISO(self):
+        FmtTime.ISO = not FmtTime.ISO
+        msg = "ISO "
+        if FmtTime.ISO:
+            msg += "set"
+        else:
+            msg += "unset"
+        self.UI.MsgLine.SetTemporary(msg)
 
     def GetTotalElapsedTime(self):
         return time.time() - self.StartTime
@@ -912,6 +938,13 @@ print("\n")
 
 Finishing = False
 
+def UserBreak():
+    global Finishing
+
+    print("\n\n")
+    Logger.Info(f"Breaking on user demand.")
+    Finishing = True
+
 if WarpxProcess == None and Config.PID > 0:
     try:
         WarpxProcess = psutil.Process(Config.PID)
@@ -936,34 +969,17 @@ try:
             key = ControlInput.Read()
             if key == None:
                 break
-#            print("Got key:", key, type(key))
+            #print("Got key:", key, type(key))
             if CompareKeys(key, Config.BreakKey):
-                print("\n\n")
-                Logger.Info(f"Breaking on user demand.")
-                Finishing = True
-                break
-            if CompareKeys(key, Config.ISOKey):
-                FmtTime.ISO = not FmtTime.ISO
-                msg = "ISO "
-                if FmtTime.ISO:
-                    msg += "set"
-                else:
-                    msg += "unset"
-                WW.UI.MsgLine.SetTemporary(msg)
+                UserBreak()
+            elif CompareKeys(key, Config.ISOKey):
+                WW.SwitchISO()
             elif CompareKeys(key, "a"):
-                WW.UI.Avg = not WW.UI.Avg
-                WW.UI.MsgLine.SetTemporary(f"Avg: {WW.UI.Avg}")
+                WW.SwitchAvgStats()
             elif CompareKeys(key, Config.NDestPrintKey):
-                WW.UI.NonDestructive = not WW.UI.NonDestructive
+                WW.SwitchDestrictive()
             elif CompareKeys(key, Config.PauseKey):
-                if WW.Paused:
-                    if WarpxProcess != None:
-                        Processes.ResumeTree(WarpxProcess)
-                    WW.Resume()
-                else:
-                    if WarpxProcess != None:
-                        Processes.PauseTree(WarpxProcess)
-                    WW.Pause()
+                WW.SwitchRunningState()
             else:
                 WW.UI.MsgLine.SetTemporary(key)
             WW.UpdateUI(True)

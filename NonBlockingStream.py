@@ -155,8 +155,8 @@ class InputTerminal(InputStream):
         self.CBreakContext.__exit__(None, None, None)
 
     def BlessedRead(self):
-        if self.Buffered:
-            return self.Stream.read()
+        #if self.Buffered:
+        #    return self.Stream.read()
         return self.Terminal.inkey()
 
     def OwnRead(self):
