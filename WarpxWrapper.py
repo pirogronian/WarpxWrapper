@@ -794,6 +794,15 @@ class UI:
             self.WriteDataStats()
             self.WriteMessageLine()
 
+class State:
+    Header = True
+    Footer = False
+    SkipMain = False
+
+    MainUpdated = False
+    SecondUpdated = False
+    ThirdUpdated = False
+
 class WWapper:
     UpdateInterval = 0.5
     StartTime = -1
@@ -802,6 +811,7 @@ class WWapper:
     Paused = False
 
     def __init__(self, Interval, MaxStep, MaxTime):
+        self.State = State()
         self.UpdateInterval = Interval
         self.SimStats = SimulationStats(MaxStep, MaxTime)
         self.DataStats = DataStats()
@@ -899,14 +909,6 @@ class WWapper:
                 self.UI.Rewrite(Force)
             self.Timer.Reset()
 
-Header = True
-Footer = False
-SkipMain = False
-
-MainUpdated = False
-SecondUpdated = False
-ThirdUpdated = False
-
 MeanStepETA = 0
 MeanTimeETA = 0
 UpdateCount = 0
@@ -973,7 +975,7 @@ try:
     ControlInput.DisableBuffering()
 
     while 1:
-        if SkipMain:
+        if Config.SkipMain:
             Logger.Debug("Skipping main.")
             break
 
@@ -1033,7 +1035,7 @@ try:
         WW.DataStats.DataSize += len(OutputLine)
         #print(f"Increasing data size: {DataStats.DataSize}.")
 
-        if not ThirdUpdated and WarpxProcess == None and Config.Source == SourceType.FILE and Config.PID == 0:
+        if not WW.State.ThirdUpdated and WarpxProcess == None and Config.Source == SourceType.FILE and Config.PID == 0:
             Ps = Processes.FileUsers(Config.InputFile, ["w", "a"])
 #            print("")
 #            print(Ps)
@@ -1044,7 +1046,7 @@ try:
                     Logger.Debug(f"Detected Warpx process: {WarpxProcess.name()} ({WarpxProcess.pid}).")
             if WarpxProcess == None:
                 Logger.Warning("Warpx process not detected!")
-            ThirdUpdated = True
+            WW.State.ThirdUpdated = True
 
 
         if WW.StartTime < 0:
@@ -1059,8 +1061,8 @@ try:
                     Logger.Warning("An error while writing to log file.")
                     Logger.Warning(1, e)
 
-        if not Footer and not MainUpdated and Re1.search(OutputLine):
-            Header = False # Just in case we missed something
+        if not WW.State.Footer and not WW.State.MainUpdated and Re1.search(OutputLine):
+            WW.State.Header = False # Just in case we missed something
             nums = ReNum.findall(OutputLine)
 
             WW.SimStats.Step = int(nums[0])
@@ -1071,22 +1073,22 @@ try:
             WW.SimStats.Recalculate()
             WW.DataStats.RecalculateStep()
 
-            MainUpdated = True
+            WW.State.MainUpdated = True
 
-        elif not SecondUpdated and Re2.search(OutputLine):
+        elif not WW.State.SecondUpdated and Re2.search(OutputLine):
             nums = ReNum.findall(OutputLine)
         #print(nums)
 
             WW.SimStats.ElapsedInternalRealTime = float(nums[0])
             WW.SimStats.InternalRealTimeDelta = float(nums[1])
-            SecondUpdated = True
+            WW.State.SecondUpdated = True
 
-        elif Header == True and ReHead.match(OutputLine):
+        elif WW.State.Header == True and ReHead.match(OutputLine):
             WW.UI.CurrentSection = UI.Section.MAIN
-            Header = False
+            WW.State.Header = False
 
-        elif Footer == False and ReFoot.match(OutputLine):
-            Footer = True
+        elif WW.State.Footer == False and ReFoot.match(OutputLine):
+            WW.State.Footer = True
             WW.UI.CurrentSection = UI.Section.FOOTER
             Logger.Debug("Footer detected.")
             if Config.SkipFooter:
@@ -1097,15 +1099,15 @@ try:
             Logger.Warning("Warpx aborted.")
             break
 
-        if Header or Footer:
+        if WW.State.Header or WW.State.Footer:
             print(OutputLine, end='')
 
-        if MainUpdated and SecondUpdated:
+        if WW.State.MainUpdated and WW.State.SecondUpdated:
             if MainTimer.Expired():
                 MainTimer.Reset()
-                MainUpdated = False
-                SecondUpdated = False
-                #ThirdUpdated = False Do it only once
+                WW.State.MainUpdated = False
+                WW.State.SecondUpdated = False
+                #WW.State.ThirdUpdated = False Do it only once
 
 except Exception as e:
     Logger.Critical("Unhandled exception, restoring terminal settings.")
