@@ -637,10 +637,7 @@ class UI:
         fmt = f"|{{:^{lmin - 2}}}|"
         self.PrintLine(fmt.format("Time statistics:"))
         self.PrintLine("+" + "-" * (lmin - 2) + "+")
-        End = '\n\n\n\n\n'
-        if self.NonDestructive:
-            End = "\n"
-        print("|", end=End)
+        print("|")
 
     def WriteSimStats(self):
         s = self.SimStats # Less to write
