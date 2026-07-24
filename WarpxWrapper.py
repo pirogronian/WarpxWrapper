@@ -571,6 +571,12 @@ class DataStats:
     DataStepSpeed = 0
     TotalDataStepSpeed = 0
 
+    StepESA = -1
+    TimeESA = -1
+
+    TotalStepESA = -1
+    TotalTimeESA = -1
+
     def Recalculate(self):
         self.UpdNr += 1
         self.CurrentTime = time.time()
@@ -695,7 +701,9 @@ class UI:
         s = self.DataStats
         minl, maxl = self.GetLen()
         self.PrintLine("+" + "-" * (minl - 2) + "+")
-        self.PrintLine(f"|   Data: {SizeStr(s.DataSize):>9}, {SizeStr(s.DataSpeed):>8}/s (avg: {SizeStr(s.TotalDataSpeed):>8}/s)|{SizeStr(s.DataStepSpeed):>8}/st (avg: {SizeStr(s.TotalDataStepSpeed):>8}/st)")
+        self.PrintLine(f"|   Data: {SizeStr(s.DataSize):>9}, {SizeStr(s.DataSpeed):>8}/s (avg: {SizeStr(s.TotalDataSpeed):>8}/s) |"
+                       f"{SizeStr(s.DataStepSpeed):>8}/st (avg: {SizeStr(s.TotalDataStepSpeed):>8}/st) |"
+                       f" ESA: {SizeStr(s.TimeESA):>8}/{SizeStr(s.StepESA):>8} (avg: {SizeStr(s.TotalTimeESA):>8}/{SizeStr(s.TotalStepESA):>8}).")
 
 
     def WriteMessageLine(self):
@@ -734,6 +742,21 @@ class WarpxWrapper:
         self.UI = UI(self.SimStats, self.DataStats)
         self.Timer = Timer(self.UpdateInterval)
 
+    def CalculateESA(self):
+        #print(f"SimStats.LeftSteps: {self.SimStats.LeftSteps}, DataStats.DataStepSpeed: {self.DataStats.DataStepSpeed}")
+        if self.SimStats.LeftSteps >= 0 and self.DataStats.DataStepSpeed >= 0:
+            self.DataStats.StepESA = self.DataStats.DataSize + self.SimStats.LeftSteps * self.DataStats.DataStepSpeed
+
+        #print(f"SimStats.TimeETA: {self.SimStats.TimeETA}, DataStats.DataSpeed: {self.DataStats.DataSpeed}")
+        if self.SimStats.TimeETA >= 0 and self.DataStats.DataSpeed >= 0:
+            self.DataStats.TimeESA = self.DataStats.DataSize + self.SimStats.TimeETA * self.DataStats.DataSpeed
+
+        if self.SimStats.LeftSteps >= 0 and self.DataStats.TotalDataStepSpeed >= 0:
+            self.DataStats.TotalStepESA = self.DataStats.DataSize + self.SimStats.LeftSteps * self.DataStats.TotalDataStepSpeed
+
+        if self.SimStats.TimeETA >= 0 and self.DataStats.TotalDataSpeed >= 0:
+            self.DataStats.TotalTimeESA = self.DataStats.DataSize + self.SimStats.TimeETA * self.DataStats.TotalDataSpeed
+
     def UpdateUI(self, Force = False):
         if self.Timer.Expired() or Force:
             if not Config.Quiet:
@@ -744,6 +767,7 @@ class WarpxWrapper:
         if self.Timer.Expired() or Force:
             #self.SimStats.Recalculate() # only if there are new step data avaliable.
             self.DataStats.Recalculate()
+            self.CalculateESA()
             if not Config.Quiet:
                 self.UI.Rewrite(Force)
             self.Timer.Reset()
