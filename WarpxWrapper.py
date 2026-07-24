@@ -788,11 +788,15 @@ try:
 
         if not ThirdUpdated and WarpxProcess == None and Config.Source == SourceType.FILE and Config.PID == 0:
             Ps = Processes.FileUsers(Config.InputFile, ["w", "a"])
+            print("")
+            print(Ps)
             Me = psutil.Process()
             for P in Ps:
                 if P != Me:
                     WarpxProcess = P
-                    Logger.Debug(f"\nDetected Warpx process: {WarpxProcess.name()} ({WarpxProcess.pid()}).")
+                    Logger.Debug(f"Detected Warpx process: {WarpxProcess.name()} ({WarpxProcess.pid}).")
+            if WarpxProcess == None:
+                Logger.Warning("Warpx process not detected!")
             ThirdUpdated = True
 
 
@@ -854,7 +858,7 @@ try:
                 MainTimer.Reset()
                 MainUpdated = False
                 SecondUpdated = False
-                ThirdUpdated = False
+                #ThirdUpdated = False Do it only once
 
 except Exception as e:
     Logger.Critical("Unhandled exception, restoring terminal settings.")
