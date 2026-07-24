@@ -527,10 +527,12 @@ class SimulationStats:
 
     def CalculateAvgETA(self):
         self.AvgStepSpeed = self.Step / self.ElapsedRealTime
-        self.AvgStepETA = self.AvgStepSpeed * self.StepsLeft
+        if self.AvgStepSpeed > 0:
+            self.AvgStepETA = self.StepsLeft / self.AvgStepSpeed
 
         self.AvgTimeSpeed = self.Time / self.ElapsedRealTime
-        self.AvgTimeETA = self.AvgTimeSpeed * self.TimeLeft
+        if self.AvgTimeSpeed > 0:
+            self.AvgTimeETA = self.TimeLeft / self.AvgTimeSpeed
 
     def Recalculate(self, Time = None):
         if self.Step <= self.PrevStep:
