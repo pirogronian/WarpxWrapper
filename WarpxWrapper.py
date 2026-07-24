@@ -457,7 +457,7 @@ FmtNmb.ForbidNegative = True
 
 StartTime = -1
 
-class Stats:
+class SimulationStats:
     Step = -1 # These two are replenished externally
     Time = -1
 
@@ -546,16 +546,16 @@ class UI:
     MaxLen = 0
     CurrentSection = Section.WAIT
 
-    def __init__(self, Stats, Interval):
+    SimStatsHeight = 5
+    MessageLineHeight = 1
+
+    def __init__(self, SimStats, Interval):
         self.Terminal = Terminal()
         print(self.Terminal.clear_bol)
         self.First = True
-        self.Stats = Stats
+        self.SimStats = SimStats
         self.UpdateTimer = Timer(Interval)
         self.MsgLine = MessageLine(Timeout = 2, FillWith = "-", LineLen = 77)
-
-        self.TimeStatsHeight = 5
-        self.MessageLineHeight = 1
 
     def IsDestructive(self):
         d = self.NonDestructive
@@ -602,8 +602,8 @@ class UI:
             End = "\n"
         print("|", end=End)
 
-    def WriteStats(self):
-        s = self.Stats # Less to write
+    def WriteSimStats(self):
+        s = self.SimStats # Less to write
         minl, maxl = self.GetLen()
         s1 = f"|   Step:  {FmtNmb.Str(s.Step):^15} / {FmtNmb.Str(s.MaxSteps):^15} : {FmtNmb.Str(s.LeftSteps):^15} ({FmtNmb.Str(s.StepsProgress):>3}%), x{FmtNmb.Str(s.StepSpeed):>11}, ETA: {FmtTime.Str(s.StepETA):>20}"
 
@@ -629,8 +629,8 @@ class UI:
         #return
         self.CacheMaxLen()
         with self.Terminal.no_line_wrap():
-            if self.Stats.Updated or Force:
-                MoveUp = self.TimeStatsHeight
+            if self.SimStats.Updated or Force:
+                MoveUp = self.SimStatsHeight
             else:
                 MoveUp = self.MessageLineHeight
             if MoveUp and not self.NonDestructive:
@@ -641,8 +641,8 @@ class UI:
             if self.First:
                 self.WriteHeader()
                 self.First = False
-            if self.Stats.Updated or Force:
-                self.WriteStats()
+            if self.SimStats.Updated or Force:
+                self.WriteSimStats()
             self.WriteMessageLine()
 
     def Update(self, Force = False):
@@ -682,8 +682,8 @@ if Config.DontRun:
 
 EventQueue = SimpleQueue()
 
-MainStats = Stats(Config.MaxSteps, Config.MaxTime)
-MainUI = UI(MainStats, Config.UpdateInterval)
+SimStats = SimulationStats(Config.MaxSteps, Config.MaxTime)
+MainUI = UI(SimStats, Config.UpdateInterval)
 MainUI.NonDestructive = Config.NonDestructivePrint
 MainUI.MinLen = 79
 MainTimer = Timer(Config.UpdateInterval)
@@ -833,11 +833,11 @@ try:
             Header = False # Just in case we missed something
             nums = ReNum.findall(OutputLine)
 
-            MainStats.Step = int(nums[0])
-            MainStats.Time = float(nums[1])
-            MainStats.TimeDelta = float(nums[2])
+            SimStats.Step = int(nums[0])
+            SimStats.Time = float(nums[1])
+            SimStats.TimeDelta = float(nums[2])
 
-            MainStats.Recalculate(time.time())
+            SimStats.Recalculate(time.time())
 
             MainUI.Update(True)
 
@@ -847,8 +847,8 @@ try:
             nums = ReNum.findall(OutputLine)
         #print(nums)
 
-            MainStats.ElapsedInternalRealTime = float(nums[0])
-            MainStats.InternalRealTimeDelta = float(nums[1])
+            SimStats.ElapsedInternalRealTime = float(nums[0])
+            SimStats.InternalRealTimeDelta = float(nums[1])
             SecondUpdated = True
 
         elif Header == True and ReHead.match(OutputLine):
