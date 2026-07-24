@@ -526,10 +526,10 @@ class SimulationStats:
             self.TimeETA = self.TimeLeft / self.TimeSpeed
 
     def CalculateAvgETA(self):
-        self.AvgStepSpeed = self.Step / self.Elapsed
+        self.AvgStepSpeed = self.Step / self.ElapsedRealTime
         self.AvgStepETA = self.AvgStepSpeed * self.StepsLeft
 
-        self.AvgTimeSpeed = self.Time / self.Elapsed
+        self.AvgTimeSpeed = self.Time / self.ElapsedRealTime
         self.AvgTimeETA = self.AvgTimeSpeed * self.TimeLeft
 
     def Recalculate(self, Time = None):
@@ -554,6 +554,7 @@ class SimulationStats:
         self.TimeProgress = int((self.Time / self.MaxTime) * 100)
 
         self.CalculateETA()
+        self.CalculateAvgETA()
 
         if self.ElapsedRealTime > 0:
             self.ElapsedRealTimeEfficiency = int((self.ElapsedInternalRealTime /  self.ElapsedRealTime) * 100)
@@ -634,9 +635,9 @@ class UI:
         FOOTER = 3
 
     Destructive = True
-    Stats = None
     MinLen = 0
     MaxLen = 0
+    Avg = True
     CurrentSection = Section.WAIT
 
     SimStatsHeight = 7
@@ -667,6 +668,16 @@ class UI:
     def PrintLine(self, Text, End = "\n"):
         print(Text + self.Terminal.clear_eol, end = End)
 
+    def GetSimSpeeds(self):
+        if self.Avg:
+            return self.SimStats.AvgStepSpeed, self.SimStats.AvgTimeSpeed
+        return self.SimStats.StepSpeed, self.SimStats.TimeSpeed
+
+    def GetSimETAs(self):
+        if self.Avg:
+            return self.SimStats.AvgStepETA, self.SimStats.AvgTimeETA
+        return self.SimStats.StepETA, self.SimStats.TimeETA
+
     def WriteHeader(self):
         lmin, lmax = self.GetLen()
 #        print(lmin, lmax, Length)
@@ -681,9 +692,13 @@ class UI:
     def WriteSimStats(self):
         s = self.SimStats # Less to write
         minl, maxl = self.GetLen()
-        s1 = f"|   Step:  {FmtNmb.Str(s.Step):^15} / {FmtNmb.Str(s.MaxStep):^15} : {FmtNmb.Str(s.StepsLeft):^15} ({FmtNmb.Str(s.StepsProgress):>3}%), x{FmtNmb.Str(s.StepSpeed):>9}, ETA: {FmtTime.Str(s.StepETA):>20}"
+        SSSpeed, STSpeed = self.GetSimSpeeds()
+        SETA, TETA = self.GetSimETAs()
+        s1 = f"|   Step:  {FmtNmb.Str(s.Step):^15} / {FmtNmb.Str(s.MaxStep):^15} : {FmtNmb.Str(s.StepsLeft):^15} ({FmtNmb.Str(s.StepsProgress):>3}%)," +\
+        f"x{FmtNmb.Str(SSSpeed):>9}, ETA: {FmtTime.Str(SETA):>20}"
 
-        s2 = f"|   Sim time: {FmtTime.Str(s.Time):^12} / {FmtTime.Str(s.MaxTime):^15} : {FmtTime.Str(s.TimeLeft):^15} ({FmtNmb.Str(s.TimeProgress):>3}%), x{FmtNmb.Str(s.TimeSpeed):>9}, ETA: {FmtTime.Str(s.TimeETA):>20}"
+        s2 = f"|   Sim time: {FmtTime.Str(s.Time):^12} / {FmtTime.Str(s.MaxTime):^15} : {FmtTime.Str(s.TimeLeft):^15} ({FmtNmb.Str(s.TimeProgress):>3}%)," +\
+        f"x{FmtNmb.Str(STSpeed):>9}, ETA: {FmtTime.Str(TETA):>20}"
 
         s3 = f"|   Elapsed: {FmtTime.Str(s.ElapsedRealTime)}, delta: {FmtTime.Str(s.RealTimeDelta)} ({FmtTime.Str(s.TimeDelta * s.RealTimeDelta)}), eff: elapsed: {s.ElapsedRealTimeEfficiency}%, delta: {s.RealTimeDeltaEfficiency}%"
 
@@ -863,6 +878,9 @@ try:
                 else:
                     msg += "unset"
                 WarpxWr.UI.MsgLine.SetTemporary(msg)
+            elif CompareKeys(key, "F4"):
+                WarpxWr.UI.Avg = not WarpxWr.UI.Avg
+                WarpxWr.UI.MsgLine.SetTemporary(f"Avg: {WarpxWr.UI.Avg}")
             elif CompareKeys(key, Config.NDestPrintKey):
                 WarpxWr.UI.NonDestructive = not WarpxWr.UI.NonDestructive
             elif CompareKeys(key, Config.PauseKey):
