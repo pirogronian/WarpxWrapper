@@ -16,7 +16,7 @@ import pypsutil
 from blessed import Terminal
 from queue import SimpleQueue
 
-from FormattedValue import FormattedNumber, FormattedTime
+from FormattedValue import FormattedNumber, FormattedTime, SizeStr
 from NonBlockingStream import InputStream, InputTerminal
 import FitLine
 from MessageLine import MessageLine
@@ -532,6 +532,36 @@ class SimulationStats:
 
         self.Updated = True
 
+class RuntimeStats:
+    Loop = 0
+    DataSize = 0
+    PreviousLoop = 0
+    PreviousDataSize = 0
+
+    LoopDelta = 0
+    DataDelta = 0
+
+    CurrentTime = 0
+    PreviousTime = 0
+
+    LoopSpeed = 0
+    DataSpeed = 0
+
+    def Recalculate(self):
+        self.CurrentTime = time.time()
+
+        self.Delta = self.CurrentTime - self.PreviousTime
+        self.LoopDelta = self.Loop - self.PreviousLoop
+        self.DataDelta = self.DataSize - self.PreviousDataSize
+
+        self.LoopSpeed = self.LoopDelta / self.Delta
+        self.DataSpeed = self.DataDelta / self.Delta
+
+        self.PreviousTime = self.CurrentTime
+        self.PreviousLoop = self.Loop
+        self.PreviousDataSize = self.DataSize
+        #print(self.DataSpeed, self.DataDelta, self.Delta)
+
 class UI:
     class Section(enum.Enum):
         WAIT = 0
@@ -546,14 +576,16 @@ class UI:
     MaxLen = 0
     CurrentSection = Section.WAIT
 
-    SimStatsHeight = 5
+    SimStatsHeight = 7
+    RtStatsHeight = 3
     MessageLineHeight = 1
 
-    def __init__(self, SimStats, Interval):
+    def __init__(self, SimStats, RtStats, Interval):
         self.Terminal = Terminal()
         print(self.Terminal.clear_bol)
         self.First = True
         self.SimStats = SimStats
+        self.RtStats = RtStats
         self.UpdateTimer = Timer(Interval)
         self.MsgLine = MessageLine(Timeout = 2, FillWith = "-", LineLen = 77)
 
@@ -619,6 +651,13 @@ class UI:
         self.PrintLine("|")
         s.Updated = False
 
+    def WriteRtStats(self):
+        s = self.RtStats
+        minl, maxl = self.GetLen()
+        self.PrintLine("+" + "-" * (minl - 2) + "+")
+        self.PrintLine(f"|   Proc. data: {SizeStr(s.DataSize):>10}, {SizeStr(s.DataSpeed):>10}/s")
+
+
     def WriteMessageLine(self):
         minl, maxl = self.GetLen()
         self.PrintLine(f"+{self.MsgLine.GetLine(LineLen = minl - 2)}+")
@@ -632,7 +671,7 @@ class UI:
             if self.SimStats.Updated or Force:
                 MoveUp = self.SimStatsHeight
             else:
-                MoveUp = self.MessageLineHeight
+                MoveUp = self.RtStatsHeight
             if MoveUp and not self.NonDestructive:
 #            print(f"Move up by: {MoveUp}")
                 print(self.Terminal.move_up(MoveUp + 1))
@@ -643,12 +682,14 @@ class UI:
                 self.First = False
             if self.SimStats.Updated or Force:
                 self.WriteSimStats()
+            self.WriteRtStats()
             self.WriteMessageLine()
 
     def Update(self, Force = False):
 #        print(".", end = '')
         if self.UpdateTimer.Expired() or Force:
             if self.CurrentSection == self.Section.MAIN:
+                self.RtStats.Recalculate()
                 self.Rewrite(Force)
             self.UpdateTimer.Reset()
 
@@ -683,7 +724,8 @@ if Config.DontRun:
 EventQueue = SimpleQueue()
 
 SimStats = SimulationStats(Config.MaxSteps, Config.MaxTime)
-MainUI = UI(SimStats, Config.UpdateInterval)
+RtStats = RuntimeStats()
+MainUI = UI(SimStats, RtStats, Config.UpdateInterval)
 MainUI.NonDestructive = Config.NonDestructivePrint
 MainUI.MinLen = 79
 MainTimer = Timer(Config.UpdateInterval)
@@ -724,6 +766,7 @@ try:
             Logger.Debug("Skipping main.")
             break
 
+        RtStats.Loop += 1
         MainUI.Update()
 
         while not EventQueue.empty():
@@ -802,6 +845,8 @@ try:
             else:
                 Logger.Debug("DataInput inactive, finishing.")
                 break
+
+        RtStats.DataSize += len(OutputLine)
 
         if not ThirdUpdated and WarpxProcess == None and Config.Source == SourceType.FILE and Config.PID == 0:
             Ps = Processes.FileUsers(Config.InputFile, ["w", "a"])
