@@ -12,7 +12,7 @@ import argparse
 import signal
 import shutil
 import stat
-import psutil
+import pypsutil
 from blessed import Terminal
 from queue import SimpleQueue
 
@@ -429,7 +429,7 @@ def PrepareCommand():
     Logger.Debug(Panel)
 
     try:
-        WarpxProcess = psutil.Popen(args=CmdArgs,
+        WarpxProcess = pypsutil.Popen(args=CmdArgs,
                                     stdin=subprocess.DEVNULL,
                                     stdout=subprocess.PIPE,
                                     stderr=subprocess.STDOUT,
@@ -790,7 +790,7 @@ try:
             Ps = Processes.FileUsers(Config.InputFile, ["w", "a"])
             print("")
             print(Ps)
-            Me = psutil.Process()
+            Me = pypsutil.Process()
             for P in Ps:
                 if P != Me:
                     WarpxProcess = P
