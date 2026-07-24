@@ -554,6 +554,9 @@ class UI:
         self.UpdateTimer = Timer(Interval)
         self.MsgLine = MessageLine(Timeout = 2, FillWith = "-", LineLen = 77)
 
+        self.TimeStatsHeight = 5
+        self.MessageLineHeight = 1
+
     def IsDestructive(self):
         d = self.NonDestructive
         if d == None:
@@ -584,11 +587,7 @@ class UI:
         return min(Min, Max), Max
 
     def PrintLine(self, Text, End = "\n"):
-        d = self.IsDestructive()
-        Max = self.GetMaxLen()
-        if not d:
-            Text = FitLine.FitLeft(Text, Max)
-        print(Text, end = End)
+        print(self.Terminal.clear_bol + Text, end = End)
 
     def WriteHeader(self, Length):
         lmin, lmax = self.GetLen()
@@ -612,8 +611,8 @@ class UI:
 
         s3 = f"|   Elapsed: {FmtTime.Str(s.ElapsedRealTime)}, delta: {FmtTime.Str(s.RealTimeDelta)} ({FmtTime.Str(s.TimeDelta * s.StepDelta)}), eff: elapsed: {s.ElapsedRealTimeEfficiency}%, delta: {s.RealTimeDeltaEfficiency}%"
 
-        if not self.NonDestructive:
-            print('\r\033[A\033[A\033[A\033[A\033[A', end='')
+#        if not self.NonDestructive:
+#            print('\r\033[A\033[A\033[A\033[A\033[A', end='')
         self.PrintLine(s1)
         self.PrintLine(s2)
         self.PrintLine(s3)
@@ -629,6 +628,7 @@ class UI:
 #        sys.stdout.flush()
         #return
         self.CacheMaxLen()
+        MoveUp = 0
         if Config.Quiet:
             return
         if self.First:
@@ -636,6 +636,12 @@ class UI:
             self.First = False
         if self.Stats.Updated:
             self.WriteStats(Length)
+            MoveUp = self.TimeStatsHeight
+        else:
+            MoveUp = self.MessageLineHeight
+        if MoveUp and not self.NonDestructive:
+#            print(f"Move up by: {MoveUp}")
+            print(self.Terminal.move_up(MoveUp + 1))
         self.WriteMessageLine(Length)
 
     def Update(self):
