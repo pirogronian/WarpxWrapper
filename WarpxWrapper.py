@@ -587,9 +587,9 @@ class UI:
         return min(Min, Max), Max
 
     def PrintLine(self, Text, End = "\n"):
-        print(self.Terminal.clear_bol + Text, end = End)
+        print(Text + self.Terminal.clear_eol, end = End)
 
-    def WriteHeader(self, Length):
+    def WriteHeader(self):
         lmin, lmax = self.GetLen()
 #        print(lmin, lmax, Length)
         d = self.IsDestructive()
@@ -597,12 +597,12 @@ class UI:
         fmt = f"|{{:^{lmin - 2}}}|"
         self.PrintLine(fmt.format("Time statistics:"))
         self.PrintLine("+" + "-" * (lmin - 2) + "+")
-        End = '\n\n\n\n\n\n'
+        End = '\n\n\n\n\n'
         if self.NonDestructive:
             End = "\n"
         print("|", end=End)
 
-    def WriteStats(self, Length):
+    def WriteStats(self):
         s = self.Stats # Less to write
         minl, maxl = self.GetLen()
         s1 = f"|   Step:  {FmtNmb.Str(s.Step):^15} / {FmtNmb.Str(s.MaxSteps):^15} : {FmtNmb.Str(s.LeftSteps):^15} ({FmtNmb.Str(s.StepsProgress):>3}%), x{FmtNmb.Str(s.StepSpeed):>11}, ETA: {FmtTime.Str(s.StepETA):>20}"
@@ -619,37 +619,37 @@ class UI:
         self.PrintLine("|")
         s.Updated = False
 
-    def WriteMessageLine(self, Length):
+    def WriteMessageLine(self):
         minl, maxl = self.GetLen()
         self.PrintLine(f"+{self.MsgLine.GetLine(LineLen = minl - 2)}+")
 
-    def Rewrite(self, Length = None):
+    def Rewrite(self, Force):
 #        print("+", end = '')
 #        sys.stdout.flush()
         #return
         self.CacheMaxLen()
-        MoveUp = 0
-        if Config.Quiet:
-            return
-        if self.First:
-            self.WriteHeader(Length)
-            self.First = False
-        if self.Stats.Updated:
-            self.WriteStats(Length)
-            MoveUp = self.TimeStatsHeight
-        else:
-            MoveUp = self.MessageLineHeight
-        if MoveUp and not self.NonDestructive:
+        with self.Terminal.no_line_wrap():
+            if self.Stats.Updated or Force:
+                MoveUp = self.TimeStatsHeight
+            else:
+                MoveUp = self.MessageLineHeight
+            if MoveUp and not self.NonDestructive:
 #            print(f"Move up by: {MoveUp}")
-            print(self.Terminal.move_up(MoveUp + 1))
-        self.WriteMessageLine(Length)
+                print(self.Terminal.move_up(MoveUp + 1))
+            if Config.Quiet:
+                return
+            if self.First:
+                self.WriteHeader()
+                self.First = False
+            if self.Stats.Updated or Force:
+                self.WriteStats()
+            self.WriteMessageLine()
 
-    def Update(self):
+    def Update(self, Force = False):
 #        print(".", end = '')
-        if self.UpdateTimer.Expired():
-            self.CacheMaxLen()
+        if self.UpdateTimer.Expired() or Force:
             if self.CurrentSection == self.Section.MAIN:
-                self.Rewrite()
+                self.Rewrite(Force)
             self.UpdateTimer.Reset()
 
 Header = True
@@ -724,7 +724,7 @@ try:
             Logger.Debug("Skipping main.")
             break
 
-        MainUI.CacheMaxLen()
+        MainUI.Update()
 
         while not EventQueue.empty():
             EventQueue.get_nowait() # eat stalled events
@@ -762,7 +762,7 @@ try:
                     MainUI.MsgLine.SetPersistent("Paused")
             else:
                 MainUI.MsgLine.SetTemporary(key)
-            MainUI.Rewrite()
+            MainUI.Update(True)
         if Finishing:
             if StartTime < 0:
                 StartTime = time.time()
@@ -839,7 +839,7 @@ try:
 
             MainStats.Recalculate(time.time())
 
-            MainUI.Rewrite()
+            MainUI.Update(True)
 
             MainUpdated = True
 
