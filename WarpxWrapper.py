@@ -865,6 +865,7 @@ try:
             key = ControlInput.Read()
             if key == None:
                 break
+#            print("Got key:", key, type(key))
             if CompareKeys(key, Config.BreakKey):
                 print("\n\n")
                 Logger.Info(f"Breaking on user demand.")
@@ -878,7 +879,7 @@ try:
                 else:
                     msg += "unset"
                 WarpxWr.UI.MsgLine.SetTemporary(msg)
-            elif CompareKeys(key, "F4"):
+            elif CompareKeys(key, "a"):
                 WarpxWr.UI.Avg = not WarpxWr.UI.Avg
                 WarpxWr.UI.MsgLine.SetTemporary(f"Avg: {WarpxWr.UI.Avg}")
             elif CompareKeys(key, Config.NDestPrintKey):
