@@ -43,7 +43,7 @@ class Config:
 
     LogFile = "Log.txt"
 
-    MaxSteps = -1
+    MaxStep = -1
     MaxTime = -1.0
 
     Source = SourceType.DEFAULT
@@ -297,7 +297,7 @@ AddParam("ErrorIsFatal", "--error-fatal", const = True)
 AddParam("LogFile", "-l", "--log-file")
 AddParam("NonDestructivePrint", "-d", "--non-destructive-print", const = True)
 AddParam("UpdateInterval", "-u", "--upd-int", "--update-interval")
-AddParam("MaxSteps", "-x", "--max-steps")
+AddParam("MaxStep", "-x", "--max-steps")
 AddParam("MaxTime", "-t", "--max-time")
 AddParam("SkipMain", "-a", "--skip-main-loop", const = True)
 AddParam("SkipFooter", "-f", "--skip-footer", const = True)
@@ -461,7 +461,7 @@ class SimulationStats:
     Step = -1 # These two are replenished externally
     Time = -1
 
-    MaxSteps = -1 # These two are set once at the beginning
+    MaxStep = -1 # These two are set once at the beginning
     MaxTime = -1
 
     LeftSteps = -1
@@ -494,33 +494,47 @@ class SimulationStats:
     ElapsedRealTimeEfficiency = -1
     RealTimeDeltaEfficiency = -1
 
-    def __init__(self, MaxSteps = -1, MaxTime = -1):
-        self.MaxSteps = MaxSteps
+    def __init__(self, MaxStep, MaxTime):
+        self.MaxStep = MaxStep
         self.MaxTime = MaxTime
+        self.LastTime = 0
+        self.LastStep = 0
+        self.LastRealTime = 0
         self.StartRealTime = time.time()
         self.Updated = False
 
     def Recalculate(self, Time = None):
+        if self.Step <= self.LastStep:
+            Logger.Warning(f"Step {self.Step} <= last step: {self.LastStep}. Nothing to calculate.")
+            return
         if Time == None:
             Time = time.time()
+
+#        print(f"TimeDelta: {self.TimeDelta}, StepDelta: {self.StepDelta}")
+
         self.CurrentRealTime = Time
         self.ElapsedRealTime = self.CurrentRealTime - self.StartRealTime
 
-        if self.Step >= 0 and self.MaxSteps > 0:
-            self.LeftSteps = self.MaxSteps - self.Step
+        if self.Step >= 0 and self.MaxStep > 0:
+            self.LeftSteps = self.MaxStep - self.Step
 
         if self.Time >= 0 and self.MaxTime > 0:
             self.LeftTime = self.MaxTime - self.Time
 
-        self.StepsProgress = int((self.Step / self.MaxSteps) * 100)
+        self.StepsProgress = int((self.Step / self.MaxStep) * 100)
         self.TimeProgress = int((self.Time / self.MaxTime) * 100)
 
-        self.StepDelta = self.Step - self.PreviousStep
-        # TimeDelta is provided externally
+        self.StepDelta = self.Step - self.LastStep
+
+        # TimeDelta was provided externally, but is no longer
+        self.TimeDelta = self.Time - self.LastTime
+
+        self.RealTimeDelta = self.CurrentRealTime - self.LastRealTime
 
         if self.RealTimeDelta > 0:
             self.StepSpeed = self.StepDelta / self.RealTimeDelta
             self.TimeSpeed = self.TimeDelta / self.RealTimeDelta
+            #print(f"Set TimeSpeed: {self.TimeSpeed}, ({self.TimeDelta} / {self.RealTimeDelta})")
 
         if self.StepSpeed > 0:
             self.StepETA = self.LeftSteps / self.StepSpeed
@@ -532,9 +546,9 @@ class SimulationStats:
         if self.RealTimeDelta > 0:
             self.RealTimeDeltaEfficiency = int((self.InternalRealTimeDelta / self.RealTimeDelta) * 100)
 
-        self.PreviousStep = self.Step
-        self.PreviousRealTime = self.CurrentRealTime
-
+        self.LastStep = self.Step
+        self.LastTime = self.Time
+        self.LastRealTime = self.CurrentRealTime
         self.Updated = True
 
 class RuntimeStats:
@@ -642,11 +656,11 @@ class UI:
     def WriteSimStats(self):
         s = self.SimStats # Less to write
         minl, maxl = self.GetLen()
-        s1 = f"|   Step:  {FmtNmb.Str(s.Step):^15} / {FmtNmb.Str(s.MaxSteps):^15} : {FmtNmb.Str(s.LeftSteps):^15} ({FmtNmb.Str(s.StepsProgress):>3}%), x{FmtNmb.Str(s.StepSpeed):>11}, ETA: {FmtTime.Str(s.StepETA):>20}"
+        s1 = f"|   Step:  {FmtNmb.Str(s.Step):^15} / {FmtNmb.Str(s.MaxStep):^15} : {FmtNmb.Str(s.LeftSteps):^15} ({FmtNmb.Str(s.StepsProgress):>3}%), x{FmtNmb.Str(s.StepSpeed):>11}, ETA: {FmtTime.Str(s.StepETA):>20}"
 
         s2 = f"|   Sim time: {FmtTime.Str(s.Time):^10}   /    {FmtTime.Str(s.MaxTime):^10}   :   {FmtTime.Str(s.LeftTime):^10}    ({FmtNmb.Str(s.TimeProgress):>3}%), x{FmtNmb.Str(s.TimeSpeed):>11}, ETA: {FmtTime.Str(s.TimeETA):>20}"
 
-        s3 = f"|   Elapsed: {FmtTime.Str(s.ElapsedRealTime)}, delta: {FmtTime.Str(s.RealTimeDelta)} ({FmtTime.Str(s.TimeDelta * s.StepDelta)}), eff: elapsed: {s.ElapsedRealTimeEfficiency}%, delta: {s.RealTimeDeltaEfficiency}%"
+        s3 = f"|   Elapsed: {FmtTime.Str(s.ElapsedRealTime)}, delta: {FmtTime.Str(s.RealTimeDelta)} ({FmtTime.Str(s.TimeDelta * s.RealTimeDelta)}), eff: elapsed: {s.ElapsedRealTimeEfficiency}%, delta: {s.RealTimeDeltaEfficiency}%"
 
 #        if not self.NonDestructive:
 #            print('\r\033[A\033[A\033[A\033[A\033[A', end='')
@@ -692,9 +706,9 @@ class UI:
 class WarpxWrapper:
     UpdateInterval = 0.5
 
-    def __init__(self, Interval):
+    def __init__(self, Interval, MaxStep, MaxTime):
         self.UpdateInterval = Interval
-        self.SimStats = SimulationStats()
+        self.SimStats = SimulationStats(MaxStep, MaxTime)
         self.RtStats = RuntimeStats()
         self.UI = UI(self.SimStats, self.RtStats)
         self.Timer = Timer(self.UpdateInterval)
@@ -707,7 +721,7 @@ class WarpxWrapper:
 
     def Update(self, Force = False):
         if self.Timer.Expired() or Force:
-            self.SimStats.Recalculate()
+            #self.SimStats.Recalculate() # only if there are new step data avaliable.
             self.RtStats.Recalculate()
             if not Config.Quiet:
                 self.UI.Rewrite(Force)
@@ -743,7 +757,7 @@ if Config.DontRun:
 
 EventQueue = SimpleQueue()
 
-WarpxWr = WarpxWrapper(Config.UpdateInterval)
+WarpxWr = WarpxWrapper(Config.UpdateInterval, Config.MaxStep, Config.MaxTime)
 WarpxWr.UI.NonDestructive = Config.NonDestructivePrint
 WarpxWr.UI.MinLen = 79
 MainTimer = Timer(Config.UpdateInterval)
@@ -903,8 +917,6 @@ try:
             WarpxWr.SimStats.TimeDelta = float(nums[2])
 
             WarpxWr.SimStats.Recalculate()
-
-            #WarpxWr.UI.Rewrite(True)
 
             MainUpdated = True
 

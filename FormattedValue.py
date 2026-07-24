@@ -101,6 +101,8 @@ def TimeToSeconds(Years = 0, Days = 0, Hours = 0, Minutes = 0, Seconds = 0):
 def DateTimeStr(Seconds, ISOFormat = False, Precision = 0.02, FixedPointPrecision = 2, FixedPointRange = [9999, 0.001]):
     if Seconds < 0:
         return "-/-"
+    if Seconds == 0:
+        return "0s"
     ret = ""
     Ys, YsSec, RestSec = DivideToInt(Seconds, SecInYear)
     if Ys > 0:
