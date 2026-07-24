@@ -498,6 +498,7 @@ class Stats:
         self.MaxSteps = MaxSteps
         self.MaxTime = MaxTime
         self.StartRealTime = time.time()
+        self.Updated = False
 
     def Recalculate(self, Time):
         self.CurrentRealTime = Time
@@ -528,6 +529,8 @@ class Stats:
 
         self.PreviousStep = self.Step
         self.PreviousRealTime = self.CurrentRealTime
+
+        self.Updated = True
 
 class UI:
     class Section(enum.Enum):
@@ -615,6 +618,10 @@ class UI:
         self.PrintLine(s2)
         self.PrintLine(s3)
         self.PrintLine("|")
+        s.Updated = False
+
+    def WriteMessageLine(self, Length):
+        minl, maxl = self.GetLen()
         self.PrintLine(f"+{self.MsgLine.GetLine(LineLen = minl - 2)}+")
 
     def Rewrite(self, Length = None):
@@ -628,6 +635,7 @@ class UI:
             self.WriteHeader(Length)
             self.First = False
         self.WriteStats(Length)
+        self.WriteMessageLine(Length)
 
     def Update(self):
 #        print(".", end = '')
