@@ -455,8 +455,6 @@ FmtNmb = FormattedNumber()
 FmtTime = FormattedTime()
 FmtNmb.ForbidNegative = True
 
-StartTime = -1
-
 class SimulationStats:
     Step = -1 # These two are replenished externally
     Time = -1
@@ -667,8 +665,38 @@ class UI:
             Max = self.MaxLen
         return min(Min, Max), Max
 
-    def PrintLine(self, Text, End = "\n"):
+    def PrintLine(self, Text = "", End = "\n"):
         print(Text + self.Terminal.clear_eol, end = End)
+
+    def Separator(self):
+        minl, maxl = self.GetLen()
+        if minl > 1:
+            return "+" + "-" * (minl - 2) + "+"
+        return ""
+
+    def PrintSeparator(self):
+        self.PrintLine(self.Separator())
+
+    def Padding(self):
+        minl, maxl = self.GetLen()
+        if minl > 1:
+            return "|" + " " * (minl - 2) + "|"
+        return ""
+
+    def PrintPadding(self):
+        self.PrintLine(self.Padding())
+
+    def PrintLeftPadding(self, Text = ""):
+        self.PrintLine("|   " + Text)
+
+    def Centered(self, Text):
+        lmin, maxl = self.GetLen()
+        fmt = f"|{{:^{lmin - 2}}}|"
+        fmt = fmt.format(Text)
+        return fmt
+
+    def PrintCentered(self, Text):
+        self.PrintLine(self.Centered(Text))
 
     def GetSimSpeeds(self):
         if self.Avg:
@@ -694,32 +722,31 @@ class UI:
         lmin, lmax = self.GetLen()
 #        print(lmin, lmax, Length)
         d = self.Destructive
-        self.PrintLine("+" + "-" * (lmin - 2) + "+")
-        fmt = f"|{{:^{lmin - 2}}}|"
-        self.PrintLine(fmt.format("Time statistics:"))
-        self.PrintLine("+" + "-" * (lmin - 2) + "+")
-        print("|")
-        print("\n\n\n")
+        self.PrintSeparator()
+        self.PrintCentered("Time statistics:")
+        self.PrintSeparator()
+        self.PrintLeftPadding()
+        self.PrintLine("\n\n\n")
 
     def WriteSimStats(self):
         s = self.SimStats # Less to write
         minl, maxl = self.GetLen()
         SSSpeed, STSpeed = self.GetSimSpeeds()
         SETA, TETA = self.GetSimETAs()
-        s1 = f"|   Step:  {FmtNmb.Str(s.Step):^15} / {FmtNmb.Str(s.MaxStep):^15} : {FmtNmb.Str(s.StepsLeft):^15} ({FmtNmb.Str(s.StepsProgress):>3}%)," +\
+        s1 = f"Step:  {FmtNmb.Str(s.Step):^15} / {FmtNmb.Str(s.MaxStep):^15} : {FmtNmb.Str(s.StepsLeft):^15} ({FmtNmb.Str(s.StepsProgress):>3}%)," +\
         f"x{FmtNmb.Str(SSSpeed):>9}, ETA: {FmtTime.Str(SETA):>20}"
 
-        s2 = f"|   Sim time: {FmtTime.Str(s.Time):^12} / {FmtTime.Str(s.MaxTime):^15} : {FmtTime.Str(s.TimeLeft):^15} ({FmtNmb.Str(s.TimeProgress):>3}%)," +\
+        s2 = f"Sim time: {FmtTime.Str(s.Time):^12} / {FmtTime.Str(s.MaxTime):^15} : {FmtTime.Str(s.TimeLeft):^15} ({FmtNmb.Str(s.TimeProgress):>3}%)," +\
         f"x{FmtNmb.Str(STSpeed):>9}, ETA: {FmtTime.Str(TETA):>20}"
 
-        s3 = f"|   Elapsed: {FmtTime.Str(s.ElapsedRealTime)}, delta: {FmtTime.Str(s.RealTimeDelta)} ({FmtTime.Str(s.TimeDelta * s.RealTimeDelta)}), eff: elapsed: {s.ElapsedRealTimeEfficiency}%, delta: {s.RealTimeDeltaEfficiency}%"
+        s3 = f"Elapsed: {FmtTime.Str(s.ElapsedRealTime)}, delta: {FmtTime.Str(s.RealTimeDelta)} ({FmtTime.Str(s.TimeDelta * s.RealTimeDelta)}), eff: elapsed: {s.ElapsedRealTimeEfficiency}%, delta: {s.RealTimeDeltaEfficiency}%"
 
 #        if not self.NonDestructive:
 #            print('\r\033[A\033[A\033[A\033[A\033[A', end='')
-        self.PrintLine(s1)
-        self.PrintLine(s2)
-        self.PrintLine(s3)
-        self.PrintLine("|")
+        self.PrintLeftPadding(s1)
+        self.PrintLeftPadding(s2)
+        self.PrintLeftPadding(s3)
+        self.PrintLeftPadding()
         s.Updated = False
 
     def WriteDataStats(self):
@@ -759,6 +786,7 @@ class UI:
 
 class WarpxWrapper:
     UpdateInterval = 0.5
+    StartTime = -1
 
     def __init__(self, Interval, MaxStep, MaxTime):
         self.UpdateInterval = Interval
@@ -913,11 +941,11 @@ try:
             WarpxWr.UpdateUI(True)
 
         if Finishing:
-            if StartTime < 0:
-                StartTime = time.time()
+            if WarpxWr.StartTime < 0:
+                WarpxWr.StartTime = time.time()
             break
 
-        if StartTime < 0:
+        if WarpxWr.StartTime < 0:
             WaitingFor = time.time() - WaitForDataStart
             if WaitingFor > 0:
                 End = ''
@@ -932,7 +960,7 @@ try:
         #    WarpxWr.UI.Update()
 
         OutputLine = DataInput.Read()
-        if OutputLine == None:
+        if OutputLine == None or OutputLine == "":
             #print("Read null string")
             if (DataInput.IsActive()):
 #                print(f"DataInput active, waiting for {Config.UpdateInterval}.")
@@ -969,17 +997,17 @@ try:
             ThirdUpdated = True
 
 
-        if StartTime < 0:
-            StartTime = time.time()
+        if WarpxWr.StartTime < 0:
+            WarpxWr.StartTime = time.time()
             WarpxWr.UI.CurrentSection = UI.Section.HEADER
-            print("\n   Got data, starting processing.\n")
+            WarpxWr.UI.PrintLine("\n   Got data, starting processing.")
 
             if LogWritable:
                 try:
                     LogStream.write(OutputLine)
                 except Exception as e:
-                    warning("An error while writing to log file.")
-                    warning(1, e)
+                    Logger.Warning("An error while writing to log file.")
+                    Logger.Warning(1, e)
 
         if not Footer and not MainUpdated and Re1.search(OutputLine):
             Header = False # Just in case we missed something
@@ -1050,7 +1078,7 @@ print(MeanStepETA, MeanTimeETA, MeanTest)"""
 if Config.AbortOnExit and PID > 0:
     os.kill(PID, signal.SIGABRT)
 
-FMsg = "Finished in " + FmtTime.Str(time.time() - StartTime)
+FMsg = "Finished in " + FmtTime.Str(time.time() - WarpxWr.StartTime)
 FMsg = f"|{FMsg:^77}|"
 
 #EMsg = "Mean ETA: {0} / {1}".format(datetime.timedelta(seconds=MeanStepETA), datetime.timedelta(seconds=MeanTimeETA))
