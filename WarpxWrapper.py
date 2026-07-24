@@ -633,7 +633,7 @@ class UI:
         MAIN = 2
         FOOTER = 3
 
-    NonDestructive = False
+    Destructive = True
     Stats = None
     MinLen = 0
     MaxLen = 0
@@ -651,33 +651,17 @@ class UI:
         self.DataStats = DataStats
         self.MsgLine = MessageLine(Timeout = 2, FillWith = "-", LineLen = 77)
 
-    def IsDestructive(self):
-        d = self.NonDestructive
-        if d == None:
-            d = self.__class__.NonDestructive
-        return d
-
-    def GetMinLen(self, Length = None):
-        if Length == None:
-            Length = self.MinLen
-            if Length == None:
-                Length = self.__class__.MinLen
-        return Length
-
     def CacheMaxLen(self, MaxLen = None):
         if MaxLen == None:
             self.MaxLen = shutil.get_terminal_size().columns
         else:
             self.MaxLen = MaxLen
 
-    def GetMaxLen(self, MaxLen = None):
-        if MaxLen == None:
-            return self.MaxLen
-        return self.MaxLen
-
     def GetLen(self, Min = None, Max = None):
-        Min = self.GetMinLen(Min)
-        Max = self.GetMaxLen(Max)
+        if Min == None:
+            Min = self.MinLen
+        if Max == None:
+            Max = self.MaxLen
         return min(Min, Max), Max
 
     def PrintLine(self, Text, End = "\n"):
@@ -686,7 +670,7 @@ class UI:
     def WriteHeader(self):
         lmin, lmax = self.GetLen()
 #        print(lmin, lmax, Length)
-        d = self.IsDestructive()
+        d = self.Destructive
         self.PrintLine("+" + "-" * (lmin - 2) + "+")
         fmt = f"|{{:^{lmin - 2}}}|"
         self.PrintLine(fmt.format("Time statistics:"))
