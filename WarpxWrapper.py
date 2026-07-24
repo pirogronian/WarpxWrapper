@@ -819,7 +819,8 @@ class WWapper:
     def OnKey(self, Key):
         if not self.Control.Dispatch(Key):
             self.UI.MsgLine.SetTemporary(f"Key: {Key.encode()}")
-        self.UpdateUI(True)
+        if not Finishing:
+            self.UpdateUI(True)
 
     def Pause(self):
         if WarpxProcess != None:
