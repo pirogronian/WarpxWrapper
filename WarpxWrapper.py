@@ -502,7 +502,7 @@ class SimulationStats:
     def __init__(self, MaxStep, MaxTime):
         self.MaxStep = MaxStep
         self.MaxTime = MaxTime
-        self.StartRealTime = time.time()
+#        self.StartRealTime = time.time()
         self.Updated = False
 
     def CalculateETA(self):
@@ -542,7 +542,7 @@ class SimulationStats:
 #        print(f"TimeDelta: {self.TimeDelta}, StepDelta: {self.StepDelta}")
 
         self.CurrentRealTime = Time
-        self.ElapsedRealTime = self.CurrentRealTime - self.StartRealTime
+#        self.ElapsedRealTime = self.CurrentRealTime - self.StartRealTime
 
         if self.Step >= 0 and self.MaxStep > 0:
             self.StepsLeft = self.MaxStep - self.Step
@@ -787,6 +787,9 @@ class UI:
 class WarpxWrapper:
     UpdateInterval = 0.5
     StartTime = -1
+    PausedAt = -1
+    Pausedtime = 0
+    Paused = False
 
     def __init__(self, Interval, MaxStep, MaxTime):
         self.UpdateInterval = Interval
@@ -794,6 +797,25 @@ class WarpxWrapper:
         self.DataStats = DataStats()
         self.UI = UI(self.SimStats, self.DataStats)
         self.Timer = Timer(self.UpdateInterval)
+
+    def Pause(self):
+        self.PausedAt = time.time()
+        self.Paused = True
+        self.UI.MsgLine.SetPersistent("Paused")
+
+    def Resume(self):
+        self.Pausedtime += time.time() - self.PausedAt
+        self.Paused = False
+        self.UI.MsgLine.SetPersistent()
+        self.UI.MsgLine.SetTemporary("Resumed")
+
+    def GetTotalElapsedTime(self):
+        return time.time() - self.StartTime
+
+    def GetRunningElapsedTime(self):
+        if self.Paused:
+            return self.PausedAt - self.StartTime - self.PausedTime
+        return self.GetTotalElapsedTime() - self.Pausedtime
 
     def CalculateESA(self):
         #print(f"SimStats.StepsLeft: {self.SimStats.StepsLeft}, DataStats.DataStepSpeed: {self.DataStats.DataStepSpeed}")
@@ -819,8 +841,10 @@ class WarpxWrapper:
     def Update(self, Force = False):
         if self.Timer.Expired() or Force:
             #self.SimStats.Recalculate() # only if there are new step data avaliable.
-            self.DataStats.Recalculate()
-            self.CalculateESA()
+            if not self.Paused:
+                self.SimStats.ElapsedRealTime = self.GetRunningElapsedTime()
+                self.DataStats.Recalculate()
+                self.CalculateESA()
             if not Config.Quiet:
                 self.UI.Rewrite(Force)
             self.Timer.Reset()
@@ -832,8 +856,6 @@ SkipMain = False
 MainUpdated = False
 SecondUpdated = False
 ThirdUpdated = False
-
-Paused = False
 
 MeanStepETA = 0
 MeanTimeETA = 0
@@ -925,17 +947,14 @@ try:
             elif CompareKeys(key, Config.NDestPrintKey):
                 WarpxWr.UI.NonDestructive = not WarpxWr.UI.NonDestructive
             elif CompareKeys(key, Config.PauseKey):
-                if Paused:
+                if WarpxWr.Paused:
                     if WarpxProcess != None:
                         Processes.ResumeTree(WarpxProcess)
-                    Paused = False
-                    WarpxWr.UI.MsgLine.SetPersistent()
-                    WarpxWr.UI.MsgLine.SetTemporary("Resumed")
+                    WarpxWr.Resume()
                 else:
                     if WarpxProcess != None:
                         Processes.PauseTree(WarpxProcess)
-                    Paused = True
-                    WarpxWr.UI.MsgLine.SetPersistent("Paused")
+                    WarpxWr.Pause()
             else:
                 WarpxWr.UI.MsgLine.SetTemporary(key)
             WarpxWr.UpdateUI(True)
