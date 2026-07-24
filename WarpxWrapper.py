@@ -800,8 +800,8 @@ try:
 
         if not ThirdUpdated and WarpxProcess == None and Config.Source == SourceType.FILE and Config.PID == 0:
             Ps = Processes.FileUsers(Config.InputFile, ["w", "a"])
-            print("")
-            print(Ps)
+#            print("")
+#            print(Ps)
             Me = pypsutil.Process()
             for P in Ps:
                 if P != Me:
