@@ -24,6 +24,7 @@ from Timer import Timer
 from Various import CompareKeys
 from Logger import Logger, Verbosity
 import Processes
+from ControlManager import ControlManager
 
 class SourceType(enum.Enum):
     DEFAULT = 0 # It means the COMMAND
@@ -67,7 +68,7 @@ class Config:
     DontWaitForFooter = True
     NonDestructivePrint = False
 
-    BreakKey = 27
+    BreakKey = "\x1b"
     ISOKey = "f"
     NDestPrintKey = "d"
     PauseKey = ' '
@@ -806,6 +807,19 @@ class WWapper:
         self.DataStats = DataStats()
         self.UI = UI(self.SimStats, self.DataStats)
         self.Timer = Timer(self.UpdateInterval)
+        self.Control = ControlManager()
+
+    def RegisterActions(self):
+        self.Control.Register(Config.BreakKey, UserBreak)
+        self.Control.Register(Config.ISOKey, self.SwitchISO)
+        self.Control.Register("a", self.SwitchAvgStats)
+        self.Control.Register(Config.NDestPrintKey, self.SwitchDestrictive)
+        self.Control.Register(Config.PauseKey, self.SwitchRunningState)
+
+    def OnKey(self, Key):
+        if not self.Control.Dispatch(Key):
+            self.UI.MsgLine.SetTemporary(f"Key: {Key.encode()}")
+        self.UpdateUI(True)
 
     def Pause(self):
         if WarpxProcess != None:
@@ -952,6 +966,8 @@ if WarpxProcess == None and Config.PID > 0:
         Logger.ExceptError(e)
         Logger.Error(f"Cannot assign Warpx process from given PID: {Config.PID}")
 
+WW.RegisterActions()
+
 try:
     ControlInput.DisableBuffering()
 
@@ -966,23 +982,12 @@ try:
             EventQueue.get_nowait() # eat stalled events
 
         while 1:
-            key = ControlInput.Read()
-            if key == None:
+            Key = ControlInput.Read()
+            if Key == None:
                 break
-            #print("Got key:", key, type(key))
-            if CompareKeys(key, Config.BreakKey):
-                UserBreak()
-            elif CompareKeys(key, Config.ISOKey):
-                WW.SwitchISO()
-            elif CompareKeys(key, "a"):
-                WW.SwitchAvgStats()
-            elif CompareKeys(key, Config.NDestPrintKey):
-                WW.SwitchDestrictive()
-            elif CompareKeys(key, Config.PauseKey):
-                WW.SwitchRunningState()
-            else:
-                WW.UI.MsgLine.SetTemporary(key)
-            WW.UpdateUI(True)
+            WW.OnKey(Key)
+            if Finishing:
+                break
 
         if Finishing:
             if WW.StartTime < 0:
