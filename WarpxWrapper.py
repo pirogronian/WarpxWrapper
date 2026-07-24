@@ -500,7 +500,9 @@ class SimulationStats:
         self.StartRealTime = time.time()
         self.Updated = False
 
-    def Recalculate(self, Time):
+    def Recalculate(self, Time = None):
+        if Time == None:
+            Time = time.time()
         self.CurrentRealTime = Time
         self.ElapsedRealTime = self.CurrentRealTime - self.StartRealTime
 
@@ -515,17 +517,20 @@ class SimulationStats:
 
         self.StepDelta = self.Step - self.PreviousStep
         # TimeDelta is provided externally
-        self.RealTimeDelta = self.CurrentRealTime - self.PreviousRealTime
 
         if self.RealTimeDelta > 0:
             self.StepSpeed = self.StepDelta / self.RealTimeDelta
             self.TimeSpeed = self.TimeDelta / self.RealTimeDelta
 
-        self.StepETA = self.LeftSteps / self.StepSpeed
-        self.TimeETA = self.LeftTime / self.TimeSpeed
+        if self.StepSpeed > 0:
+            self.StepETA = self.LeftSteps / self.StepSpeed
+        if self.TimeSpeed > 0:
+            self.TimeETA = self.LeftTime / self.TimeSpeed
 
-        self.ElapsedRealTimeEfficiency = int((self.ElapsedInternalRealTime /  self.ElapsedRealTime) * 100)
-        self.RealTimeDeltaEfficiency = int((self.InternalRealTimeDelta / self.RealTimeDelta) * 100)
+        if self.ElapsedRealTime > 0:
+            self.ElapsedRealTimeEfficiency = int((self.ElapsedInternalRealTime /  self.ElapsedRealTime) * 100)
+        if self.RealTimeDelta > 0:
+            self.RealTimeDeltaEfficiency = int((self.InternalRealTimeDelta / self.RealTimeDelta) * 100)
 
         self.PreviousStep = self.Step
         self.PreviousRealTime = self.CurrentRealTime
@@ -533,34 +538,39 @@ class SimulationStats:
         self.Updated = True
 
 class RuntimeStats:
+    UpdNr = 0
     Loop = 0
     DataSize = 0
-    PreviousLoop = 0
-    PreviousDataSize = 0
+    PrevLoop = 0
+    PrevDataSize = 0
 
     LoopDelta = 0
     DataDelta = 0
 
     CurrentTime = 0
-    PreviousTime = 0
+    PrevTime = 0
 
     LoopSpeed = 0
     DataSpeed = 0
 
     def Recalculate(self):
+        self.UpdNr += 1
         self.CurrentTime = time.time()
+        #print(f"Upd # {self.UpdNr}. Loop: {self.Loop}.")
+        #print(f"CTime: {self.CurrentTime:.2f}, prev time: {self.PrevTime:.2f}")
 
-        self.Delta = self.CurrentTime - self.PreviousTime
-        self.LoopDelta = self.Loop - self.PreviousLoop
-        self.DataDelta = self.DataSize - self.PreviousDataSize
+        self.Delta = self.CurrentTime - self.PrevTime
+        self.LoopDelta = self.Loop - self.PrevLoop
+        self.DataDelta = self.DataSize - self.PrevDataSize
 
-        self.LoopSpeed = self.LoopDelta / self.Delta
-        self.DataSpeed = self.DataDelta / self.Delta
+        if self.Delta > 0:
+            self.LoopSpeed = self.LoopDelta / self.Delta
+            self.DataSpeed = self.DataDelta / self.Delta
 
-        self.PreviousTime = self.CurrentTime
-        self.PreviousLoop = self.Loop
-        self.PreviousDataSize = self.DataSize
-        #print(self.DataSpeed, self.DataDelta, self.Delta)
+        self.PrevTime = self.CurrentTime
+        self.PrevLoop = self.Loop
+        self.PrevDataSize = self.DataSize
+        #print(f"DDelta: {self.DataDelta} / {self.Delta:.2f}, {self.DataSpeed:.2f}/s")
 
 class UI:
     class Section(enum.Enum):
@@ -571,7 +581,6 @@ class UI:
 
     NonDestructive = False
     Stats = None
-    UpdateTimer = None
     MinLen = 0
     MaxLen = 0
     CurrentSection = Section.WAIT
@@ -580,13 +589,12 @@ class UI:
     RtStatsHeight = 3
     MessageLineHeight = 1
 
-    def __init__(self, SimStats, RtStats, Interval):
+    def __init__(self, SimStats, RtStats):
         self.Terminal = Terminal()
         print(self.Terminal.clear_bol)
         self.First = True
         self.SimStats = SimStats
         self.RtStats = RtStats
-        self.UpdateTimer = Timer(Interval)
         self.MsgLine = MessageLine(Timeout = 2, FillWith = "-", LineLen = 77)
 
     def IsDestructive(self):
@@ -663,34 +671,50 @@ class UI:
         self.PrintLine(f"+{self.MsgLine.GetLine(LineLen = minl - 2)}+")
 
     def Rewrite(self, Force):
-#        print("+", end = '')
-#        sys.stdout.flush()
-        #return
         self.CacheMaxLen()
+        if self.CurrentSection != self.Section.MAIN:
+            return
         with self.Terminal.no_line_wrap():
-            if self.SimStats.Updated or Force:
-                MoveUp = self.SimStatsHeight
-            else:
-                MoveUp = self.RtStatsHeight
-            if MoveUp and not self.NonDestructive:
-#            print(f"Move up by: {MoveUp}")
-                print(self.Terminal.move_up(MoveUp + 1))
+            MoveUp = 0
             if self.First:
                 self.WriteHeader()
                 self.First = False
+            else:
+                if self.SimStats.Updated or Force:
+                    MoveUp = self.SimStatsHeight
+                else:
+                    MoveUp = self.RtStatsHeight
+            if MoveUp and not self.NonDestructive:
+#            print(f"Move up by: {MoveUp}")
+                print(self.Terminal.move_up(MoveUp + 1))
             if self.SimStats.Updated or Force:
                 self.WriteSimStats()
             self.WriteRtStats()
             self.WriteMessageLine()
 
+class WarpxWrapper:
+    UpdateInterval = 0.5
+
+    def __init__(self, Interval):
+        self.UpdateInterval = Interval
+        self.SimStats = SimulationStats()
+        self.RtStats = RuntimeStats()
+        self.UI = UI(self.SimStats, self.RtStats)
+        self.Timer = Timer(self.UpdateInterval)
+
+    def UpdateUI(self, Force = False):
+        if self.Timer.Expired() or Force:
+            if not Config.Quiet:
+                self.UI.Rewrite(Force)
+
+
     def Update(self, Force = False):
-#        print(".", end = '')
-        if self.UpdateTimer.Expired() or Force:
-            if self.CurrentSection == self.Section.MAIN:
-                self.RtStats.Recalculate()
-                if not Config.Quiet:
-                    self.Rewrite(Force)
-            self.UpdateTimer.Reset()
+        if self.Timer.Expired() or Force:
+            self.SimStats.Recalculate()
+            self.RtStats.Recalculate()
+            if not Config.Quiet:
+                self.UI.Rewrite(Force)
+            self.Timer.Reset()
 
 Header = True
 Footer = False
@@ -722,14 +746,12 @@ if Config.DontRun:
 
 EventQueue = SimpleQueue()
 
-SimStats = SimulationStats(Config.MaxSteps, Config.MaxTime)
-RtStats = RuntimeStats()
-MainUI = UI(SimStats, RtStats, Config.UpdateInterval)
-MainUI.NonDestructive = Config.NonDestructivePrint
-MainUI.MinLen = 79
+WarpxWr = WarpxWrapper(Config.UpdateInterval)
+WarpxWr.UI.NonDestructive = Config.NonDestructivePrint
+WarpxWr.UI.MinLen = 79
 MainTimer = Timer(Config.UpdateInterval)
 
-ControlInput = InputTerminal(MainUI.Terminal, EventQueue)
+ControlInput = InputTerminal(WarpxWr.UI.Terminal, EventQueue)
 if Config.Source == SourceType.STDIN: # Sorry, not interactive mode (or use another i/o stream)
     ControlInput.Stream = None
 
@@ -765,8 +787,8 @@ try:
             Logger.Debug("Skipping main.")
             break
 
-        RtStats.Loop += 1
-        MainUI.Update()
+        WarpxWr.RtStats.Loop += 1
+        WarpxWr.Update()
 
         while not EventQueue.empty():
             EventQueue.get_nowait() # eat stalled events
@@ -787,24 +809,25 @@ try:
                     msg += "set"
                 else:
                     msg += "unset"
-                MainUI.MsgLine.SetTemporary(msg)
+                WarpxWr.UI.MsgLine.SetTemporary(msg)
             elif CompareKeys(key, Config.NDestPrintKey):
-                MainUI.NonDestructive = not MainUI.NonDestructive
+                WarpxWr.UI.NonDestructive = not WarpxWr.UI.NonDestructive
             elif CompareKeys(key, Config.PauseKey):
                 if Paused:
                     if WarpxProcess != None:
                         Processes.ResumeTree(WarpxProcess)
                     Paused = False
-                    MainUI.MsgLine.SetPersistent()
-                    MainUI.MsgLine.SetTemporary("Resumed")
+                    WarpxWr.UI.MsgLine.SetPersistent()
+                    WarpxWr.UI.MsgLine.SetTemporary("Resumed")
                 else:
                     if WarpxProcess != None:
                         Processes.PauseTree(WarpxProcess)
                     Paused = True
-                    MainUI.MsgLine.SetPersistent("Paused")
+                    WarpxWr.UI.MsgLine.SetPersistent("Paused")
             else:
-                MainUI.MsgLine.SetTemporary(key)
-            MainUI.Update(True)
+                WarpxWr.UI.MsgLine.SetTemporary(key)
+            WarpxWr.UpdateUI(True)
+
         if Finishing:
             if StartTime < 0:
                 StartTime = time.time()
@@ -819,10 +842,10 @@ try:
                     End = '\n'
                 else:
                     Start = '\r'
-                MainUI.PrintLine(f"{Start}   Waiting for WarpX to start sending data for: {FmtTime.Str(WaitingFor)}", End)
+                WarpxWr.UI.PrintLine(f"{Start}   Waiting for WarpX to start sending data for: {FmtTime.Str(WaitingFor)}", End)
 
         #if not (Header or Footer):
-        #    MainUI.Update()
+        #    WarpxWr.UI.Update()
 
         OutputLine = DataInput.Read()
         if OutputLine == None:
@@ -845,7 +868,8 @@ try:
                 Logger.Debug("DataInput inactive, finishing.")
                 break
 
-        RtStats.DataSize += len(OutputLine)
+        WarpxWr.RtStats.DataSize += len(OutputLine)
+        #print(f"Increasing data size: {RtStats.DataSize}.")
 
         if not ThirdUpdated and WarpxProcess == None and Config.Source == SourceType.FILE and Config.PID == 0:
             Ps = Processes.FileUsers(Config.InputFile, ["w", "a"])
@@ -863,7 +887,7 @@ try:
 
         if StartTime < 0:
             StartTime = time.time()
-            MainUI.CurrentSection = UI.Section.HEADER
+            WarpxWr.UI.CurrentSection = UI.Section.HEADER
             print("\n   Got data, starting processing.\n")
 
             if LogWritable:
@@ -877,13 +901,13 @@ try:
             Header = False # Just in case we missed something
             nums = ReNum.findall(OutputLine)
 
-            SimStats.Step = int(nums[0])
-            SimStats.Time = float(nums[1])
-            SimStats.TimeDelta = float(nums[2])
+            WarpxWr.SimStats.Step = int(nums[0])
+            WarpxWr.SimStats.Time = float(nums[1])
+            WarpxWr.SimStats.TimeDelta = float(nums[2])
 
-            SimStats.Recalculate(time.time())
+            WarpxWr.SimStats.Recalculate()
 
-            MainUI.Update(True)
+            #WarpxWr.UI.Rewrite(True)
 
             MainUpdated = True
 
@@ -891,17 +915,17 @@ try:
             nums = ReNum.findall(OutputLine)
         #print(nums)
 
-            SimStats.ElapsedInternalRealTime = float(nums[0])
-            SimStats.InternalRealTimeDelta = float(nums[1])
+            WarpxWr.SimStats.ElapsedInternalRealTime = float(nums[0])
+            WarpxWr.SimStats.InternalRealTimeDelta = float(nums[1])
             SecondUpdated = True
 
         elif Header == True and ReHead.match(OutputLine):
-            MainUI.CurrentSection = UI.Section.MAIN
+            WarpxWr.UI.CurrentSection = UI.Section.MAIN
             Header = False
 
         elif Footer == False and ReFoot.match(OutputLine):
             Footer = True
-            MainUI.CurrentSection = UI.Section.FOOTER
+            WarpxWr.UI.CurrentSection = UI.Section.FOOTER
             Logger.Debug("Footer detected.")
             if Config.SkipFooter:
                 break
@@ -929,7 +953,7 @@ except Exception as e:
 
 ControlInput.RestoreBuffering()
 
-MainUI.CurrentSection = UI.Section.FOOTER
+WarpxWr.UI.CurrentSection = UI.Section.FOOTER
 
 """print(MeanStepETA, MeanTimeETA, MeanTest, Steps)
 
