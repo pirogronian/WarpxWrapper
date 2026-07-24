@@ -741,7 +741,6 @@ try:
                     msg += "unset"
                 MainUI.MsgLine.SetTemporary(msg)
             elif CompareKeys(key, Config.NDestPrintKey):
-                NonDestructivePrint = not NonDestructivePrint
                 MainUI.NonDestructive = not MainUI.NonDestructive
             elif CompareKeys(key, Config.PauseKey):
                 if Paused:
