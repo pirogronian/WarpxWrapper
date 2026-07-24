@@ -464,19 +464,20 @@ class SimulationStats:
     MaxStep = -1 # These two are set once at the beginning
     MaxTime = -1
 
-    LeftSteps = -1
-    LeftTime = -1
+    StepsLeft = -1
+    TimeLeft = -1
 
     StepsProgress = -1
     TimeProgress = -1
 
     CurrentRealTime = 0 # This is replenished automatically
-    PreviousRealTime = 0
+
+    PrevStep = 0
+    PrevTime = 0
+    PrevRealTime = 0
 
     StartRealTime = 0
     ElapsedRealTime = 0
-
-    PreviousStep = 0
 
     StepDelta = -1
     TimeDelta = -1 # This also is replenished externally
@@ -485,8 +486,14 @@ class SimulationStats:
     StepSpeed = 0
     TimeSpeed = 0
 
+    AvgStepSpeed = 0
+    AvgTimeSpeed = 0
+
     StepETA = -1
     TimeETA = -1
+
+    AvgStepETA = -1
+    AvgTimeETA = -1
 
     ElapsedInternalRealTime = -1
     InternalRealTimeDelta = -1
@@ -497,15 +504,37 @@ class SimulationStats:
     def __init__(self, MaxStep, MaxTime):
         self.MaxStep = MaxStep
         self.MaxTime = MaxTime
-        self.LastTime = 0
-        self.LastStep = 0
-        self.LastRealTime = 0
         self.StartRealTime = time.time()
         self.Updated = False
 
+    def CalculateETA(self):
+        self.StepDelta = self.Step - self.PrevStep
+        # TimeDelta was provided externally, but is no longer
+        self.TimeDelta = self.Time - self.PrevTime
+
+        self.RealTimeDelta = self.CurrentRealTime - self.PrevRealTime
+
+        if self.RealTimeDelta > 0:
+            self.StepSpeed = self.StepDelta / self.RealTimeDelta
+            self.TimeSpeed = self.TimeDelta / self.RealTimeDelta
+            #print(f"Set StepSpeed: {self.StepSpeed}, ({self.StepDelta} / {self.RealTimeDelta})")
+            #print(f"Set TimeSpeed: {self.TimeSpeed}, ({self.TimeDelta} / {self.RealTimeDelta})")
+
+        if self.StepSpeed > 0:
+            self.StepETA = self.StepsLeft / self.StepSpeed
+        if self.TimeSpeed > 0:
+            self.TimeETA = self.TimeLeft / self.TimeSpeed
+
+    def CalculateAvgETA(self):
+        self.AvgStepSpeed = self.Step / self.Elapsed
+        self.AvgStepETA = self.AvgStepSpeed * self.StepsLeft
+
+        self.AvgTimeSpeed = self.Time / self.Elapsed
+        self.AvgTimeETA = self.AvgTimeSpeed * self.TimeLeft
+
     def Recalculate(self, Time = None):
-        if self.Step <= self.LastStep:
-            Logger.Warning(f"Step {self.Step} <= last step: {self.LastStep}. Nothing to calculate.")
+        if self.Step <= self.PrevStep:
+            Logger.Warning(f"Step {self.Step} <= last step: {self.PrevStep}. Nothing to calculate.")
             return
         if Time == None:
             Time = time.time()
@@ -516,39 +545,24 @@ class SimulationStats:
         self.ElapsedRealTime = self.CurrentRealTime - self.StartRealTime
 
         if self.Step >= 0 and self.MaxStep > 0:
-            self.LeftSteps = self.MaxStep - self.Step
+            self.StepsLeft = self.MaxStep - self.Step
 
         if self.Time >= 0 and self.MaxTime > 0:
-            self.LeftTime = self.MaxTime - self.Time
+            self.TimeLeft = self.MaxTime - self.Time
 
         self.StepsProgress = int((self.Step / self.MaxStep) * 100)
         self.TimeProgress = int((self.Time / self.MaxTime) * 100)
 
-        self.StepDelta = self.Step - self.LastStep
-
-        # TimeDelta was provided externally, but is no longer
-        self.TimeDelta = self.Time - self.LastTime
-
-        self.RealTimeDelta = self.CurrentRealTime - self.LastRealTime
-
-        if self.RealTimeDelta > 0:
-            self.StepSpeed = self.StepDelta / self.RealTimeDelta
-            self.TimeSpeed = self.TimeDelta / self.RealTimeDelta
-            #print(f"Set TimeSpeed: {self.TimeSpeed}, ({self.TimeDelta} / {self.RealTimeDelta})")
-
-        if self.StepSpeed > 0:
-            self.StepETA = self.LeftSteps / self.StepSpeed
-        if self.TimeSpeed > 0:
-            self.TimeETA = self.LeftTime / self.TimeSpeed
+        self.CalculateETA()
 
         if self.ElapsedRealTime > 0:
             self.ElapsedRealTimeEfficiency = int((self.ElapsedInternalRealTime /  self.ElapsedRealTime) * 100)
         if self.RealTimeDelta > 0:
             self.RealTimeDeltaEfficiency = int((self.InternalRealTimeDelta / self.RealTimeDelta) * 100)
 
-        self.LastStep = self.Step
-        self.LastTime = self.Time
-        self.LastRealTime = self.CurrentRealTime
+        self.PrevStep = self.Step
+        self.PrevTime = self.Time
+        self.PrevRealTime = self.CurrentRealTime
         self.Updated = True
 
 class DataStats:
@@ -683,9 +697,9 @@ class UI:
     def WriteSimStats(self):
         s = self.SimStats # Less to write
         minl, maxl = self.GetLen()
-        s1 = f"|   Step:  {FmtNmb.Str(s.Step):^15} / {FmtNmb.Str(s.MaxStep):^15} : {FmtNmb.Str(s.LeftSteps):^15} ({FmtNmb.Str(s.StepsProgress):>3}%), x{FmtNmb.Str(s.StepSpeed):>9}, ETA: {FmtTime.Str(s.StepETA):>20}"
+        s1 = f"|   Step:  {FmtNmb.Str(s.Step):^15} / {FmtNmb.Str(s.MaxStep):^15} : {FmtNmb.Str(s.StepsLeft):^15} ({FmtNmb.Str(s.StepsProgress):>3}%), x{FmtNmb.Str(s.StepSpeed):>9}, ETA: {FmtTime.Str(s.StepETA):>20}"
 
-        s2 = f"|   Sim time: {FmtTime.Str(s.Time):^12} / {FmtTime.Str(s.MaxTime):^15} : {FmtTime.Str(s.LeftTime):^15} ({FmtNmb.Str(s.TimeProgress):>3}%), x{FmtNmb.Str(s.TimeSpeed):>9}, ETA: {FmtTime.Str(s.TimeETA):>20}"
+        s2 = f"|   Sim time: {FmtTime.Str(s.Time):^12} / {FmtTime.Str(s.MaxTime):^15} : {FmtTime.Str(s.TimeLeft):^15} ({FmtNmb.Str(s.TimeProgress):>3}%), x{FmtNmb.Str(s.TimeSpeed):>9}, ETA: {FmtTime.Str(s.TimeETA):>20}"
 
         s3 = f"|   Elapsed: {FmtTime.Str(s.ElapsedRealTime)}, delta: {FmtTime.Str(s.RealTimeDelta)} ({FmtTime.Str(s.TimeDelta * s.RealTimeDelta)}), eff: elapsed: {s.ElapsedRealTimeEfficiency}%, delta: {s.RealTimeDeltaEfficiency}%"
 
@@ -743,16 +757,16 @@ class WarpxWrapper:
         self.Timer = Timer(self.UpdateInterval)
 
     def CalculateESA(self):
-        #print(f"SimStats.LeftSteps: {self.SimStats.LeftSteps}, DataStats.DataStepSpeed: {self.DataStats.DataStepSpeed}")
-        if self.SimStats.LeftSteps >= 0 and self.DataStats.DataStepSpeed >= 0:
-            self.DataStats.StepESA = self.DataStats.DataSize + self.SimStats.LeftSteps * self.DataStats.DataStepSpeed
+        #print(f"SimStats.StepsLeft: {self.SimStats.StepsLeft}, DataStats.DataStepSpeed: {self.DataStats.DataStepSpeed}")
+        if self.SimStats.StepsLeft >= 0 and self.DataStats.DataStepSpeed >= 0:
+            self.DataStats.StepESA = self.DataStats.DataSize + self.SimStats.StepsLeft * self.DataStats.DataStepSpeed
 
         #print(f"SimStats.TimeETA: {self.SimStats.TimeETA}, DataStats.DataSpeed: {self.DataStats.DataSpeed}")
         if self.SimStats.TimeETA >= 0 and self.DataStats.DataSpeed >= 0:
             self.DataStats.TimeESA = self.DataStats.DataSize + self.SimStats.TimeETA * self.DataStats.DataSpeed
 
-        if self.SimStats.LeftSteps >= 0 and self.DataStats.TotalDataStepSpeed >= 0:
-            self.DataStats.TotalStepESA = self.DataStats.DataSize + self.SimStats.LeftSteps * self.DataStats.TotalDataStepSpeed
+        if self.SimStats.StepsLeft >= 0 and self.DataStats.TotalDataStepSpeed >= 0:
+            self.DataStats.TotalStepESA = self.DataStats.DataSize + self.SimStats.StepsLeft * self.DataStats.TotalDataStepSpeed
 
         if self.SimStats.TimeETA >= 0 and self.DataStats.TotalDataSpeed >= 0:
             self.DataStats.TotalTimeESA = self.DataStats.DataSize + self.SimStats.TimeETA * self.DataStats.TotalDataSpeed
