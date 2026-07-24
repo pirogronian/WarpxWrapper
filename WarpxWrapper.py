@@ -762,6 +762,15 @@ class UI:
         minl, maxl = self.GetLen()
         self.PrintLine(f"+{self.MsgLine.GetLine(LineLen = minl - 2)}+")
 
+    def WriteSummary(self, Elapsed):
+        self.PrintLine()
+        self.PrintSeparator()
+        self.PrintPadding()
+        self.PrintCentered(f"Finishing in {FmtTime.Str(Elapsed)}.")
+        self.PrintPadding()
+        self.PrintSeparator()
+        self.PrintLine()
+
     def Rewrite(self, Force):
         self.CacheMaxLen()
         if self.CurrentSection != self.Section.MAIN:
@@ -784,7 +793,7 @@ class UI:
             self.WriteDataStats()
             self.WriteMessageLine()
 
-class WarpxWrapper:
+class WWapper:
     UpdateInterval = 0.5
     StartTime = -1
     PausedAt = -1
@@ -877,12 +886,12 @@ if Config.DontRun:
 
 EventQueue = SimpleQueue()
 
-WarpxWr = WarpxWrapper(Config.UpdateInterval, Config.MaxStep, Config.MaxTime)
-WarpxWr.UI.NonDestructive = Config.NonDestructivePrint
-WarpxWr.UI.MinLen = 79
+WW = WWapper(Config.UpdateInterval, Config.MaxStep, Config.MaxTime)
+WW.UI.NonDestructive = Config.NonDestructivePrint
+WW.UI.MinLen = 79
 MainTimer = Timer(Config.UpdateInterval)
 
-ControlInput = InputTerminal(WarpxWr.UI.Terminal, EventQueue)
+ControlInput = InputTerminal(WW.UI.Terminal, EventQueue)
 if Config.Source == SourceType.STDIN: # Sorry, not interactive mode (or use another i/o stream)
     ControlInput.Stream = None
 
@@ -918,7 +927,7 @@ try:
             Logger.Debug("Skipping main.")
             break
 
-        WarpxWr.Update()
+        WW.Update()
 
         while not EventQueue.empty():
             EventQueue.get_nowait() # eat stalled events
@@ -940,31 +949,31 @@ try:
                     msg += "set"
                 else:
                     msg += "unset"
-                WarpxWr.UI.MsgLine.SetTemporary(msg)
+                WW.UI.MsgLine.SetTemporary(msg)
             elif CompareKeys(key, "a"):
-                WarpxWr.UI.Avg = not WarpxWr.UI.Avg
-                WarpxWr.UI.MsgLine.SetTemporary(f"Avg: {WarpxWr.UI.Avg}")
+                WW.UI.Avg = not WW.UI.Avg
+                WW.UI.MsgLine.SetTemporary(f"Avg: {WW.UI.Avg}")
             elif CompareKeys(key, Config.NDestPrintKey):
-                WarpxWr.UI.NonDestructive = not WarpxWr.UI.NonDestructive
+                WW.UI.NonDestructive = not WW.UI.NonDestructive
             elif CompareKeys(key, Config.PauseKey):
-                if WarpxWr.Paused:
+                if WW.Paused:
                     if WarpxProcess != None:
                         Processes.ResumeTree(WarpxProcess)
-                    WarpxWr.Resume()
+                    WW.Resume()
                 else:
                     if WarpxProcess != None:
                         Processes.PauseTree(WarpxProcess)
-                    WarpxWr.Pause()
+                    WW.Pause()
             else:
-                WarpxWr.UI.MsgLine.SetTemporary(key)
-            WarpxWr.UpdateUI(True)
+                WW.UI.MsgLine.SetTemporary(key)
+            WW.UpdateUI(True)
 
         if Finishing:
-            if WarpxWr.StartTime < 0:
-                WarpxWr.StartTime = time.time()
+            if WW.StartTime < 0:
+                WW.StartTime = time.time()
             break
 
-        if WarpxWr.StartTime < 0:
+        if WW.StartTime < 0:
             WaitingFor = time.time() - WaitForDataStart
             if WaitingFor > 0:
                 End = ''
@@ -973,10 +982,10 @@ try:
                     End = '\n'
                 else:
                     Start = '\r'
-                WarpxWr.UI.PrintLine(f"{Start}   Waiting for WarpX to start sending data for: {FmtTime.Str(WaitingFor)}", End)
+                WW.UI.PrintLine(f"{Start}   Waiting for WarpX to start sending data for: {FmtTime.Str(WaitingFor)}", End)
 
         #if not (Header or Footer):
-        #    WarpxWr.UI.Update()
+        #    WW.UI.Update()
 
         OutputLine = DataInput.Read()
         if OutputLine == None or OutputLine == "":
@@ -999,7 +1008,7 @@ try:
                 Logger.Debug("DataInput inactive, finishing.")
                 break
 
-        WarpxWr.DataStats.DataSize += len(OutputLine)
+        WW.DataStats.DataSize += len(OutputLine)
         #print(f"Increasing data size: {DataStats.DataSize}.")
 
         if not ThirdUpdated and WarpxProcess == None and Config.Source == SourceType.FILE and Config.PID == 0:
@@ -1016,10 +1025,10 @@ try:
             ThirdUpdated = True
 
 
-        if WarpxWr.StartTime < 0:
-            WarpxWr.StartTime = time.time()
-            WarpxWr.UI.CurrentSection = UI.Section.HEADER
-            WarpxWr.UI.PrintLine("\n   Got data, starting processing.")
+        if WW.StartTime < 0:
+            WW.StartTime = time.time()
+            WW.UI.CurrentSection = UI.Section.HEADER
+            WW.UI.PrintLine("\n   Got data, starting processing.")
 
             if LogWritable:
                 try:
@@ -1032,13 +1041,13 @@ try:
             Header = False # Just in case we missed something
             nums = ReNum.findall(OutputLine)
 
-            WarpxWr.SimStats.Step = int(nums[0])
-            WarpxWr.DataStats.Step = int(nums[0])
-            WarpxWr.SimStats.Time = float(nums[1])
-            WarpxWr.SimStats.TimeDelta = float(nums[2])
+            WW.SimStats.Step = int(nums[0])
+            WW.DataStats.Step = int(nums[0])
+            WW.SimStats.Time = float(nums[1])
+            WW.SimStats.TimeDelta = float(nums[2])
 
-            WarpxWr.SimStats.Recalculate()
-            WarpxWr.DataStats.RecalculateStep()
+            WW.SimStats.Recalculate()
+            WW.DataStats.RecalculateStep()
 
             MainUpdated = True
 
@@ -1046,17 +1055,17 @@ try:
             nums = ReNum.findall(OutputLine)
         #print(nums)
 
-            WarpxWr.SimStats.ElapsedInternalRealTime = float(nums[0])
-            WarpxWr.SimStats.InternalRealTimeDelta = float(nums[1])
+            WW.SimStats.ElapsedInternalRealTime = float(nums[0])
+            WW.SimStats.InternalRealTimeDelta = float(nums[1])
             SecondUpdated = True
 
         elif Header == True and ReHead.match(OutputLine):
-            WarpxWr.UI.CurrentSection = UI.Section.MAIN
+            WW.UI.CurrentSection = UI.Section.MAIN
             Header = False
 
         elif Footer == False and ReFoot.match(OutputLine):
             Footer = True
-            WarpxWr.UI.CurrentSection = UI.Section.FOOTER
+            WW.UI.CurrentSection = UI.Section.FOOTER
             Logger.Debug("Footer detected.")
             if Config.SkipFooter:
                 break
@@ -1084,7 +1093,7 @@ except Exception as e:
 
 ControlInput.RestoreBuffering()
 
-WarpxWr.UI.CurrentSection = UI.Section.FOOTER
+WW.UI.CurrentSection = UI.Section.FOOTER
 
 """print(MeanStepETA, MeanTimeETA, MeanTest, Steps)
 
@@ -1097,17 +1106,7 @@ print(MeanStepETA, MeanTimeETA, MeanTest)"""
 if Config.AbortOnExit and PID > 0:
     os.kill(PID, signal.SIGABRT)
 
-FMsg = "Finished in " + FmtTime.Str(time.time() - WarpxWr.StartTime)
-FMsg = f"|{FMsg:^77}|"
-
 #EMsg = "Mean ETA: {0} / {1}".format(datetime.timedelta(seconds=MeanStepETA), datetime.timedelta(seconds=MeanTimeETA))
 #EMsg = "|{:^77}|".format(EMsg)
 
-print("")
-print("+-----------------------------------------------------------------------------+")
-print("|                                                                             |")
-print(FMsg)
-#print(EMsg)
-print("|                                                                             |")
-print("+-----------------------------------------------------------------------------+")
-print()
+WW.UI.WriteSummary(WW.GetRunningElapsedTime())
