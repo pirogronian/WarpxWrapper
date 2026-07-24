@@ -675,8 +675,6 @@ class UI:
             if MoveUp and not self.NonDestructive:
 #            print(f"Move up by: {MoveUp}")
                 print(self.Terminal.move_up(MoveUp + 1))
-            if Config.Quiet:
-                return
             if self.First:
                 self.WriteHeader()
                 self.First = False
@@ -690,7 +688,8 @@ class UI:
         if self.UpdateTimer.Expired() or Force:
             if self.CurrentSection == self.Section.MAIN:
                 self.RtStats.Recalculate()
-                self.Rewrite(Force)
+                if not Config.Quiet:
+                    self.Rewrite(Force)
             self.UpdateTimer.Reset()
 
 Header = True
