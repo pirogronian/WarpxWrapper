@@ -634,7 +634,8 @@ class UI:
         if self.First:
             self.WriteHeader(Length)
             self.First = False
-        self.WriteStats(Length)
+        if self.Stats.Updated:
+            self.WriteStats(Length)
         self.WriteMessageLine(Length)
 
     def Update(self):
