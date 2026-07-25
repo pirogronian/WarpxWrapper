@@ -879,6 +879,15 @@ class WarpxWrapper:
         if not self.Finishing:
             self.UpdateUI(True)
 
+    def ProcessControlInput(self):
+        while 1:
+            Key = self.ControlInput.Read()
+            if Key == None:
+                break
+            self.OnKey(Key)
+            if self.Finishing:
+                break
+
     def Pause(self):
         if self.WarpxProcess != None:
             Processes.PauseTree(self.WarpxProcess)
@@ -1026,13 +1035,7 @@ try:
         while not WW.EventQueue.empty():
             WW.EventQueue.get_nowait() # eat stalled events
 
-        while 1:
-            Key = WW.ControlInput.Read()
-            if Key == None:
-                break
-            WW.OnKey(Key)
-            if WW.Finishing:
-                break
+        WW.ProcessControlInput()
 
         if WW.Finishing:
             if WW.StartTime < 0:
