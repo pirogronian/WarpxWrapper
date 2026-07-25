@@ -705,6 +705,7 @@ class WarpxWrapper:
     Pausedtime = 0
     Paused = False
     WarpxProcess = None
+    Finishing = False
 
     def __init__(self, Interval, MaxStep, MaxTime):
         self.State = State()
@@ -714,10 +715,13 @@ class WarpxWrapper:
         self.UI = UI(self.SimStats, self.DataStats)
         self.Timer = Timer(self.UpdateInterval)
         self.Control = ControlManager()
-        self.DataInput = InputStream(Lines = True)
+        self.EventQueue = SimpleQueue()
+        self.DataInput = InputStream(Lines = True, EventQueue = self.EventQueue, Event = 1)
+        self.ControlInput = InputTerminal(self.UI.Terminal, EventQueue = self.EventQueue, Event = 2)
+        self.UpdateTimer = Timer()
 
     def RegisterActions(self):
-        self.Control.Register(Config.BreakKey, UserBreak)
+        self.Control.Register(Config.BreakKey, self.UserBreak)
         self.Control.Register(Config.ISOKey, self.SwitchISO)
         self.Control.Register("a", self.SwitchAvgStats)
         self.Control.Register(Config.NDestPrintKey, self.SwitchDestrictive)
@@ -725,6 +729,7 @@ class WarpxWrapper:
 
     def PrepareStdin(self):
         self.DataInput.Input = sys.stdin
+        self.ControlInput.Stream = None
 
     def PrepareInputFileName(self):
         IsFifo = Config.IsFifo
@@ -810,10 +815,25 @@ class WarpxWrapper:
         else:
             self.PrepareCommand()
 
+    def PrepareDataStream(self):
+        self.DataInput.QueueSizeThreshold = 100
+
+    def ActivateInputs(self):
+        Logger.Debug("Activating non-blocking data input.")
+        self.DataInput.Activate()
+        Logger.Debug(1, f"Input activity status: {self.DataInput.IsActive()}.")
+
+        if self.ControlInput.Stream != None:
+            Logger.Debug("Activating non-blocking control input.")
+            self.ControlInput.Activate()
+            Logger.Debug(1, f"Input Activity status: {self.ControlInput.IsActive()}.")
+        else:
+            Logger.Debug("Stdin used for data, don't activate control input.")
+
     def OnKey(self, Key):
         if not self.Control.Dispatch(Key):
             self.UI.MsgLine.SetTemporary(f"Key: {Key.encode()}")
-        if not Finishing:
+        if not self.Finishing:
             self.UpdateUI(True)
 
     def Pause(self):
@@ -857,6 +877,18 @@ class WarpxWrapper:
             msg += "Normal"
         self.UI.MsgLine.SetTemporary(msg)
 
+    def UserBreak(self):
+        self.UI.PrintLine("\n\n")
+        Logger.Info(f"Breaking on user demand.")
+        self.Finishing = True
+
+    def PrepareUI(self):
+        self.UI.NonDestructive = Config.NonDestructivePrint
+        self.UI.MinLen = 79
+
+    def PrepareTimer(self):
+        self.UpdateTimer.Timeout = Config.UpdateInterval
+
     def GetTotalElapsedTime(self):
         return time.time() - self.StartTime
 
@@ -885,6 +917,12 @@ class WarpxWrapper:
             if not Config.Quiet:
                 self.UI.Rewrite(Force)
 
+    def CheckTimer(self):
+        if self.State.MainUpdated and self.State.SecondUpdated:
+            if self.UpdateTimer.Expired():
+                self.UpdateTimer.Reset()
+                self.State.MainUpdated = False
+                self.State.SecondUpdated = False
 
     def Update(self, Force = False):
         if self.Timer.Expired() or Force:
@@ -901,6 +939,7 @@ PrintParams()
 
 WW = WarpxWrapper(Config.UpdateInterval, Config.MaxStep, Config.MaxTime)
 WW.PrepareSource()
+WW.PrepareDataStream()
 
 PrepareLogging()
 
@@ -922,39 +961,12 @@ Logger.Debug("\n      Start waiting for WarpX Data...\n")
 if Config.DontRun:
     exit(0)
 
-EventQueue = SimpleQueue()
-
-WW.UI.NonDestructive = Config.NonDestructivePrint
-WW.UI.MinLen = 79
-MainTimer = Timer(Config.UpdateInterval)
-
-ControlInput = InputTerminal(WW.UI.Terminal, EventQueue)
-if Config.Source == SourceType.STDIN: # Sorry, not interactive mode (or use another i/o stream)
-    ControlInput.Stream = None
-
-WW.DataInput.EventQueue = EventQueue
-WW.DataInput.Event = False
-WW.DataInput.QueueSizeThreshold = 100
-
-Logger.Debug("Activating input non-blocking pipe.")
-WW.DataInput.Activate()
-Logger.Debug(1, f"Pipe activity status: {WW.DataInput.IsActive()}.")
-
-if ControlInput.Stream != None:
-    Logger.Debug("Activating stdin non-blocking pipe.")
-    ControlInput.Activate()
-    Logger.Debug(1, f"Pipe activity status: {ControlInput.IsActive()}.")
+WW.PrepareUI()
+WW.PrepareTimer()
+WW.RegisterActions()
+WW.ActivateInputs()
 
 print("\n")
-
-Finishing = False
-
-def UserBreak():
-    global Finishing
-
-    print("\n\n")
-    Logger.Info(f"Breaking on user demand.")
-    Finishing = True
 
 if WW.WarpxProcess == None and Config.PID > 0:
     try:
@@ -963,10 +975,9 @@ if WW.WarpxProcess == None and Config.PID > 0:
         Logger.ExceptError(e)
         Logger.Error(f"Cannot assign Warpx process from given PID: {Config.PID}")
 
-WW.RegisterActions()
 
 try:
-    ControlInput.DisableBuffering()
+    WW.ControlInput.DisableBuffering()
 
     while 1:
         if Config.SkipMain:
@@ -975,18 +986,18 @@ try:
 
         WW.Update()
 
-        while not EventQueue.empty():
-            EventQueue.get_nowait() # eat stalled events
+        while not WW.EventQueue.empty():
+            WW.EventQueue.get_nowait() # eat stalled events
 
         while 1:
-            Key = ControlInput.Read()
+            Key = WW.ControlInput.Read()
             if Key == None:
                 break
             WW.OnKey(Key)
-            if Finishing:
+            if WW.Finishing:
                 break
 
-        if Finishing:
+        if WW.Finishing:
             if WW.StartTime < 0:
                 WW.StartTime = time.time()
             break
@@ -1012,7 +1023,7 @@ try:
 #                print(f"DataInput active, waiting for {Config.UpdateInterval}.")
                 Event = None
                 try:
-                    Event = EventQueue.get(timeout=Config.UpdateInterval)
+                    Event = WW.EventQueue.get(timeout=Config.UpdateInterval)
                 except Exception as e:
                     #Logger.Debug("Exception while waiting for event.")
                     #Logger.ExceptDebug(e)
@@ -1096,12 +1107,8 @@ try:
         if WW.State.Header or WW.State.Footer:
             print(OutputLine, end='')
 
-        if WW.State.MainUpdated and WW.State.SecondUpdated:
-            if MainTimer.Expired():
-                MainTimer.Reset()
-                WW.State.MainUpdated = False
-                WW.State.SecondUpdated = False
-                #WW.State.ThirdUpdated = False Do it only once
+        WW.CheckTimer()
+        #WW.State.ThirdUpdated = False Do it only once
 
 except Exception as e:
     Logger.Critical("Unhandled exception, restoring terminal settings.")
@@ -1109,7 +1116,7 @@ except Exception as e:
     Logger.ExceptCrit(e)
     exit(1)
 
-ControlInput.RestoreBuffering()
+WW.ControlInput.RestoreBuffering()
 
 WW.UI.CurrentSection = UI.Section.FOOTER
 
@@ -1121,8 +1128,8 @@ MeanTest /= Steps
 
 print(MeanStepETA, MeanTimeETA, MeanTest)"""
 
-if Config.AbortOnExit and PID > 0:
-    os.kill(PID, signal.SIGABRT)
+if Config.AbortOnExit and WW.WarpxProcess != None:
+    WW.WarpxProcess.terminate()
 
 #EMsg = "Mean ETA: {0} / {1}".format(datetime.timedelta(seconds=MeanStepETA), datetime.timedelta(seconds=MeanTimeETA))
 #EMsg = "|{:^77}|".format(EMsg)
