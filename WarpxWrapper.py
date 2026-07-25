@@ -207,6 +207,14 @@ class SourceAction(argparse.Action):
         key = value[0]
         Config.Source = Sources[key]
         Logger.Debug("Command line: set Source to {}".format(key))
+
+class CommandAction(argparse.Action):
+    def __init__(self, option_strings, dest, **kwargs):
+        kwargs.pop("VarName")
+        super().__init__(option_strings, dest, **kwargs)
+    def __call__(self, parser, namespace, value, option_string):
+        Config.Command = value
+        Logger.Debug("Command line: set Command to {}".format(value))
 #parser.add_argument("-s", "--source", nargs=1, action=SourceAction, choices=Sources.keys())
 
 def StrToBool(value):
@@ -312,7 +320,7 @@ AddParam("ExecBase", "--exec-base")
 AddParam("ExecDim", "--dim", "--exec-dim")
 AddParam("Executable", "--executable")
 AddParam("UseMpi", "-m", "--use-mpi", const = True)
-AddParam("Command", "-c", "--command", nargs="+")
+AddParam("Command", "-c", "--command", nargs="+", action=CommandAction)
 parser.add_argument("command", nargs="*")
 
 DefaultConfigFile = "config.py"
@@ -323,10 +331,7 @@ else:
 
 args = parser.parse_args(sys.argv[1:])
 if len(args.command) > 0:
-    if type(Command) == list:
-        Command.extend(args.command)
-    else:
-        Command = args.command
+    Config.Command = args.command
 
 LogStream = None
 LogWritable = False
