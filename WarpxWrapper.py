@@ -559,8 +559,10 @@ class UI:
             Max = self.MaxLen
         return min(Min, Max), Max
 
-    def PrintLine(self, Text = "", End = "\n"):
-        print(Text + self.Terminal.clear_eol, end = End)
+    def PrintLine(self, Text = "", End = "\n", Times = 1):
+        while Times:
+            print(Text + self.Terminal.clear_eol, end = End)
+            Times -= 1
 
     def PrintStaticLine(self, Text):
         Begin = "\r"
@@ -628,7 +630,7 @@ class UI:
         self.PrintCentered("Time statistics:")
         self.PrintSeparator()
         self.PrintLeftPadding()
-        self.PrintLine("\n\n\n")
+        self.PrintLine(Times=4)
 
     def WriteSimStats(self):
         s = self.SimStats # Less to write
