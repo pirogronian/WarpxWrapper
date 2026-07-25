@@ -525,7 +525,7 @@ class UI:
         MAIN = 2
         FOOTER = 3
 
-    Destructive = True
+    NonDestructive = False
     MinLen = 0
     MaxLen = 0
     Avg = True
@@ -561,6 +561,14 @@ class UI:
 
     def PrintLine(self, Text = "", End = "\n"):
         print(Text + self.Terminal.clear_eol, end = End)
+
+    def PrintStaticLine(self, Text):
+        Begin = "\r"
+        End = ''
+        if self.NonDestructive:
+            Begin = ""
+            End = "\n"
+        self.PrintLine(Begin + Text, End = End)
 
     def Separator(self):
         minl, maxl = self.GetLen()
@@ -615,7 +623,7 @@ class UI:
     def WriteHeader(self):
         lmin, lmax = self.GetLen()
 #        print(lmin, lmax, Length)
-        d = self.Destructive
+        nd = self.NonDestructive
         self.PrintSeparator()
         self.PrintCentered("Time statistics:")
         self.PrintSeparator()
@@ -940,12 +948,12 @@ PrintParams()
 WW = WarpxWrapper(Config.UpdateInterval, Config.MaxStep, Config.MaxTime)
 WW.PrepareSource()
 WW.PrepareDataStream()
+WW.PrepareUI()
+WW.PrepareTimer()
+WW.RegisterActions()
+WW.ActivateInputs()
 
 PrepareLogging()
-
-MeanStepETA = 0
-MeanTimeETA = 0
-UpdateCount = 0
 
 Re1     = regex.compile("TIME")
 Re2     = regex.compile("Evolve time")
@@ -955,16 +963,11 @@ ReAbort = regex.compile("MPI_ABORT")
 ReNum   = regex.compile("[+-]?(?:[0-9]+(?:\\.[0-9]+)?|\\.[0-9]+)(?:[eE][+-]?[0-9]+)?")
 #ReNum = regex.compile("[0-9]+(.[0-9]+(e[+-][0-9]+)?)?")
 
-WaitForDataStart = time.time()
-Logger.Debug("\n      Start waiting for WarpX Data...\n")
-
 if Config.DontRun:
     exit(0)
 
-WW.PrepareUI()
-WW.PrepareTimer()
-WW.RegisterActions()
-WW.ActivateInputs()
+WW.WaitForDataStart = time.time()
+Logger.Debug("\n      Start waiting for WarpX Data...\n")
 
 print("\n")
 
@@ -1003,15 +1006,9 @@ try:
             break
 
         if WW.StartTime < 0:
-            WaitingFor = time.time() - WaitForDataStart
+            WaitingFor = time.time() - WW.WaitForDataStart
             if WaitingFor > 0:
-                End = ''
-                Start = ''
-                if Config.NonDestructivePrint:
-                    End = '\n'
-                else:
-                    Start = '\r'
-                WW.UI.PrintLine(f"{Start}   Waiting for WarpX to start sending data for: {WW.UI.FmtTime.Str(WaitingFor)}", End)
+                WW.UI.PrintStaticLine(f"   Waiting for WarpX to start sending data for: {WW.UI.FmtTime.Str(WaitingFor)}")
 
         #if not (Header or Footer):
         #    WW.UI.Update()
@@ -1112,7 +1109,7 @@ try:
 
 except Exception as e:
     Logger.Critical("Unhandled exception, restoring terminal settings.")
-    ControlInput.RestoreBuffering()
+    WW.ControlInput.RestoreBuffering()
     Logger.ExceptCrit(e)
     exit(1)
 
