@@ -1,4 +1,5 @@
 
+import io
 import os
 import sys
 import fcntl
@@ -19,37 +20,56 @@ class CommonStream:
 #        print("Got event queue with value: ", EventQueue)
         self.EventQueue = EventQueue
         self.Event = Event
+        self.Stop = False
+        self.AutoClose = False
 
     def IsOpen(self):
-        return issubclass(io.IOBase, self.Stream) and not self.Stream.closed()
+        return isinstance(self.Stream, io.IOBase) and not self.Stream.closed
 
     def IsClosed(self):
-        return issubclass(io.IOBase, self.Stream) and self.Stream.closed()
+        return isinstance(self.Stream, io.IOBase) and self.Stream.closed
+
+    def IsStream(self):
+        return isinstance(self.Stream, io.IOBase)
 
     def Open(self):
         if type(self.Stream) == str:
+            print("Opening stream for write: ", self.Stream, self.Mode)
             Mode = self.Mode
             if self.Binary:
                 Mode += "b"
             self.Stream = open(self.Stream, self.Mode)
+            print("Stream opened.")
+            print(issubclass(io.IOBase, type(self.Stream)))
             self.SendEvent()
+
+    def Close(self, Timeout = None):
+        self.AutoClose = True
+        self.Stop = True
+        self.Thread.join(Timeout)
 
     def Daemon(self):
         self.Open()
 
-        while 1:
+        while not self.Stop:
             ret = self.MainLoop()
             if ret == 0:
                 if self.Interval > 0:
                     time.sleep(self.Interval)
                 else:
                     break
+        if self.AutoClose:
+            self.Stream.close()
 
     def Activate(self, Stream = None):
         if Stream != None:
             self.Stream = Stream
         self.Thread = threading.Thread(target=self.Daemon, daemon = True)
         self.Thread.start()
+
+    def Deactivate(self, Timeout = None):
+        self.Stop = True
+        self.Thread.join(Timeout)
 
     def IsActive(self):
         return self.Thread.is_alive()
@@ -117,20 +137,36 @@ class OutputStream(CommonStream):
     Mode = "w"
 
     def DirectWrite(self, Data):
+        #print(f"Writing data: \"{Data}\" ({len(Data)})")
         if self.Lines:
-            return self.Stream.writelines(Data)
+            self.Stream.writelines(Data)
+            return 1
         return self.Stream.write(Data)
 
+    def Close(self, Timeout = None):
+        self.AutoClose = True
+        self.Stop = True
+        self.Queue.put(None)
+        self.Thread.join(Timeout)
+
     def MainLoop(self):
+#        print("Ready to listen for data.")
         data = self.Queue.get()
+        if data == None:
+            return 0
+#        print(f"Got data for write: '{data}'")
         ret = self.DirectWrite(data)
-        if ret == 0:
+        #print(f"Wrote {ret} of data.")
+        if not ret:
             return 0
         self.SendEvent()
         return 1
 
     def Write(self, Data):
-        self.WriteQueue.put_nowait(data)
+#        print("Put data into queue: ", Data)
+#        print("Size of queue: ", self.Queue.qsize())
+        self.Queue.put_nowait(Data)
+#        print("Size of queue: ", self.Queue.qsize())
 
 class AppendStream(OutputStream):
     Mode = "a"

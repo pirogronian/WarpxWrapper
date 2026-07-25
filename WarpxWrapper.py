@@ -17,7 +17,7 @@ from blessed import Terminal
 from queue import SimpleQueue
 
 from FormattedValue import FormattedNumber, FormattedTime, SizeStr
-from NonBlockingStream import InputStream, InputTerminal
+from NonBlockingStream import InputStream, InputTerminal, OutputStream
 import FitLine
 from MessageLine import MessageLine
 from Timer import Timer
@@ -332,21 +332,6 @@ else:
 args = parser.parse_args(sys.argv[1:])
 if len(args.command) > 0:
     Config.Command = args.command
-
-LogStream = None
-LogWritable = False
-
-def PrepareLogging():
-    global LogStream
-    global LogWritable
-    if Config.LogFile != "":
-        try:
-            LogStream = open(Config.LogFile, "w")
-            LogWritable = True
-        except Exception as e:
-            Logger.Error(f"An exception occured while opening the log file '{Config.LogFile}':")
-            Error(1, e)
-            LogWritable = False
 
 #DataStream = None
 #IsFifo = False
@@ -830,10 +815,42 @@ class WarpxWrapper:
         else:
             self.PrepareCommand()
 
+    def PrepareLogOutput(self):
+        if Config.LogFile == None and Config.LogFile == "":
+            return
+        Logger.Debug(f"Opening log file: '{Config.LogFile}'")
+        Path = pathlib.Path(Config.LogFile)
+        if Path.is_file():
+            if Path.is_fifo():
+                IsFifo = True
+            else:
+                IsFifo = False
+        elif Path.is_fifo():
+            IsFifo = True
+        else:
+            if IsFifo:
+                os.mkfifo(Config.InputFile)
+            else:
+                os.mknod(Config.InputFile, stat.S_IFREG | 0o600)
+        self.LogOutput = OutputStream()
+        if IsFifo:
+            Logger.Debug("Log file is a pipe. Open it inside thread.")
+            self.LogOutput.Stream = Config.InputFile
+        else:
+            Logger.Debug("Log file is an ordinary file.")
+            LogStream = None
+            try:
+                LogStream = open(Config.LogFile, "w")
+            except Exception as e:
+                Logger.ExceptError(e)
+                Error(f"Cannot open log file '{Config.LogFile}' for writing.")
+            self.LogOutput.Stream = LogStream
+            Logger.Debug(f"File '{Config.LogFile}' successfully opened.")
+
     def PrepareDataStream(self):
         self.DataInput.QueueSizeThreshold = 100
 
-    def ActivateInputs(self):
+    def ActivateStreams(self):
         Logger.Debug("Activating non-blocking data input.")
         self.DataInput.Activate()
         Logger.Debug(1, f"Input activity status: {self.DataInput.IsActive()}.")
@@ -844,6 +861,17 @@ class WarpxWrapper:
             Logger.Debug(1, f"Input Activity status: {self.ControlInput.IsActive()}.")
         else:
             Logger.Debug("Stdin used for data, don't activate control input.")
+
+        if self.LogOutput != None:
+            Logger.Debug("Activating non-blocking log output.")
+            self.LogOutput.Activate()
+            Logger.Debug(1, f"Output Activity status: {self.LogOutput.IsActive()}.")
+
+    def CloseStreams(self):
+        self.DataInput.Close(0)
+        #self.ControlInput.Stream.close() # stdin shouldnt be closed, right?
+        if self.LogOutput != None:
+            self.LogOutput.Close()
 
     def OnKey(self, Key):
         if not self.Control.Dispatch(Key):
@@ -958,9 +986,8 @@ WW.PrepareDataStream()
 WW.PrepareUI()
 WW.PrepareTimer()
 WW.RegisterActions()
-WW.ActivateInputs()
-
-PrepareLogging()
+WW.PrepareLogOutput()
+WW.ActivateStreams()
 
 Re1     = regex.compile("TIME")
 Re2     = regex.compile("Evolve time")
@@ -1063,12 +1090,8 @@ try:
             WW.UI.CurrentSection = UI.Section.HEADER
             WW.UI.PrintLine("\n   Got data, starting processing.")
 
-            if LogWritable:
-                try:
-                    LogStream.write(OutputLine)
-                except Exception as e:
-                    Logger.Warning("An error while writing to log file.")
-                    Logger.Warning(1, e)
+        if WW.LogOutput != None:
+            WW.LogOutput.Write(OutputLine)
 
         if not WW.State.Footer and not WW.State.MainUpdated and Re1.search(OutputLine):
             WW.State.Header = False # Just in case we missed something
@@ -1131,11 +1154,13 @@ MeanTimeETA /= Steps
 MeanTest /= Steps
 
 print(MeanStepETA, MeanTimeETA, MeanTest)"""
+#WW.DeactivateStreams()  # This will most probably hang
+WW.CloseStreams()
 
 if Config.AbortOnExit and WW.WarpxProcess != None:
     WW.WarpxProcess.terminate()
 
 #EMsg = "Mean ETA: {0} / {1}".format(datetime.timedelta(seconds=MeanStepETA), datetime.timedelta(seconds=MeanTimeETA))
 #EMsg = "|{:^77}|".format(EMsg)
-
-WW.UI.WriteSummary(WW.GetRunningElapsedTime())
+if not Config.Quiet:
+    WW.UI.WriteSummary(WW.GetRunningElapsedTime())
