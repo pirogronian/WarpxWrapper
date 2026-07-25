@@ -34,13 +34,13 @@ class CommonStream:
 
     def Open(self):
         if type(self.Stream) == str:
-            print("Opening stream for write: ", self.Stream, self.Mode)
+#            print("Opening stream for write: ", self.Stream, self.Mode)
             Mode = self.Mode
             if self.Binary:
                 Mode += "b"
             self.Stream = open(self.Stream, self.Mode)
-            print("Stream opened.")
-            print(issubclass(io.IOBase, type(self.Stream)))
+#            print("Stream opened.")
+#            print(issubclass(io.IOBase, type(self.Stream)))
             self.SendEvent()
 
     def Close(self, Timeout = None):
