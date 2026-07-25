@@ -1,6 +1,7 @@
 
 import math
 import datetime
+import enum
 
 SecInMinute = 60
 SecInHour = 3600
@@ -41,16 +42,10 @@ class FormattedNumber:
             Value = self.Value
         if FixedPointPrecision == None:
             FixedPointPrecision = self.FixedPointPrecision
-            if FixedPointPrecision == None:
-                FixedPointPrecision = self.__class__.FixedPointPrecision
         if FixedPointRange == None:
             Range = self.FixedPointRange
-            if Range == None:
-                Range = self.__class__.Range
         if ForbidNegative == None:
             ForbidNegative = self.ForbidNegative
-            if ForbidNegative == None:
-                ForbidNegative = self.__class__.ForbidNegative
         R1, R2 = self.GetFixedPointRange(FixedPointRange)
 
         #print(f"Str({Value}, {Precision}, {R1}, {R2})")
@@ -162,15 +157,20 @@ def DateTimeStr(Seconds, ISOFormat = False, Precision = 0.02, FixedPointPrecisio
     return ret
 
 class FormattedTime:
+    class Format(enum.Enum):
+        NORMAL = 0
+        ISO = 1
+        RAW = 2
     Value = 0
     Precision = 0.01
     FixedPointPrecision = 2
     FixedPointRange = [9999, 0.001]
-    ISO = False
+    CurrentFormat = Format.NORMAL
 
-    def __init__(self, Seconds = 0, ISO = None, Minutes = 0, Hours = 0, Days = 0, Years = 0,  Precision = None, FixedPointPrecision = None, FixedPointRange = None):
+    def __init__(self, Seconds = 0, CurrentFormat = Format.NORMAL, Minutes = 0, Hours = 0, Days = 0, Years = 0,  Precision = None, FixedPointPrecision = None, FixedPointRange = None):
+        self.Raw = FormattedNumber(FixedPointPrecision = FixedPointPrecision, FixedPointRange = FixedPointRange, ForbidNegative = True)
         self.SetValue(Seconds = Seconds, Minutes = Minutes, Hours = Hours, Days = Days, Years = Years)
-        self.ISO = ISO
+        self.CurrentFormat = CurrentFormat
         if FixedPointRange != None:
            self.FixedPointRange = FixedPointRange
         if FixedPointPrecision != None:
@@ -181,26 +181,21 @@ class FormattedTime:
     def SetValue(self, Seconds = 0, Minutes = 0, Hours = 0, Days = 0, Years = 0):
         self.Value = TimeToSeconds(Seconds = Seconds, Minutes = Minutes, Hours = Hours, Days = Days, Years = Years)
 
-    def Str(self, Value = None, ISO = None, Precision = None, FixedPointPrecision = None, FixedPointRange = None):
+    def Str(self, Value = None, CurrentFormat = None, Precision = None, FixedPointPrecision = None, FixedPointRange = None):
         if Value == None:
             Value = self.Value
-        if ISO == None:
-            ISO = self.ISO
-            if ISO == None:
-                ISO = self.__class__.ISO
+        if CurrentFormat == None:
+            CurrentFormat = self.CurrentFormat
         if Precision == None:
             Precision = self.Precision
-            if Precision == None:
-                Precision = self.__class__.Precision
         if FixedPointPrecision == None:
             FixedPointPrecision = self.FixedPointPrecision
-            if FixedPointPrecision == None:
-                FixedPointPrecision = self.__class__.FixedPointPrecision
         if FixedPointRange == None:
             FixedPointRange = self.FixedPointRange
-            if FixedPointRange == None:
-                FixedPointRange = self.__class__.FixedPointRange
-        return DateTimeStr(Value, ISOFormat = ISO, Precision = Precision, FixedPointPrecision = FixedPointPrecision, FixedPointRange = FixedPointRange)
+        if CurrentFormat == self.Format.RAW:
+            return self.Raw.Str(Value, FixedPointPrecision = FixedPointPrecision, FixedPointRange = FixedPointRange) + "s"
+
+        return DateTimeStr(Value, ISOFormat = (CurrentFormat == self.Format.ISO), Precision = Precision, FixedPointPrecision = FixedPointPrecision, FixedPointRange = FixedPointRange)
 
     def __str__(self):
         return self.Str()

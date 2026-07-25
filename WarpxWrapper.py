@@ -536,6 +536,9 @@ class UI:
     MessageLineHeight = 1
 
     def __init__(self, SimStats, DataStats):
+        self.FmtNmb = FormattedNumber()
+        self.FmtTime = FormattedTime()
+        self.FmtNmb.ForbidNegative = True
         self.Terminal = Terminal()
         print(self.Terminal.clear_bol)
         self.First = True
@@ -621,16 +624,18 @@ class UI:
 
     def WriteSimStats(self):
         s = self.SimStats # Less to write
+        fn = self.FmtNmb
+        ft = self.FmtTime
         minl, maxl = self.GetLen()
         SSSpeed, STSpeed = self.GetSimSpeeds()
         SETA, TETA = self.GetSimETAs()
-        s1 = f"Step:  {FmtNmb.Str(s.Step):^15} / {FmtNmb.Str(s.MaxStep):^15} : {FmtNmb.Str(s.StepsLeft):^15} ({FmtNmb.Str(s.StepsProgress):>3}%)," +\
-        f"x{FmtNmb.Str(SSSpeed):>9}, ETA: {FmtTime.Str(SETA):>20}"
+        s1 = f"Step:  {fn.Str(s.Step):^15} / {fn.Str(s.MaxStep):^15} : {fn.Str(s.StepsLeft):^15} ({fn.Str(s.StepsProgress):>3}%)," +\
+        f"x{fn.Str(SSSpeed):>9}, ETA: {ft.Str(SETA):>20}"
 
-        s2 = f"Sim time: {FmtTime.Str(s.Time):^12} / {FmtTime.Str(s.MaxTime):^15} : {FmtTime.Str(s.TimeLeft):^15} ({FmtNmb.Str(s.TimeProgress):>3}%)," +\
-        f"x{FmtNmb.Str(STSpeed):>9}, ETA: {FmtTime.Str(TETA):>20}"
+        s2 = f"Sim time: {ft.Str(s.Time):^12} / {ft.Str(s.MaxTime):^15} : {ft.Str(s.TimeLeft):^15} ({fn.Str(s.TimeProgress):>3}%)," +\
+        f"x{fn.Str(STSpeed):>9}, ETA: {ft.Str(TETA):>20}"
 
-        s3 = f"Elapsed: {FmtTime.Str(s.ElapsedRealTime)}, delta: {FmtTime.Str(s.RealTimeDelta)} ({FmtTime.Str(s.TimeDelta * s.RealTimeDelta)}), eff: elapsed: {s.ElapsedRealTimeEfficiency}%, delta: {s.RealTimeDeltaEfficiency}%"
+        s3 = f"Elapsed: {ft.Str(s.ElapsedRealTime)}, delta: {ft.Str(s.RealTimeDelta)} ({ft.Str(s.TimeDelta * s.RealTimeDelta)}), eff: elapsed: {s.ElapsedRealTimeEfficiency}%, delta: {s.RealTimeDeltaEfficiency}%"
 
 #        if not self.NonDestructive:
 #            print('\r\033[A\033[A\033[A\033[A\033[A', end='')
@@ -657,7 +662,7 @@ class UI:
         self.PrintLine()
         self.PrintSeparator()
         self.PrintPadding()
-        self.PrintCentered(f"Finishing in {FmtTime.Str(Elapsed)}.")
+        self.PrintCentered(f"Finishing in {self.FmtTime.Str(Elapsed)}.")
         self.PrintPadding()
         self.PrintSeparator()
         self.PrintLine()
@@ -840,12 +845,16 @@ class WarpxWrapper:
         self.UI.MsgLine.SetTemporary(f"Avg: {WW.UI.Avg}")
 
     def SwitchISO(self):
-        FmtTime.ISO = not FmtTime.ISO
-        msg = "ISO "
-        if FmtTime.ISO:
-            msg += "set"
-        else:
-            msg += "unset"
+        msg = "Format: "
+        if self.UI.FmtTime.CurrentFormat == FormattedTime.Format.NORMAL:
+            self.UI.FmtTime.CurrentFormat = FormattedTime.Format.ISO
+            msg += "ISO"
+        elif self.UI.FmtTime.CurrentFormat == FormattedTime.Format.ISO:
+            self.UI.FmtTime.CurrentFormat = FormattedTime.Format.RAW
+            msg += "Raw"
+        elif self.UI.FmtTime.CurrentFormat == FormattedTime.Format.RAW:
+            self.UI.FmtTime.CurrentFormat = FormattedTime.Format.NORMAL
+            msg += "Normal"
         self.UI.MsgLine.SetTemporary(msg)
 
     def GetTotalElapsedTime(self):
@@ -894,11 +903,6 @@ WW = WarpxWrapper(Config.UpdateInterval, Config.MaxStep, Config.MaxTime)
 WW.PrepareSource()
 
 PrepareLogging()
-
-FmtNmb = FormattedNumber()
-FmtTime = FormattedTime()
-FmtNmb.ForbidNegative = True
-
 
 MeanStepETA = 0
 MeanTimeETA = 0
@@ -996,7 +1000,7 @@ try:
                     End = '\n'
                 else:
                     Start = '\r'
-                WW.UI.PrintLine(f"{Start}   Waiting for WarpX to start sending data for: {FmtTime.Str(WaitingFor)}", End)
+                WW.UI.PrintLine(f"{Start}   Waiting for WarpX to start sending data for: {WW.UI.FmtTime.Str(WaitingFor)}", End)
 
         #if not (Header or Footer):
         #    WW.UI.Update()
