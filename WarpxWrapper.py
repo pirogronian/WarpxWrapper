@@ -346,116 +346,6 @@ def PrepareLogging():
 #DataStream = None
 #IsFifo = False
 
-DataInput = InputStream(Lines = True)
-
-def PrepareStdin():
-#    global DataStream
-#    global IsFifo
-#    DataStream = sys.stdin
-#    IsFifo = True
-    global DataInput
-    DataInput.Input = sys.stdin
-
-def PrepareInputFileName():
-#    global DataStream
-#    global IsFifo
-    global DataInput
-    IsFifo = Config.IsFifo
-    Logger.Debug(f"Opening WarpX output file: '{Config.InputFile}'")
-    Path = pathlib.Path(Config.InputFile)
-    if Path.is_file():
-        if Path.is_fifo():
-            IsFifo = True
-        else:
-            IsFifo = False
-    elif Path.is_fifo():
-        IsFifo = True
-    else:
-        if IsFifo:
-            os.mkfifo(Config.InputFile)
-        else:
-            os.mknod(Config.InputFile, stat.S_IFREG | 0o600)
-    if IsFifo:
-        Logger.Debug("Input file is a pipe. Open it inside thread.")
-        DataInput.Stream = Config.InputFile
-    else:
-        Logger.Debug("Input fle is an ordinary file. Don't exit if read zero bytes.")
-        DataInput.Interval = Config.UpdateInterval
-        try:
-            DataStream = open(Config.InputFile, "r")
-        except Exception as e:
-            Logger.ExceptCritic(e)
-            Fatal(f"Cannot open data file '{Config.InputFile}' for reading.")
-        DataInput.Stream = DataStream
-        Logger.Debug(f"File '{Config.InputFile}' successfully opened.")
-
-WarpxProcess = None
-
-def PrepareCommand():
-    global Command
-    global InputFileName
-    global WarpxProcess
-
-    CmdArgs = []
-
-    if Config.UseMpi:
-        CmdArgs.append("mpirun")
-
-    if type(Config.Command) == str and Config.Command != "":
-        CmdArgs.extend(Config.Command.split())
-    elif type(Config.Command) == list and len(Config.Command) > 0:
-        for arg in Config.Command:
-            subargs = arg.split()
-            CmdArgs.extend(subargs)
-    else:
-        if Config.Executable != "":
-            CmdArgs.append(Config.Executable)
-        else:
-            CmdArgs.append(Config.ExecBase + Config.ExecDim)
-
-    if Config.Command == "":
-        if Config.InputFile == "":
-            Config.InputFile = DefaultWarpxInputFileName
-        if not IsReadable(Config.InputFile):
-            Error(f"Warpx input file \"{Config.InputFile}\" is not readable.")
-
-        CmdArgs.append(Config.InputFile)
-
-    RunMsg = f"|   Running WarpX 3D with the following command: {CmdArgs}   |"
-    RunMsgLen = len(RunMsg)
-
-    Panel = "-" * RunMsgLen
-    Logger.Debug(Panel)
-    Logger.Debug(RunMsg)
-    Logger.Debug(Panel)
-
-    try:
-        WarpxProcess = pypsutil.Popen(args=CmdArgs,
-                                    stdin=subprocess.DEVNULL,
-                                    stdout=subprocess.PIPE,
-                                    stderr=subprocess.STDOUT,
-                                    text=True)
-    except Exception as e:
-        Logger.ExceptCrit(e)
-        Fatal("Cannot create a subprocess to get its output.")
-
-    DataInput.Stream = WarpxProcess.stdout
-
-PrintParams()
-
-if Config.Source == SourceType.STDIN:
-    PrepareStdin()
-elif Config.Source == SourceType.FILE:
-    PrepareInputFileName()
-else:
-    PrepareCommand()
-
-PrepareLogging()
-
-FmtNmb = FormattedNumber()
-FmtTime = FormattedTime()
-FmtNmb.ForbidNegative = True
-
 class SimulationStats:
     Step = -1 # These two are replenished externally
     Time = -1
@@ -803,12 +693,13 @@ class State:
     SecondUpdated = False
     ThirdUpdated = False
 
-class WWapper:
+class WarpxWrapper:
     UpdateInterval = 0.5
     StartTime = -1
     PausedAt = -1
     Pausedtime = 0
     Paused = False
+    WarpxProcess = None
 
     def __init__(self, Interval, MaxStep, MaxTime):
         self.State = State()
@@ -818,6 +709,7 @@ class WWapper:
         self.UI = UI(self.SimStats, self.DataStats)
         self.Timer = Timer(self.UpdateInterval)
         self.Control = ControlManager()
+        self.DataInput = InputStream(Lines = True)
 
     def RegisterActions(self):
         self.Control.Register(Config.BreakKey, UserBreak)
@@ -826,6 +718,93 @@ class WWapper:
         self.Control.Register(Config.NDestPrintKey, self.SwitchDestrictive)
         self.Control.Register(Config.PauseKey, self.SwitchRunningState)
 
+    def PrepareStdin(self):
+        self.DataInput.Input = sys.stdin
+
+    def PrepareInputFileName(self):
+        IsFifo = Config.IsFifo
+        Logger.Debug(f"Opening WarpX output file: '{Config.InputFile}'")
+        Path = pathlib.Path(Config.InputFile)
+        if Path.is_file():
+            if Path.is_fifo():
+                IsFifo = True
+            else:
+                IsFifo = False
+        elif Path.is_fifo():
+            IsFifo = True
+        else:
+            if IsFifo:
+                os.mkfifo(Config.InputFile)
+            else:
+                os.mknod(Config.InputFile, stat.S_IFREG | 0o600)
+        if IsFifo:
+            Logger.Debug("Input file is a pipe. Open it inside thread.")
+            self.DataInput.Stream = Config.InputFile
+        else:
+            Logger.Debug("Input fle is an ordinary file. Don't exit if read zero bytes.")
+            self.DataInput.Interval = Config.UpdateInterval
+            try:
+                DataStream = open(Config.InputFile, "r")
+            except Exception as e:
+                Logger.ExceptCritic(e)
+                Fatal(f"Cannot open data file '{Config.InputFile}' for reading.")
+            self.DataInput.Stream = DataStream
+            Logger.Debug(f"File '{Config.InputFile}' successfully opened.")
+
+    def PrepareCommand(self):
+        CmdArgs = []
+
+        if Config.UseMpi:
+            CmdArgs.append("mpirun")
+
+        if type(Config.Command) == str and Config.Command != "":
+            CmdArgs.extend(Config.Command.split())
+        elif type(Config.Command) == list and len(Config.Command) > 0:
+            for arg in Config.Command:
+                subargs = arg.split()
+                CmdArgs.extend(subargs)
+        else:
+            if Config.Executable != "":
+                CmdArgs.append(Config.Executable)
+            else:
+                CmdArgs.append(Config.ExecBase + Config.ExecDim)
+
+        if Config.Command == "":
+            if Config.InputFile == "":
+                Config.InputFile = DefaultWarpxInputFileName
+            if not IsReadable(Config.InputFile):
+                Error(f"Warpx input file \"{Config.InputFile}\" is not readable.")
+
+            CmdArgs.append(Config.InputFile)
+
+        RunMsg = f"|   Running WarpX 3D with the following command: {CmdArgs}   |"
+        RunMsgLen = len(RunMsg)
+
+        Panel = "-" * RunMsgLen
+        Logger.Debug(Panel)
+        Logger.Debug(RunMsg)
+        Logger.Debug(Panel)
+
+        try:
+            self.WarpxProcess = pypsutil.Popen(args=CmdArgs,
+                                        stdin=subprocess.DEVNULL,
+                                        stdout=subprocess.PIPE,
+                                        stderr=subprocess.STDOUT,
+                                        text=True)
+        except Exception as e:
+            Logger.ExceptCrit(e)
+            Fatal("Cannot create a subprocess to get its output.")
+
+        self.DataInput.Stream = self.WarpxProcess.stdout
+
+    def PrepareSource(self):
+        if Config.Source == SourceType.STDIN:
+            self.PrepareStdin()
+        elif Config.Source == SourceType.FILE:
+            self.PrepareInputFileName()
+        else:
+            self.PrepareCommand()
+
     def OnKey(self, Key):
         if not self.Control.Dispatch(Key):
             self.UI.MsgLine.SetTemporary(f"Key: {Key.encode()}")
@@ -833,15 +812,15 @@ class WWapper:
             self.UpdateUI(True)
 
     def Pause(self):
-        if WarpxProcess != None:
-            Processes.PauseTree(WarpxProcess)
+        if self.WarpxProcess != None:
+            Processes.PauseTree(self.WarpxProcess)
         self.PausedAt = time.time()
         self.Paused = True
         self.UI.MsgLine.SetPersistent("Paused")
 
     def Resume(self):
-        if WarpxProcess != None:
-            Processes.ResumeTree(WarpxProcess)
+        if self.WarpxProcess != None:
+            Processes.ResumeTree(self.WarpxProcess)
         self.Pausedtime += time.time() - self.PausedAt
         self.Paused = False
         self.UI.MsgLine.SetPersistent()
@@ -909,6 +888,18 @@ class WWapper:
                 self.UI.Rewrite(Force)
             self.Timer.Reset()
 
+PrintParams()
+
+WW = WarpxWrapper(Config.UpdateInterval, Config.MaxStep, Config.MaxTime)
+WW.PrepareSource()
+
+PrepareLogging()
+
+FmtNmb = FormattedNumber()
+FmtTime = FormattedTime()
+FmtNmb.ForbidNegative = True
+
+
 MeanStepETA = 0
 MeanTimeETA = 0
 UpdateCount = 0
@@ -929,7 +920,6 @@ if Config.DontRun:
 
 EventQueue = SimpleQueue()
 
-WW = WWapper(Config.UpdateInterval, Config.MaxStep, Config.MaxTime)
 WW.UI.NonDestructive = Config.NonDestructivePrint
 WW.UI.MinLen = 79
 MainTimer = Timer(Config.UpdateInterval)
@@ -938,13 +928,13 @@ ControlInput = InputTerminal(WW.UI.Terminal, EventQueue)
 if Config.Source == SourceType.STDIN: # Sorry, not interactive mode (or use another i/o stream)
     ControlInput.Stream = None
 
-DataInput.EventQueue = EventQueue
-DataInput.Event = False
-DataInput.QueueSizeThreshold = 100
+WW.DataInput.EventQueue = EventQueue
+WW.DataInput.Event = False
+WW.DataInput.QueueSizeThreshold = 100
 
 Logger.Debug("Activating input non-blocking pipe.")
-DataInput.Activate()
-Logger.Debug(1, f"Pipe activity status: {DataInput.IsActive()}.")
+WW.DataInput.Activate()
+Logger.Debug(1, f"Pipe activity status: {WW.DataInput.IsActive()}.")
 
 if ControlInput.Stream != None:
     Logger.Debug("Activating stdin non-blocking pipe.")
@@ -962,9 +952,9 @@ def UserBreak():
     Logger.Info(f"Breaking on user demand.")
     Finishing = True
 
-if WarpxProcess == None and Config.PID > 0:
+if WW.WarpxProcess == None and Config.PID > 0:
     try:
-        WarpxProcess = psutil.Process(Config.PID)
+        WW.WarpxProcess = pypsutil.Process(Config.PID)
     except Exception as e:
         Logger.ExceptError(e)
         Logger.Error(f"Cannot assign Warpx process from given PID: {Config.PID}")
@@ -1011,10 +1001,10 @@ try:
         #if not (Header or Footer):
         #    WW.UI.Update()
 
-        OutputLine = DataInput.Read()
+        OutputLine = WW.DataInput.Read()
         if OutputLine == None or OutputLine == "":
             #print("Read null string")
-            if (DataInput.IsActive()):
+            if (WW.DataInput.IsActive()):
 #                print(f"DataInput active, waiting for {Config.UpdateInterval}.")
                 Event = None
                 try:
@@ -1035,7 +1025,7 @@ try:
         WW.DataStats.DataSize += len(OutputLine)
         #print(f"Increasing data size: {DataStats.DataSize}.")
 
-        if not WW.State.ThirdUpdated and WarpxProcess == None and Config.Source == SourceType.FILE and Config.PID == 0:
+        if not WW.State.ThirdUpdated and WW.WarpxProcess == None and Config.Source == SourceType.FILE and Config.PID == 0:
             Ps = Processes.FileUsers(Config.InputFile, ["w", "a"])
 #            print("")
 #            print(Ps)
@@ -1043,8 +1033,8 @@ try:
             for P in Ps:
                 if P != Me:
                     WarpxProcess = P
-                    Logger.Debug(f"Detected Warpx process: {WarpxProcess.name()} ({WarpxProcess.pid}).")
-            if WarpxProcess == None:
+                    Logger.Debug(f"Detected Warpx process: {WW.WarpxProcess.name()} ({WarpxProcess.pid}).")
+            if WW.WarpxProcess == None:
                 Logger.Warning("Warpx process not detected!")
             WW.State.ThirdUpdated = True
 
