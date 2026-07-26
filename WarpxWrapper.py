@@ -531,7 +531,7 @@ class UI:
     NonDestructive = False
     MinLen = 0
     MaxLen = 0
-    Avg = True
+    Avg = False
     CurrentSection = Section.WAIT
 
     SimStatsHeight = 9
