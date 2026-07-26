@@ -55,6 +55,7 @@ class TreeStats:
     def __init__(self):
         self.ProcNum = 0
         self.ProcNames = {}
+        self.CrTime = 0
         self.CPU = 0
         self.Memory = 0
         self.MemoryRatio = 0
@@ -76,10 +77,13 @@ def GetTreeStats(Process):
         else:
             Stats.ProcNames[name] = 1
 
+        Stats.CrTime += Proc.create_time()
         CpuTimes = Proc.cpu_times()
         Stats.CPU += CpuTimes.user + CpuTimes.system
 
         Stats.Memory += Proc.memory_info().rss
         Stats.MemoryRatio += Proc.memory_percent()
+
+    Stats.CrTime = Stats.CrTime / len(Tree)
 
     return Stats

@@ -423,7 +423,7 @@ class SimulationStats:
 #        print(f"TimeDelta: {self.TimeDelta}, StepDelta: {self.StepDelta}")
 
         self.CurrentRealTime = Time
-#        self.ElapsedRealTime = self.CurrentRealTime - self.StartRealTime
+        self.ElapsedRealTime = self.CurrentRealTime - self.StartRealTime - self.PausedTime
 
         if self.Step >= 0 and self.MaxStep > 0:
             self.StepsLeft = self.MaxStep - self.Step
@@ -447,7 +447,7 @@ class SimulationStats:
         self.PrevRealTime = self.CurrentRealTime
         self.Updated = True
 
-class DataStats:
+class AccStats:
     UpdNr = 0
     Step = 0
     PrevStep = 0
@@ -473,26 +473,39 @@ class DataStats:
     AvgStepESA = -1
     AvgTimeESA = -1
 
+    CPUStart = 0
+    CPUTime = 0
+    PrevCPUTime = 0
+    CPU = 0
+    AvgCPU = 0
+
     def Recalculate(self):
         self.UpdNr += 1
         self.CurrentTime = time.time()
         if self.StartTime < 0:
             self.StartTime = self.CurrentTime
-        self.Elapsed = self.CurrentTime - self.StartTime
+        self.Elapsed = self.CurrentTime - self.StartTime - self.PausedTime
         #print(f"Upd # {self.UpdNr}. Loop: {self.Loop}.")
         #print(f"CTime: {self.CurrentTime:.2f}, prev time: {self.PrevTime:.2f}")
 
         self.Delta = self.CurrentTime - self.PrevTime
         self.DataDelta = self.DataSize - self.PrevDataSize
+        self.CPUDelta = self.CPUTime - self.PrevCPUTime
 
         if self.Delta > 0:
             self.DataSpeed = self.DataDelta / self.Delta
+            self.CPU = self.CPUDelta / self.Delta
 
         if self.Elapsed > 0:
             self.AvgDataSpeed = self.DataSize / self.Elapsed
 
+        if self.CPUStart > 0:
+            self.AvgCPU = self.CPUTime / (time.time() - self.CPUStart - self.PausedTime)
+            #print(f"Set AvgCPU: {self.CPUTime} / {time.time()} - {self.CPUStart} = / {time.time() - self.CPUStart} = {self.AvgCPU}")
+
         self.PrevTime = self.CurrentTime
         self.PrevDataSize = self.DataSize
+        self.PrevCPUTime = self.CPUTime
         #print(f"DDelta: {self.DataDelta} / {self.Delta:.2f}, {self.DataSpeed:.2f}/s")
 
     def RecalculateStep(self):
@@ -522,10 +535,10 @@ class UI:
     CurrentSection = Section.WAIT
 
     SimStatsHeight = 9
-    DataStatsHeight = 5
+    AccStatsHeight = 5
     MessageLineHeight = 1
 
-    def __init__(self, SimStats, DataStats):
+    def __init__(self, SimStats, AccStats):
         self.FmtNmb = FormattedNumber()
         self.FmtTime = FormattedTime()
         self.FmtNmb.ForbidNegative = True
@@ -533,7 +546,7 @@ class UI:
         print(self.Terminal.clear_bol)
         self.First = True
         self.SimStats = SimStats
-        self.DataStats = DataStats
+        self.AccStats = AccStats
         self.MsgLine = MessageLine(Timeout = 2, FillWith = "-", LineLen = 77)
 
     def CacheMaxLen(self, MaxLen = None):
@@ -604,13 +617,18 @@ class UI:
 
     def GetDataSpeeds(self):
         if self.Avg:
-            return self.DataStats.AvgDataSpeedStep, self.DataStats.AvgDataSpeed
-        return self.DataStats.DataSpeedStep, self.DataStats.DataSpeed
+            return self.AccStats.AvgDataSpeedStep, self.AccStats.AvgDataSpeed
+        return self.AccStats.DataSpeedStep, self.AccStats.DataSpeed
 
     def GetDataESAs(self):
         if self.Avg:
-            return self.DataStats.AvgStepESA, self.DataStats.AvgTimeESA
-        return self.DataStats.StepESA, self.DataStats.TimeESA
+            return self.AccStats.AvgStepESA, self.AccStats.AvgTimeESA
+        return self.AccStats.StepESA, self.AccStats.TimeESA
+
+    def GetCPU(self):
+        if self.Avg:
+            return self.AccStats.AvgCPU
+        return self.AccStats.CPU
 
     def WriteHeader(self):
         lmin, lmax = self.GetLen()
@@ -645,8 +663,8 @@ class UI:
         self.PrintLeftPadding()
         s.Updated = False
 
-    def WriteDataStats(self):
-        s = self.DataStats
+    def WriteAccStats(self):
+        s = self.AccStats
         minl, maxl = self.GetLen()
         SpeedStep, Speed = self.GetDataSpeeds()
         StepESA,TimeESA = self.GetDataESAs()
@@ -656,7 +674,7 @@ class UI:
     def WriteProcStats(self):
         s = self.ProcStats
         self.PrintSeparator()
-        self.PrintLeftPadding(f"Procs: {s.ProcNum}: {s.ProcNames} | CPU: {s.CPU:>5.2f}%, mem: {SizeStr(s.Memory):>5} ({s.MemoryRatio:>5.2f}%)")
+        self.PrintLeftPadding(f"Procs: {s.ProcNum}: {s.ProcNames} | CPU: {self.GetCPU()*100:>5.1f}%, mem: {SizeStr(s.Memory):>5} ({s.MemoryRatio:>5.2f}%)")
 
     def WriteMessageLine(self):
         minl, maxl = self.GetLen()
@@ -684,13 +702,13 @@ class UI:
                 if self.SimStats.Updated or Force:
                     MoveUp = self.SimStatsHeight
                 else:
-                    MoveUp = self.DataStatsHeight
+                    MoveUp = self.AccStatsHeight
 #            print(f"MoveUp: {MoveUp}")
             if MoveUp and not self.NonDestructive:
                 print(self.Terminal.move_up(MoveUp + 1))
             if self.SimStats.Updated or Force:
                 self.WriteSimStats()
-            self.WriteDataStats()
+            self.WriteAccStats()
             self.WriteProcStats()
             self.WriteMessageLine()
 
@@ -716,9 +734,8 @@ class WarpxWrapper:
         self.State = State()
         self.UpdateInterval = Interval
         self.SimStats = SimulationStats(MaxStep, MaxTime)
-        self.DataStats = DataStats()
-        self.ProcStats = Processes.TreeStats()
-        self.UI = UI(self.SimStats, self.DataStats)
+        self.AccStats = AccStats()
+        self.UI = UI(self.SimStats, self.AccStats)
         self.Timer = Timer(self.UpdateInterval)
         self.Control = ControlManager()
         self.EventQueue = SimpleQueue()
@@ -954,22 +971,28 @@ class WarpxWrapper:
     def GetRunningElapsedTime(self):
         if self.Paused:
             return self.PausedAt - self.StartTime - self.PausedTime
-        return self.GetTotalElapsedTime() - self.Pausedtime
+        return self.GetTotalElapsedTime() - self.PausedTime
+
+    def GetPausedTime(self):
+        ret = self.PausedTime
+        if self.Paused:
+            ret += time.time() - self.PausedAt
+        return ret
 
     def CalculateESA(self):
-        #print(f"SimStats.StepsLeft: {self.SimStats.StepsLeft}, DataStats.DataStepSpeed: {self.DataStats.DataStepSpeed}")
-        if self.SimStats.StepsLeft >= 0 and self.DataStats.DataSpeedStep >= 0:
-            self.DataStats.StepESA = self.DataStats.DataSize + self.SimStats.StepsLeft * self.DataStats.DataSpeedStep
+        #print(f"SimStats.StepsLeft: {self.SimStats.StepsLeft}, AccStats.DataStepSpeed: {self.AccStats.DataStepSpeed}")
+        if self.SimStats.StepsLeft >= 0 and self.AccStats.DataSpeedStep >= 0:
+            self.AccStats.StepESA = self.AccStats.DataSize + self.SimStats.StepsLeft * self.AccStats.DataSpeedStep
 
-        #print(f"SimStats.TimeETA: {self.SimStats.TimeETA}, DataStats.DataSpeed: {self.DataStats.DataSpeed}")
-        if self.SimStats.TimeETA >= 0 and self.DataStats.DataSpeed >= 0:
-            self.DataStats.TimeESA = self.DataStats.DataSize + self.SimStats.TimeETA * self.DataStats.DataSpeed
+        #print(f"SimStats.TimeETA: {self.SimStats.TimeETA}, AccStats.DataSpeed: {self.AccStats.DataSpeed}")
+        if self.SimStats.TimeETA >= 0 and self.AccStats.DataSpeed >= 0:
+            self.AccStats.TimeESA = self.AccStats.DataSize + self.SimStats.TimeETA * self.AccStats.DataSpeed
 
-        if self.SimStats.StepsLeft >= 0 and self.DataStats.AvgDataSpeedStep >= 0:
-            self.DataStats.AvgStepESA = self.DataStats.DataSize + self.SimStats.StepsLeft * self.DataStats.AvgDataSpeedStep
+        if self.SimStats.StepsLeft >= 0 and self.AccStats.AvgDataSpeedStep >= 0:
+            self.AccStats.AvgStepESA = self.AccStats.DataSize + self.SimStats.StepsLeft * self.AccStats.AvgDataSpeedStep
 
-        if self.SimStats.TimeETA >= 0 and self.DataStats.AvgDataSpeed >= 0:
-            self.DataStats.AvgTimeESA = self.DataStats.DataSize + self.SimStats.TimeETA * self.DataStats.AvgDataSpeed
+        if self.SimStats.TimeETA >= 0 and self.AccStats.AvgDataSpeed >= 0:
+            self.AccStats.AvgTimeESA = self.AccStats.DataSize + self.SimStats.TimeETA * self.AccStats.AvgDataSpeed
 
     def UpdateUI(self, Force = False):
         if self.Timer.Expired() or Force:
@@ -987,12 +1010,17 @@ class WarpxWrapper:
         if self.Timer.Expired() or Force:
             #self.SimStats.Recalculate() # only if there are new step data avaliable.
             #if not self.Paused:
-            self.SimStats.ElapsedRealTime = self.GetRunningElapsedTime()
-            self.DataStats.Recalculate()
+            #self.SimStats.ElapsedRealTime = self.GetRunningElapsedTime()
+            #self.AccStats.Elapsed = self.SimStats.ElapsedRealTime
+            self.SimStats.PausedTime = self.GetPausedTime()
+            self.AccStats.PausedTime = self.SimStats.PausedTime
+            self.AccStats.Recalculate()
             self.CalculateESA()
             if self.WarpxProcess != None:
                     #print("Update proc info.")
                 self.ProcStats = Processes.GetTreeStats(self.WarpxProcess)
+                self.AccStats.CPUStart = self.ProcStats.CrTime
+                self.AccStats.CPUTime = self.ProcStats.CPU
                 self.UI.ProcStats = self.ProcStats
                     #print(str(self.ProcStats))
             if not Config.Quiet:
@@ -1083,8 +1111,8 @@ try:
                 Logger.Debug("DataInput inactive, finishing.")
                 break
 
-        WW.DataStats.DataSize += len(OutputLine)
-        #print(f"Increasing data size: {DataStats.DataSize}.")
+        WW.AccStats.DataSize += len(OutputLine)
+        #print(f"Increasing data size: {AccStats.DataSize}.")
 
         if not WW.State.ThirdUpdated and WW.WarpxProcess == None and Config.Source == SourceType.FILE and Config.PID == 0:
             Ps = Processes.FileUsers(Config.InputFile, ["w", "a"])
@@ -1113,12 +1141,12 @@ try:
             nums = ReNum.findall(OutputLine)
 
             WW.SimStats.Step = int(nums[0])
-            WW.DataStats.Step = int(nums[0])
+            WW.AccStats.Step = int(nums[0])
             WW.SimStats.Time = float(nums[1])
             WW.SimStats.TimeDelta = float(nums[2])
 
             WW.SimStats.Recalculate()
-            WW.DataStats.RecalculateStep()
+            WW.AccStats.RecalculateStep()
 
             WW.State.MainUpdated = True
 
