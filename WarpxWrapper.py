@@ -521,8 +521,8 @@ class UI:
     Avg = True
     CurrentSection = Section.WAIT
 
-    SimStatsHeight = 7
-    DataStatsHeight = 3
+    SimStatsHeight = 9
+    DataStatsHeight = 5
     MessageLineHeight = 1
 
     def __init__(self, SimStats, DataStats):
@@ -653,6 +653,10 @@ class UI:
         self.PrintSeparator()
         self.PrintLeftPadding(f"Data: {SizeStr(s.DataSize):>9}, {SizeStr(Speed):>8}/s |{SizeStr(SpeedStep):>8}/st | ESA:{SizeStr(TimeESA):>8}/{SizeStr(StepESA):>8}.")
 
+    def WriteProcStats(self):
+        s = self.ProcStats
+        self.PrintSeparator()
+        self.PrintLeftPadding(f"Procs: {s.ProcNum}: {s.ProcNames} | CPU: {s.CPU:>5.2f}%, mem: {SizeStr(s.Memory):>5} ({s.MemoryRatio:>5.2f}%)")
 
     def WriteMessageLine(self):
         minl, maxl = self.GetLen()
@@ -687,6 +691,7 @@ class UI:
             if self.SimStats.Updated or Force:
                 self.WriteSimStats()
             self.WriteDataStats()
+            self.WriteProcStats()
             self.WriteMessageLine()
 
 class State:
@@ -712,6 +717,7 @@ class WarpxWrapper:
         self.UpdateInterval = Interval
         self.SimStats = SimulationStats(MaxStep, MaxTime)
         self.DataStats = DataStats()
+        self.ProcStats = Processes.TreeStats()
         self.UI = UI(self.SimStats, self.DataStats)
         self.Timer = Timer(self.UpdateInterval)
         self.Control = ControlManager()
@@ -719,6 +725,7 @@ class WarpxWrapper:
         self.DataInput = InputStream(Lines = True, EventQueue = self.EventQueue, Event = 1)
         self.ControlInput = InputTerminal(self.UI.Terminal, EventQueue = self.EventQueue, Event = 2)
         self.UpdateTimer = Timer()
+        self.PausedTime = 0
 
     def RegisterActions(self):
         self.Control.Register(Config.BreakKey, self.UserBreak)
@@ -979,10 +986,15 @@ class WarpxWrapper:
     def Update(self, Force = False):
         if self.Timer.Expired() or Force:
             #self.SimStats.Recalculate() # only if there are new step data avaliable.
-            if not self.Paused:
-                self.SimStats.ElapsedRealTime = self.GetRunningElapsedTime()
-                self.DataStats.Recalculate()
-                self.CalculateESA()
+            #if not self.Paused:
+            self.SimStats.ElapsedRealTime = self.GetRunningElapsedTime()
+            self.DataStats.Recalculate()
+            self.CalculateESA()
+            if self.WarpxProcess != None:
+                    #print("Update proc info.")
+                self.ProcStats = Processes.GetTreeStats(self.WarpxProcess)
+                self.UI.ProcStats = self.ProcStats
+                    #print(str(self.ProcStats))
             if not Config.Quiet:
                 self.UI.Rewrite(Force)
             self.Timer.Reset()

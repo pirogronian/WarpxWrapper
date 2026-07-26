@@ -51,3 +51,35 @@ def FileUsers(Path, Modes = None):
 
     return Ret
 
+class TreeStats:
+    def __init__(self):
+        self.ProcNum = 0
+        self.ProcNames = {}
+        self.CPU = 0
+        self.Memory = 0
+        self.MemoryRatio = 0
+        self.AvalMemory = 0
+
+    def __str__(self):
+        return f"TreeStats(ProcNum: {self.ProcNum}, ProcNames: {self.ProcNames})"
+
+def GetTreeStats(Process):
+    Stats = TreeStats()
+    Tree = Process.children(recursive = True)
+    Tree.insert(0, Process)
+    Stats.ProcNum = len(Tree)
+#    print(Tree, Stats.ProcNum)
+    for Proc in Tree:
+        name = Proc.name()
+        if name in Stats.ProcNames:
+            Stats.ProcNames[name] += 1
+        else:
+            Stats.ProcNames[name] = 1
+
+        CpuTimes = Proc.cpu_times()
+        Stats.CPU += CpuTimes.user + CpuTimes.system
+
+        Stats.Memory += Proc.memory_info().rss
+        Stats.MemoryRatio += Proc.memory_percent()
+
+    return Stats
