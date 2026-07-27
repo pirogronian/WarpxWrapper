@@ -420,6 +420,9 @@ class SimulationStats:
         if Time == None:
             Time = time.time()
 
+        if self.StartRealTime == 0:
+            self.StartRealTime = Time
+
 #        print(f"TimeDelta: {self.TimeDelta}, StepDelta: {self.StepDelta}")
 
         self.CurrentRealTime = Time
@@ -435,7 +438,8 @@ class SimulationStats:
         self.TimeProgress = int((self.Time / self.MaxTime) * 100)
 
         self.CalculateETA()
-        self.CalculateAvgETA()
+        if self.ElapsedRealTime > 0:
+            self.CalculateAvgETA()
 
         if self.ElapsedRealTime > 0:
             self.ElapsedRealTimeEfficiency = int((self.ElapsedInternalRealTime /  self.ElapsedRealTime) * 100)
@@ -857,7 +861,7 @@ class WarpxWrapper:
             else:
                 os.mknod(Config.InputFile, stat.S_IFREG | 0o600)
         self.LogOutput = OutputStream()
-        self.Flush = True
+        self.LogOutput.Flush = True
         if IsFifo:
             Logger.Debug("Log file is a pipe. Open it inside thread.")
             self.LogOutput.Stream = Config.InputFile

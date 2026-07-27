@@ -173,8 +173,10 @@ class OutputStream(CommonStream):
         self.Queue.put_nowait(Data)
 #        print("Size of queue: ", self.Queue.qsize())
 
+
 class AppendStream(OutputStream):
     Mode = "a"
+
 
 class InputTerminal(InputStream):
     Buffered = True
