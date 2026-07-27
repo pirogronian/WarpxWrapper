@@ -135,13 +135,18 @@ class InputStream(CommonStream):
 
 class OutputStream(CommonStream):
     Mode = "w"
+    Flush = False
 
     def DirectWrite(self, Data):
         #print(f"Writing data: \"{Data}\" ({len(Data)})")
         if self.Lines:
             self.Stream.writelines(Data)
-            return 1
-        return self.Stream.write(Data)
+            ret = 1
+        else:
+            ret = self.Stream.write(Data)
+        if self.Flush:
+            self.Stream.flush()
+        return ret
 
     def Close(self, Timeout = None):
         self.AutoClose = True

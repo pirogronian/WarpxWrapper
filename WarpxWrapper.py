@@ -857,6 +857,7 @@ class WarpxWrapper:
             else:
                 os.mknod(Config.InputFile, stat.S_IFREG | 0o600)
         self.LogOutput = OutputStream()
+        self.Flush = True
         if IsFifo:
             Logger.Debug("Log file is a pipe. Open it inside thread.")
             self.LogOutput.Stream = Config.InputFile
@@ -1018,7 +1019,10 @@ class WarpxWrapper:
             self.CalculateESA()
             if self.WarpxProcess != None:
                     #print("Update proc info.")
-                self.ProcStats = Processes.GetTreeStats(self.WarpxProcess)
+                try:
+                    self.ProcStats = Processes.GetTreeStats(self.WarpxProcess)
+                except pypsutil.NoSuchProcess as e:
+                    self.WarpxProcess = None
                 self.AccStats.CPUStart = self.ProcStats.CrTime
                 self.AccStats.CPUTime = self.ProcStats.CPU
                 self.UI.ProcStats = self.ProcStats
