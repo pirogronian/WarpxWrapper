@@ -788,6 +788,16 @@ class State:
     SecondUpdated = False
     ThirdUpdated = False
 
+ReHeadStr = "For full input parameters, see the file\\:"
+Re1     = regex.compile("TIME")
+Re2     = regex.compile("Evolve time")
+ReHead  = regex.compile(ReHeadStr)
+ReFoot  = regex.compile("Total Time")
+ReAbort = regex.compile("MPI_ABORT")
+ReNum   = regex.compile("[+-]?(?:[0-9]+(?:\\.[0-9]+)?|\\.[0-9]+)(?:[eE][+-]?[0-9]+)?")
+#ReNum = regex.compile("[0-9]+(.[0-9]+(e[+-][0-9]+)?)?")
+
+
 class WarpxWrapper:
     UpdateInterval = 0.5
     StartTime = -1
@@ -965,6 +975,33 @@ class WarpxWrapper:
         if self.LogOutput != None:
             self.LogOutput.Close()
 
+    def ParseUsedInput(self, fname):
+        try:
+            f = open(fname, "r")
+        except:
+            Logger.Warning(f"Cannot open used input file: '{fname}'")
+            return
+
+        line = ""
+        ReMaxStep = regex.compile("max_step = ")
+        ReStopTime = regex.compile("stop_time = ")
+        while 1:
+            line = f.readline()
+            if line == "":
+                break
+            if ReMaxStep.search(line):
+                nums = ReNum.findall(line)
+                try:
+                    self.SimStats.MaxStep = int(nums[len(nums) - 1])
+                except Exception as e:
+                    Logger.ExceptWarn(e)
+            if ReStopTime.search(line):
+                nums = ReNum.findall(line)
+                try:
+                    self.SimStats.MaxTime = float(nums[len(nums) - 1])
+                except Exception as e:
+                    Logger.ExceptWarn(e)
+
     def OnKey(self, Key):
         if not self.Control.Dispatch(Key):
             self.UI.MsgLine.SetTemporary(f"Key: {Key.encode()}")
@@ -1109,14 +1146,6 @@ WW.RegisterActions()
 WW.PrepareLogOutput()
 WW.ActivateStreams()
 
-Re1     = regex.compile("TIME")
-Re2     = regex.compile("Evolve time")
-ReHead  = regex.compile("For full input parameters, see the file\\:")
-ReFoot  = regex.compile("Total Time")
-ReAbort = regex.compile("MPI_ABORT")
-ReNum   = regex.compile("[+-]?(?:[0-9]+(?:\\.[0-9]+)?|\\.[0-9]+)(?:[eE][+-]?[0-9]+)?")
-#ReNum = regex.compile("[0-9]+(.[0-9]+(e[+-][0-9]+)?)?")
-
 if Config.DontRun:
     exit(0)
 
@@ -1232,6 +1261,8 @@ try:
         elif WW.State.Header == True and ReHead.match(OutputLine):
             WW.UI.CurrentSection = UI.Section.MAIN
             WW.State.Header = False
+            PrefixLen = len(ReHeadStr)
+            WW.ParseUsedInput(OutputLine[PrefixLen:len(OutputLine) - 1])
 
         elif WW.State.Footer == False and ReFoot.match(OutputLine):
             WW.State.Footer = True
