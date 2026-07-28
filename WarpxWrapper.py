@@ -341,10 +341,17 @@ class SimulationStats:
     Time = -1
 
     MaxStep = -1 # These two are set once at the beginning
+    EstMaxStep = -1
+    AvgEstMaxStep = -1
     MaxTime = -1
+    EstMaxTime = -1
+    AvgEstMaxTime = -1
 
     StepsLeft = -1
+    EstStepsLeft = -1
     TimeLeft = -1
+    EstTimeLeft = -1
+
 
     StepsProgress = -1
     TimeProgress = -1
@@ -374,6 +381,11 @@ class SimulationStats:
     AvgStepETA = -1
     AvgTimeETA = -1
 
+    TimePerStep = -1
+    StepsPerTime = -1
+    AvgTimePerStep = -1
+    AvgStepsPerTime = -1
+
     ElapsedInternalRealTime = -1
     InternalRealTimeDelta = -1
 
@@ -392,6 +404,20 @@ class SimulationStats:
         self.TimeDelta = self.Time - self.PrevTime
 
         self.RealTimeDelta = self.CurrentRealTime - self.PrevRealTime
+
+        if self.MaxStep > 0 and self.StepDelta > 0:
+            self.TimePerStep = self.TimeDelta / self.StepDelta
+            self.EstMaxTime = self.Time + self.TimePerStep * self.StepsLeft
+
+            self.AvgTimePerStep = self.Time / self.Step
+            self.AvgEstMaxTime = self.Time + self.AvgTimePerStep * self.StepsLeft
+
+        if self.MaxTime > 0 and self.TimeDelta > 0:
+            self.StepsPerTime = self.StepDelta / self.TimeDelta
+            self.EstMaxStep = self.Step + self.StepsPerTime * self.TimeLeft
+
+            self.AvgStepsPerTime = self.Step / self.Time
+            self.AvgEstMaxStep = self.Step + self.AvgStepsPerTime * self.TimeLeft
 
         if self.RealTimeDelta > 0:
             self.StepSpeed = self.StepDelta / self.RealTimeDelta
@@ -614,6 +640,24 @@ class UI:
             return self.SimStats.AvgStepSpeed, self.SimStats.AvgTimeSpeed
         return self.SimStats.StepSpeed, self.SimStats.TimeSpeed
 
+    def GetEstSteps(self):
+        ems = -1
+        if self.Avg:
+            ems = self.SimStats.AvgEstMaxStep
+        else:
+            ems = self.SimStats.EstMaxStep
+        els = ems - self.SimStats.Step
+        return ems, els
+
+    def GetEstTime(self):
+        emt = -1
+        if self.Avg:
+            emt = self.SimStats.AvgEstMaxTime
+        else:
+            emt = self.SimStats.EstMaxTime
+        elt = emt - self.SimStats.Time
+        return emt, elt
+
     def GetSimETAs(self):
         if self.Avg:
             return self.SimStats.AvgStepETA, self.SimStats.AvgTimeETA
@@ -649,12 +693,31 @@ class UI:
         fn = self.FmtNmb
         ft = self.FmtTime
         minl, maxl = self.GetLen()
+
+        MaxSstr = ""
+        LeftSstr = ""
+        if s.MaxStep > 0:
+            MaxSstr = fn.Str(s.MaxStep)
+            LeftSstr = fn.Str(s.StepsLeft)
+        else:
+            EMS, ELS = self.GetEstSteps()
+            MaxSstr = "~" + fn.Str(EMS)
+            LeftSstr = "~" + fn.Str(ELS)
+
+        if s.MaxTime > 0:
+            MaxTstr = fn.Str(s.MaxTime)
+            LeftTstr = fn.Str(s.TimeLeft)
+        else:
+            EMT, ELT = self.GetEstTime()
+            MaxTstr = "~" + fn.Str(EMT)
+            LeftTstr = "~" + fn.Str(ELT)
+
         SSSpeed, STSpeed = self.GetSimSpeeds()
         SETA, TETA = self.GetSimETAs()
-        s1 = f"Step:  {fn.Str(s.Step):^15} / {fn.Str(s.MaxStep):^15} : {fn.Str(s.StepsLeft):^15} ({fn.Str(s.StepsProgress):>3}%)," +\
+        s1 = f"Step:  {fn.Str(s.Step):^15} / {MaxSstr:^15} : {LeftSstr:^15} ({fn.Str(s.StepsProgress):>3}%)," +\
         f"x{fn.Str(SSSpeed):>9}, ETA: {ft.Str(SETA):>20}"
 
-        s2 = f"Sim time: {ft.Str(s.Time):^12} / {ft.Str(s.MaxTime):^15} : {ft.Str(s.TimeLeft):^15} ({fn.Str(s.TimeProgress):>3}%)," +\
+        s2 = f"Sim time: {ft.Str(s.Time):^12} / {MaxTstr:^15} : {LeftTstr:^15} ({fn.Str(s.TimeProgress):>3}%)," +\
         f"x{fn.Str(STSpeed):>9}, ETA: {ft.Str(TETA):>20}"
 
         s3 = f"Elapsed: {ft.Str(s.ElapsedRealTime)}, delta: {ft.Str(s.RealTimeDelta)} ({ft.Str(s.TimeDelta * s.RealTimeDelta)}), eff: elapsed: {s.ElapsedRealTimeEfficiency}%, delta: {s.RealTimeDeltaEfficiency}%"
