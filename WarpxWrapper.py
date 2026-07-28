@@ -686,7 +686,7 @@ class UI:
         self.PrintCentered("Time statistics:")
         self.PrintSeparator()
         self.PrintLeftPadding()
-        self.PrintLine(Times=4)
+        self.PrintLine(Times=9)
 
     def WriteSimStats(self):
         s = self.SimStats # Less to write
@@ -764,20 +764,19 @@ class UI:
             MoveUp = 0
             if self.First:
                 self.WriteHeader()
-                self.First = False
+            if self.SimStats.Updated or Force or self.First:
+                MoveUp = self.SimStatsHeight
             else:
-                if self.SimStats.Updated or Force:
-                    MoveUp = self.SimStatsHeight
-                else:
-                    MoveUp = self.AccStatsHeight
+                MoveUp = self.AccStatsHeight
 #            print(f"MoveUp: {MoveUp}")
             if MoveUp and not self.NonDestructive:
                 print(self.Terminal.move_up(MoveUp + 1))
-            if self.SimStats.Updated or Force:
+            if self.SimStats.Updated or Force or self.First:
                 self.WriteSimStats()
             self.WriteAccStats()
             self.WriteProcStats()
             self.WriteMessageLine()
+            self.First = False
 
 class State:
     Header = True
