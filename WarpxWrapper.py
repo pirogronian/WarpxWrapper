@@ -551,6 +551,20 @@ class AccStats:
             self.AvgDataSpeedStep = self.DataSize / self.Step
         self.LastStep = self.Step
 
+class StorageStats:
+    StorageSize = 0
+    StartTime = 0
+    PausedTime = 0
+    Elapsed = 0
+    Speed = 0
+    ESA = 0
+    AvgESA = 0
+
+    def Recalculate(self):
+        self.Elapsed = time.time() - self.StartTime - self.PausedTime
+        if self.Elapsed > 0:
+            self.Speed = self.StorageSize / self.Elapsed
+
 class UI:
     class Section(enum.Enum):
         WAIT = 0
@@ -1084,19 +1098,39 @@ class WarpxWrapper:
         return ret
 
     def CalculateESA(self):
+        ETA = 0
+        AvgETA = 0
+
+        if self.SimStats.StepETA > 0:
+            ETA = self.SimStats.StepETA
+            if self.SimStats.TimeETA > 0:
+                ETA += self.SimStats.TimeETA
+                ETA /= 2
+        else:
+            ETA = self.SimStats.TimeETA
+
+        if self.SimStats.AvgStepETA > 0:
+            AvgETA = self.SimStats.AvgStepETA
+            if self.SimStats.AvgTimeETA > 0:
+                AvgETA += self.SimStats.AvgTimeETA
+                AvgETA /= 2
+        else:
+            AvgETA = self.SimStats.AvgTimeETA
+
         #print(f"SimStats.StepsLeft: {self.SimStats.StepsLeft}, AccStats.DataStepSpeed: {self.AccStats.DataStepSpeed}")
         if self.SimStats.StepsLeft >= 0 and self.AccStats.DataSpeedStep >= 0:
             self.AccStats.StepESA = self.AccStats.DataSize + self.SimStats.StepsLeft * self.AccStats.DataSpeedStep
 
         #print(f"SimStats.TimeETA: {self.SimStats.TimeETA}, AccStats.DataSpeed: {self.AccStats.DataSpeed}")
-        if self.SimStats.TimeETA >= 0 and self.AccStats.DataSpeed >= 0:
-            self.AccStats.TimeESA = self.AccStats.DataSize + self.SimStats.TimeETA * self.AccStats.DataSpeed
+        if ETA >= 0 and self.AccStats.DataSpeed >= 0:
+            self.AccStats.TimeESA = self.AccStats.DataSize + ETA * self.AccStats.DataSpeed
 
         if self.SimStats.StepsLeft >= 0 and self.AccStats.AvgDataSpeedStep >= 0:
             self.AccStats.AvgStepESA = self.AccStats.DataSize + self.SimStats.StepsLeft * self.AccStats.AvgDataSpeedStep
 
-        if self.SimStats.TimeETA >= 0 and self.AccStats.AvgDataSpeed >= 0:
-            self.AccStats.AvgTimeESA = self.AccStats.DataSize + self.SimStats.TimeETA * self.AccStats.AvgDataSpeed
+        if AvgETA >= 0 and self.AccStats.AvgDataSpeed >= 0:
+            self.AccStats.AvgTimeESA = self.AccStats.DataSize + AvgETA * self.AccStats.AvgDataSpeed
+
 
     def UpdateUI(self, Force = False):
         if self.Timer.Expired() or Force:
