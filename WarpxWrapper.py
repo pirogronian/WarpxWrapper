@@ -500,11 +500,11 @@ class AccStats:
     DataSpeedStep = 0
     AvgDataSpeedStep = 0
 
-    StepESA = -1
-    TimeESA = -1
+    StepESA = 0
+    TimeESA = 0
 
-    AvgStepESA = -1
-    AvgTimeESA = -1
+    AvgStepESA = 0
+    AvgTimeESA = 0
 
     CPUStart = 0
     CPUTime = 0
