@@ -1282,10 +1282,8 @@ try:
         #WW.State.ThirdUpdated = False Do it only once
 
 except Exception as e:
-    Logger.Critical("Unhandled exception, restoring terminal settings.")
-    WW.ControlInput.RestoreBuffering()
+    Logger.Critical("Unhandled exception, breaking main loop.")
     Logger.ExceptCrit(e)
-    exit(1)
 
 WW.ControlInput.RestoreBuffering()
 
