@@ -853,13 +853,12 @@ class WarpxWrapper:
         self.AccStats = AccStats()
         self.StorageStats = StorageStats()
         self.UI = UI(self.SimStats, self.AccStats, self.StorageStats)
-        self.Timer = Timer(self.UpdateInterval)
         self.Control = ControlManager()
         self.EventQueue = SimpleQueue()
         self.DataInput = InputStream(Lines = True, EventQueue = self.EventQueue, Event = 1)
         self.ControlInput = InputTerminal(self.UI.Terminal, EventQueue = self.EventQueue, Event = 2)
-        self.UpdateTimer = Timer()
-        self.StorageTimer = Timer()
+        self.UpdateTimer = Timer(Config.UpdateInterval)
+        self.StorageTimer = Timer(Config.StorageInterval)
         self.PausedTime = 0
 
     def RegisterActions(self):
@@ -1009,10 +1008,6 @@ class WarpxWrapper:
             Logger.Debug("Activating non-blocking log output.")
             self.LogOutput.Activate()
             Logger.Debug(1, f"Output Activity status: {self.LogOutput.IsActive()}.")
-
-    def PrepareTimer(self):
-        self.UpdateTimer.Timeout = Config.UpdateInterval
-        self.StorageTimer.Timeout = Config.StorageInterval
 
     def CloseStreams(self):
         self.DataInput.Close(0)
@@ -1172,17 +1167,13 @@ class WarpxWrapper:
             if not Config.Quiet:
                 self.UI.Rewrite(Force)
 
-    def CheckTimer(self):
-        if self.State.MainUpdated and self.State.SecondUpdated:
-            if self.UpdateTimer.Expired():
-                self.UpdateTimer.Reset()
-                self.State.MainUpdated = False
-                self.State.SecondUpdated = False
-
     def Update(self, Force = False):
         if self.StorageStats.StartSize < 0:
             self.StorageStats.StartSize = DirSize(Config.StoragePath)
-        if self.Timer.Expired() or Force:
+        if self.UpdateTimer.Expired() or Force:
+            if self.State.MainUpdated and self.State.SecondUpdated:
+                self.State.MainUpdated = False
+                self.State.SecondUpdated = False
             self.SimStats.PausedTime = self.GetPausedTime()
             self.AccStats.PausedTime = self.SimStats.PausedTime
             self.StorageStats.PausedTime = self.SimStats.PausedTime
@@ -1200,7 +1191,7 @@ class WarpxWrapper:
                     #print(str(self.ProcStats))
             if not Config.Quiet:
                 self.UI.Rewrite(Force)
-            self.Timer.Reset()
+            self.UpdateTimer.Reset()
         if self.StorageTimer.Expired():
             self.StorageStats.RawSize = DirSize(Config.StoragePath)
             self.StorageStats.Recalculate()
@@ -1212,7 +1203,6 @@ WW = WarpxWrapper(Config.UpdateInterval, Config.MaxStep, Config.MaxTime)
 WW.PrepareSource()
 WW.PrepareDataStream()
 WW.PrepareUI()
-WW.PrepareTimer()
 WW.RegisterActions()
 WW.PrepareLogOutput()
 WW.ActivateStreams()
@@ -1349,9 +1339,6 @@ try:
 
         if WW.State.Header or WW.State.Footer:
             print(OutputLine, end='')
-
-        WW.CheckTimer()
-        #WW.State.ThirdUpdated = False Do it only once
 
 except Exception as e:
     Logger.Critical("Unhandled exception, breaking main loop.")
