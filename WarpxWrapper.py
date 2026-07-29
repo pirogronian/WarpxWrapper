@@ -41,6 +41,7 @@ class Config:
     Quiet = False
     ErrorIsFatal = True
     UpdateInterval = 0.5
+    StorageInterval = 5.0
     DontRun = False
 
     LogFile = "Log.txt"
@@ -309,6 +310,7 @@ AddParam("LogFile", "-l", "--log-file")
 AddParam("StoragePath", "-o", "--storage")
 AddParam("NonDestructivePrint", "-d", "--non-destructive-print", const = True)
 AddParam("UpdateInterval", "-u", "--upd-int", "--update-interval")
+AddParam("StorageInterval", "--st--int", "--storage-interval")
 AddParam("MaxStep", "-x", "--max-steps")
 AddParam("MaxTime", "-t", "--max-time")
 AddParam("SkipMain", "-a", "--skip-main-loop", const = True)
@@ -857,6 +859,7 @@ class WarpxWrapper:
         self.DataInput = InputStream(Lines = True, EventQueue = self.EventQueue, Event = 1)
         self.ControlInput = InputTerminal(self.UI.Terminal, EventQueue = self.EventQueue, Event = 2)
         self.UpdateTimer = Timer()
+        self.StorageTimer = Timer()
         self.PausedTime = 0
 
     def RegisterActions(self):
@@ -1007,6 +1010,10 @@ class WarpxWrapper:
             self.LogOutput.Activate()
             Logger.Debug(1, f"Output Activity status: {self.LogOutput.IsActive()}.")
 
+    def PrepareTimer(self):
+        self.UpdateTimer.Timeout = Config.UpdateInterval
+        self.StorageTimer.Timeout = Config.StorageInterval
+
     def CloseStreams(self):
         self.DataInput.Close(0)
         #self.ControlInput.Stream.close() # stdin shouldnt be closed, right?
@@ -1105,9 +1112,6 @@ class WarpxWrapper:
         self.UI.NonDestructive = Config.NonDestructivePrint
         self.UI.MinLen = 79
 
-    def PrepareTimer(self):
-        self.UpdateTimer.Timeout = Config.UpdateInterval
-
     def GetTotalElapsedTime(self):
         return time.time() - self.StartTime
 
@@ -1197,6 +1201,10 @@ class WarpxWrapper:
             if not Config.Quiet:
                 self.UI.Rewrite(Force)
             self.Timer.Reset()
+        if self.StorageTimer.Expired():
+            self.StorageStats.RawSize = DirSize(Config.StoragePath)
+            self.StorageStats.Recalculate()
+            self.StorageTimer.Reset()
 
 PrintParams()
 
@@ -1310,9 +1318,6 @@ try:
 
             WW.SimStats.Recalculate()
             WW.AccStats.RecalculateStep()
-
-            WW.StorageStats.RawSize = DirSize(Config.StoragePath)
-            WW.StorageStats.Recalculate()
 
             WW.State.MainUpdated = True
 
