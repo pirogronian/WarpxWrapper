@@ -555,6 +555,7 @@ class AccStats:
         self.LastStep = self.Step
 
 class StorageStats:
+    RawSize = 0
     Size = 0
     StartSize = -1
     StartTime = -1
@@ -567,9 +568,11 @@ class StorageStats:
     def Recalculate(self):
         if self.StartTime < 0:
             self.StartTime = time.time()
+        self.Size = self.RawSize - self.StartSize
         self.Elapsed = time.time() - self.StartTime - self.PausedTime
         if self.Elapsed > 0:
-            self.Speed = (self.Size - self.StartSize) / self.Elapsed
+            self.Speed = self.Size / self.Elapsed
+            #print(f"St Speed: {self.Speed:.2f}, {SizeStr(self.Size)} - {SizeStr(self.StartSize)} = {SizeStr(self.Size - self.StartSize)} / {self.Elapsed:.4f}")
 
 class UI:
     class Section(enum.Enum):
@@ -771,10 +774,10 @@ class UI:
 
     def WriteStorageStats(self):
         s = self.StorageStats
-        S = s.Size - s.StartSize
+        #print(S)
         ESA = self.GetStorageESA()
         self.PrintSeparator()
-        self.PrintLeftPadding(f"Storage: {SizeStr(S):>9}, {SizeStr(s.Speed):>8}/s, ESA: {SizeStr(ESA):>8}")
+        self.PrintLeftPadding(f"Storage: {SizeStr(s.Size):>9}, {SizeStr(s.Speed):>8}/s, ESA: {SizeStr(ESA):>8}")
 
     def WriteMessageLine(self):
         minl, maxl = self.GetLen()
@@ -808,6 +811,7 @@ class UI:
                 self.WriteSimStats()
             self.WriteAccStats()
             self.WriteProcStats()
+            #print(self.StorageStats.Speed)
             self.WriteStorageStats()
             self.WriteMessageLine()
             self.First = False
@@ -1152,11 +1156,11 @@ class WarpxWrapper:
         if AvgETA >= 0 and self.AccStats.AvgDataSpeed >= 0:
             self.AccStats.AvgTimeESA = self.AccStats.DataSize + AvgETA * self.AccStats.AvgDataSpeed
 
-        if ETA >= 0 and self.StorageStats.Speed >= 0:
-            self.StorageStats.ESA = self.StorageStats.Speed * ETA
+        if ETA >= 0:
+            self.StorageStats.ESA = self.StorageStats.Size + self.StorageStats.Speed * ETA
 
-        if AvgETA >= 0 and self.StorageStats.Speed >= 0:
-            self.StorageStats.AvgESA = self.StorageStats.Speed * AvgETA
+        if AvgETA >= 0:
+            self.StorageStats.AvgESA = self.StorageStats.Size + self.StorageStats.Speed * AvgETA
 
 
     def UpdateUI(self, Force = False):
@@ -1175,14 +1179,9 @@ class WarpxWrapper:
         if self.StorageStats.StartSize < 0:
             self.StorageStats.StartSize = DirSize(Config.StoragePath)
         if self.Timer.Expired() or Force:
-            #self.SimStats.Recalculate() # only if there are new step data avaliable.
-            #if not self.Paused:
-            #self.SimStats.ElapsedRealTime = self.GetRunningElapsedTime()
-            #self.AccStats.Elapsed = self.SimStats.ElapsedRealTime
             self.SimStats.PausedTime = self.GetPausedTime()
             self.AccStats.PausedTime = self.SimStats.PausedTime
             self.StorageStats.PausedTime = self.SimStats.PausedTime
-            self.StorageStats.Size = DirSize(Config.StoragePath)
             self.AccStats.Recalculate()
             self.CalculateESA()
             if self.WarpxProcess != None:
@@ -1311,6 +1310,9 @@ try:
 
             WW.SimStats.Recalculate()
             WW.AccStats.RecalculateStep()
+
+            WW.StorageStats.RawSize = DirSize(Config.StoragePath)
+            WW.StorageStats.Recalculate()
 
             WW.State.MainUpdated = True
 
