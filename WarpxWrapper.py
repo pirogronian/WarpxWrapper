@@ -846,10 +846,10 @@ class WarpxWrapper:
     WarpxProcess = None
     Finishing = False
 
-    def __init__(self, Interval, MaxStep, MaxTime):
+    def __init__(self):
         self.State = State()
-        self.UpdateInterval = Interval
-        self.SimStats = SimulationStats(MaxStep, MaxTime)
+        self.UpdateInterval = Config.UpdateInterval
+        self.SimStats = SimulationStats(Config.MaxStep, Config.MaxTime)
         self.AccStats = AccStats()
         self.StorageStats = StorageStats()
         self.UI = UI(self.SimStats, self.AccStats, self.StorageStats)
@@ -1199,7 +1199,7 @@ class WarpxWrapper:
 
 PrintParams()
 
-WW = WarpxWrapper(Config.UpdateInterval, Config.MaxStep, Config.MaxTime)
+WW = WarpxWrapper()
 WW.PrepareSource()
 WW.PrepareDataStream()
 WW.PrepareUI()
