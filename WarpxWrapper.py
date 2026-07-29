@@ -1270,7 +1270,7 @@ try:
             if Config.SkipFooter:
                 break
             time.sleep(Config.UpdateInterval) # Let some time to the pipe to read last of data.
-            DataInput.Interval = 0 # Don't wait for data anymore.
+            WW.DataInput.Interval = 0 # Don't wait for data anymore.
         elif ReAbort.match(OutputLine):
             Logger.Warning("Warpx aborted.")
             break
