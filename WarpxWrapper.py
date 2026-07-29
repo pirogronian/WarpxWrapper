@@ -25,6 +25,7 @@ from Various import CompareKeys
 from Logger import Logger, Verbosity
 import Processes
 from ControlManager import ControlManager
+from Storage import DirSize
 
 class SourceType(enum.Enum):
     DEFAULT = 0 # It means the COMMAND
@@ -43,6 +44,7 @@ class Config:
     DontRun = False
 
     LogFile = "Log.txt"
+    StoragePath = "diags"
 
     MaxStep = -1
     MaxTime = -1.0
@@ -304,6 +306,7 @@ AddParam("Quiet", "-q", "--quiet", const = True)
 AddParam("DontRun", "-r", "--dont-run", const = True)
 AddParam("ErrorIsFatal", "--error-fatal", const = True)
 AddParam("LogFile", "-l", "--log-file")
+AddParam("StoragePath", "-o", "--storage")
 AddParam("NonDestructivePrint", "-d", "--non-destructive-print", const = True)
 AddParam("UpdateInterval", "-u", "--upd-int", "--update-interval")
 AddParam("MaxStep", "-x", "--max-steps")
@@ -552,8 +555,9 @@ class AccStats:
         self.LastStep = self.Step
 
 class StorageStats:
-    StorageSize = 0
-    StartTime = 0
+    Size = 0
+    StartSize = -1
+    StartTime = -1
     PausedTime = 0
     Elapsed = 0
     Speed = 0
@@ -561,9 +565,11 @@ class StorageStats:
     AvgESA = 0
 
     def Recalculate(self):
+        if self.StartTime < 0:
+            self.StartTime = time.time()
         self.Elapsed = time.time() - self.StartTime - self.PausedTime
         if self.Elapsed > 0:
-            self.Speed = self.StorageSize / self.Elapsed
+            self.Speed = (self.Size - self.StartSize) / self.Elapsed
 
 class UI:
     class Section(enum.Enum):
@@ -578,11 +584,11 @@ class UI:
     Avg = False
     CurrentSection = Section.WAIT
 
-    SimStatsHeight = 9
-    AccStatsHeight = 5
+    SimStatsHeight = 11
+    AccStatsHeight = 7
     MessageLineHeight = 1
 
-    def __init__(self, SimStats, AccStats):
+    def __init__(self, SimStats, AccStats, StorageStats):
         self.FmtNmb = FormattedNumber()
         self.FmtTime = FormattedTime()
         self.FmtNmb.ForbidNegative = True
@@ -591,6 +597,7 @@ class UI:
         self.First = True
         self.SimStats = SimStats
         self.AccStats = AccStats
+        self.StorageStats = StorageStats
         self.MsgLine = MessageLine(Timeout = 2, FillWith = "-", LineLen = 77)
 
     def CacheMaxLen(self, MaxLen = None):
@@ -692,6 +699,11 @@ class UI:
             return self.AccStats.AvgCPU
         return self.AccStats.CPU
 
+    def GetStorageESA(self):
+        if self.Avg:
+            return self.StorageStats.AvgESA
+        return self.StorageStats.ESA
+
     def WriteHeader(self):
         lmin, lmax = self.GetLen()
 #        print(lmin, lmax, Length)
@@ -700,7 +712,7 @@ class UI:
         self.PrintCentered("Time statistics:")
         self.PrintSeparator()
         self.PrintLeftPadding()
-        self.PrintLine(Times=9)
+        self.PrintLine(Times=11)
 
     def WriteSimStats(self):
         s = self.SimStats # Less to write
@@ -757,6 +769,13 @@ class UI:
         self.PrintSeparator()
         self.PrintLeftPadding(f"Procs: {s.ProcNum}: {s.ProcNames} | CPU: {self.GetCPU()*100:>5.1f}%, mem: {SizeStr(s.Memory):>5} ({s.MemoryRatio:>5.2f}%)")
 
+    def WriteStorageStats(self):
+        s = self.StorageStats
+        S = s.Size - s.StartSize
+        ESA = self.GetStorageESA()
+        self.PrintSeparator()
+        self.PrintLeftPadding(f"Storage: {SizeStr(S):>9}, {SizeStr(s.Speed):>8}/s, ESA: {SizeStr(ESA):>8}")
+
     def WriteMessageLine(self):
         minl, maxl = self.GetLen()
         self.PrintLine(f"+{self.MsgLine.GetLine(LineLen = minl - 2)}+")
@@ -789,6 +808,7 @@ class UI:
                 self.WriteSimStats()
             self.WriteAccStats()
             self.WriteProcStats()
+            self.WriteStorageStats()
             self.WriteMessageLine()
             self.First = False
 
@@ -825,7 +845,8 @@ class WarpxWrapper:
         self.UpdateInterval = Interval
         self.SimStats = SimulationStats(MaxStep, MaxTime)
         self.AccStats = AccStats()
-        self.UI = UI(self.SimStats, self.AccStats)
+        self.StorageStats = StorageStats()
+        self.UI = UI(self.SimStats, self.AccStats, self.StorageStats)
         self.Timer = Timer(self.UpdateInterval)
         self.Control = ControlManager()
         self.EventQueue = SimpleQueue()
@@ -1131,6 +1152,12 @@ class WarpxWrapper:
         if AvgETA >= 0 and self.AccStats.AvgDataSpeed >= 0:
             self.AccStats.AvgTimeESA = self.AccStats.DataSize + AvgETA * self.AccStats.AvgDataSpeed
 
+        if ETA >= 0 and self.StorageStats.Speed >= 0:
+            self.StorageStats.ESA = self.StorageStats.Speed * ETA
+
+        if AvgETA >= 0 and self.StorageStats.Speed >= 0:
+            self.StorageStats.AvgESA = self.StorageStats.Speed * AvgETA
+
 
     def UpdateUI(self, Force = False):
         if self.Timer.Expired() or Force:
@@ -1145,6 +1172,8 @@ class WarpxWrapper:
                 self.State.SecondUpdated = False
 
     def Update(self, Force = False):
+        if self.StorageStats.StartSize < 0:
+            self.StorageStats.StartSize = DirSize(Config.StoragePath)
         if self.Timer.Expired() or Force:
             #self.SimStats.Recalculate() # only if there are new step data avaliable.
             #if not self.Paused:
@@ -1152,6 +1181,8 @@ class WarpxWrapper:
             #self.AccStats.Elapsed = self.SimStats.ElapsedRealTime
             self.SimStats.PausedTime = self.GetPausedTime()
             self.AccStats.PausedTime = self.SimStats.PausedTime
+            self.StorageStats.PausedTime = self.SimStats.PausedTime
+            self.StorageStats.Size = DirSize(Config.StoragePath)
             self.AccStats.Recalculate()
             self.CalculateESA()
             if self.WarpxProcess != None:
