@@ -736,12 +736,12 @@ class UI:
             LeftSstr = "~" + fn.Str(ELS)
 
         if s.MaxTime > 0:
-            MaxTstr = fn.Str(s.MaxTime)
-            LeftTstr = fn.Str(s.TimeLeft)
+            MaxTstr = ft.Str(s.MaxTime)
+            LeftTstr = ft.Str(s.TimeLeft)
         else:
             EMT, ELT = self.GetEstTime()
-            MaxTstr = "~" + fn.Str(EMT)
-            LeftTstr = "~" + fn.Str(ELT)
+            MaxTstr = "~" + ft.Str(EMT)
+            LeftTstr = "~" + ft.Str(ELT)
 
         SSSpeed, STSpeed = self.GetSimSpeeds()
         SETA, TETA = self.GetSimETAs()
