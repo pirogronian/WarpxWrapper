@@ -794,7 +794,7 @@ class UI:
         self.PrintSeparator()
         self.PrintLine()
 
-    def Rewrite(self, Force):
+    def Rewrite(self):
         self.CacheMaxLen()
         if self.CurrentSection != self.Section.MAIN:
             return
@@ -802,14 +802,14 @@ class UI:
             MoveUp = 0
             if self.First:
                 self.WriteHeader()
-            if self.SimStats.Updated or Force or self.First:
+            if self.SimStats.Updated or self.First:
                 MoveUp = self.SimStatsHeight
             else:
                 MoveUp = self.AccStatsHeight
 #            print(f"MoveUp: {MoveUp}")
             if MoveUp and not self.NonDestructive:
                 print(self.Terminal.move_up(MoveUp + 1))
-            if self.SimStats.Updated or Force or self.First:
+            if self.SimStats.Updated or self.First:
                 self.WriteSimStats()
             self.WriteAccStats()
             self.WriteProcStats()
@@ -1046,7 +1046,7 @@ class WarpxWrapper:
         if not self.Control.Dispatch(Key):
             self.UI.MsgLine.SetTemporary(f"Key: {Key.encode()}")
         if not self.Finishing:
-            self.UpdateUI(True)
+            self.UI.Rewrite()
 
     def ProcessControlInput(self):
         while 1:
@@ -1162,11 +1162,6 @@ class WarpxWrapper:
             self.StorageStats.AvgESA = self.StorageStats.Size + self.StorageStats.Speed * AvgETA
 
 
-    def UpdateUI(self, Force = False):
-        if self.Timer.Expired() or Force:
-            if not Config.Quiet:
-                self.UI.Rewrite(Force)
-
     def Update(self, Force = False):
         if self.StorageStats.StartSize < 0:
             self.StorageStats.StartSize = DirSize(Config.StoragePath)
@@ -1190,7 +1185,7 @@ class WarpxWrapper:
                 self.UI.ProcStats = self.ProcStats
                     #print(str(self.ProcStats))
             if not Config.Quiet:
-                self.UI.Rewrite(Force)
+                self.UI.Rewrite()
             self.UpdateTimer.Reset()
         if self.StorageTimer.Expired():
             self.StorageStats.RawSize = DirSize(Config.StoragePath)
