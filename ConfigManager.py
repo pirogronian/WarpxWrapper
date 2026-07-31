@@ -1,43 +1,6 @@
 
 import argparse
-
-def StrToBool(value):
-    try:
-#        print("Try conversion to float: ", value)
-        value = float(value)
-#        print("Success: ", value, type(value))
-        if value > 0:
-            value = True
-        else:
-            value = False
-#        print("Still successful.")
-    except Exception:
-#        print("Not successful. Trying again: ", value)
-        value = distutils.util.strtobool(value)
-        if value > 0:
-            value = True
-        else:
-            value = False
-    return value
-
-def StrToType(value, t):
-    if t == bool:
-        return StrToBool(value)
-    return t(value)
-
-def TypeDescription(t, NonFatal = False):
-    if t == bool:
-        return "boolean"
-    if t == int:
-        return "integer"
-    if t == float:
-        return "float"
-    if t == str:
-        return "string"
-    if NonFatal:
-        return t
-    raise TypeError("Unsupported type: {}".format(t))
-
+from Various import StrToType, TypeDescription
 
 class IncludeAction(argparse.Action):
     Used = False
