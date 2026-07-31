@@ -803,6 +803,129 @@ class WarpxWrapper:
             if not Config.Quiet:
                 self.UI.Update()
 
+    def MainLoop(self):
+        self.Update()
+
+        while not self.EventQueue.empty():
+            self.EventQueue.get_nowait() # eat stalled events
+
+        self.ProcessControlInput()
+
+        if self.Finishing:
+            if self.StartTime < 0:
+                self.StartTime = time.time()
+            return False
+
+        if self.StartTime < 0:
+            WaitingFor = time.time() - self.WaitForDataStart
+            if WaitingFor > 0:
+                self.UI.PrintStaticLine(f"   Waiting for WarpX to start sending data for: {self.UI.FmtTime.Str(WaitingFor)}")
+
+        #if not (Header or Footer):
+        #    self.UI.Update()
+
+        OutputLine = self.DataInput.Read()
+        if OutputLine == None or OutputLine == "":
+            #print("Read null string")
+            if (self.DataInput.IsActive()):
+#                print(f"DataInput active, waiting for {Config.UpdateInterval}.")
+                Event = None
+                try:
+                    Event = self.EventQueue.get(timeout=Config.UpdateInterval)
+                except Exception as e:
+                    #Logger.Debug("Exception while waiting for event.")
+                    #Logger.ExceptDebug(e)
+                    pass
+#                t = type(Event)
+#                print("Got event:", Event, t)
+#                if t == float:
+#                    print("Time delay:", time.time() - Event)
+                return True # So all interactivity must take place earlier
+            else:
+                Logger.Debug("DataInput inactive, finishing.")
+                return False
+
+        self.AccStats.DataSize += len(OutputLine)
+        #print(f"Increasing data size: {AccStats.DataSize}.")
+
+        if not self.State.ProcessWasFinding and self.WarpxProcess == None and Config.Source == SourceType.FILE and Config.PID == 0:
+            Ps = Processes.FileUsers(Config.InputFile, ["w", "a"])
+#            print("")
+#            print(Ps)
+            Me = pypsutil.Process()
+            for P in Ps:
+                if P != Me:
+                    WarpxProcess = P
+                    Logger.Debug(f"Detected Warpx process: {self.WarpxProcess.name()} ({WarpxProcess.pid}).")
+            if self.WarpxProcess == None:
+                Logger.Warning("Warpx process not detected!")
+            self.State.ProcessWasFinding = True
+
+
+        if self.StartTime < 0:
+            self.StartTime = time.time()
+            self.UI.CurrentSection = UI.Section.HEADER
+            self.UI.PrintLine("\n   Got data, starting processing.")
+
+        if self.LogOutput != None:
+            self.LogOutput.Write(OutputLine)
+
+        if not self.DataParser.ParseLine(OutputLine):
+            return False
+
+        if self.SimStatus.Main == True:
+            self.State.Main = True
+            self.State.Header = False
+            self.UI.CurrentSection = UI.Section.MAIN
+        if self.SimStatus.Footer and not self.State.Footer:
+            self.State.Footer = True
+            self.UI.CurrentSection = UI.Section.FOOTER
+            Logger.Debug("Footer detected.")
+            if Config.SkipFooter:
+                return False
+            time.sleep(Config.UpdateInterval) # Let some time to the pipe to read last of data.
+            self.DataInput.Interval = 0 # Don't wait for data anymore.
+
+        if self.SimStatus.Step > self.SimStatus.PrevStep:
+            self.SimStatus.Recalculate()
+            self.AccStats.Step = self.SimStatus.Step
+            self.AccStats.RecalculateStep()
+
+        if self.SimStatus.Header or self.SimStatus.Footer:
+            print(OutputLine, end='')
+
+        return True
+
+    def RunMainLoop(self):
+        try:
+            self.ControlInput.DisableBuffering()
+
+            while 1:
+                if Config.SkipMain:
+                    Logger.Debug("Skipping main.")
+                    break
+
+                if not WW.MainLoop():
+                    break
+
+        except Exception as e:
+            Logger.Critical("Unhandled exception, breaking main loop.")
+            Logger.ExceptCrit(e)
+
+        self.ControlInput.RestoreBuffering()
+
+    def Finish(self):
+        self.UI.CurrentSection = UI.Section.FOOTER
+
+        self.CloseStreams()
+
+        if Config.AbortOnExit and self.WarpxProcess != None:
+            self.WarpxProcess.terminate()
+
+        if not Config.Quiet:
+            self.UI.WriteSummary(self.GetRunningElapsedTime())
+
+
 PrintParams()
 
 WW = WarpxWrapper()
@@ -828,127 +951,5 @@ if WW.WarpxProcess == None and Config.PID > 0:
         Logger.ExceptError(e)
         Logger.Error(f"Cannot assign Warpx process from given PID: {Config.PID}")
 
-
-try:
-    WW.ControlInput.DisableBuffering()
-
-    while 1:
-        if Config.SkipMain:
-            Logger.Debug("Skipping main.")
-            break
-
-        WW.Update()
-
-        while not WW.EventQueue.empty():
-            WW.EventQueue.get_nowait() # eat stalled events
-
-        WW.ProcessControlInput()
-
-        if WW.Finishing:
-            if WW.StartTime < 0:
-                WW.StartTime = time.time()
-            break
-
-        if WW.StartTime < 0:
-            WaitingFor = time.time() - WW.WaitForDataStart
-            if WaitingFor > 0:
-                WW.UI.PrintStaticLine(f"   Waiting for WarpX to start sending data for: {WW.UI.FmtTime.Str(WaitingFor)}")
-
-        #if not (Header or Footer):
-        #    WW.UI.Update()
-
-        OutputLine = WW.DataInput.Read()
-        if OutputLine == None or OutputLine == "":
-            #print("Read null string")
-            if (WW.DataInput.IsActive()):
-#                print(f"DataInput active, waiting for {Config.UpdateInterval}.")
-                Event = None
-                try:
-                    Event = WW.EventQueue.get(timeout=Config.UpdateInterval)
-                except Exception as e:
-                    #Logger.Debug("Exception while waiting for event.")
-                    #Logger.ExceptDebug(e)
-                    pass
-#                t = type(Event)
-#                print("Got event:", Event, t)
-#                if t == float:
-#                    print("Time delay:", time.time() - Event)
-                continue # So all interactivity must take place earlier
-            else:
-                Logger.Debug("DataInput inactive, finishing.")
-                break
-
-        WW.AccStats.DataSize += len(OutputLine)
-        #print(f"Increasing data size: {AccStats.DataSize}.")
-
-        if not WW.State.ProcessWasFinding and WW.WarpxProcess == None and Config.Source == SourceType.FILE and Config.PID == 0:
-            Ps = Processes.FileUsers(Config.InputFile, ["w", "a"])
-#            print("")
-#            print(Ps)
-            Me = pypsutil.Process()
-            for P in Ps:
-                if P != Me:
-                    WarpxProcess = P
-                    Logger.Debug(f"Detected Warpx process: {WW.WarpxProcess.name()} ({WarpxProcess.pid}).")
-            if WW.WarpxProcess == None:
-                Logger.Warning("Warpx process not detected!")
-            WW.State.ProcessWasFinding = True
-
-
-        if WW.StartTime < 0:
-            WW.StartTime = time.time()
-            WW.UI.CurrentSection = UI.Section.HEADER
-            WW.UI.PrintLine("\n   Got data, starting processing.")
-
-        if WW.LogOutput != None:
-            WW.LogOutput.Write(OutputLine)
-
-        if not WW.DataParser.ParseLine(OutputLine):
-            break
-
-        if WW.SimStatus.Main == True:
-            WW.State.Main = True
-            WW.State.Header = False
-            WW.UI.CurrentSection = UI.Section.MAIN
-        if WW.SimStatus.Footer and not WW.State.Footer:
-            WW.State.Footer = True
-            WW.UI.CurrentSection = UI.Section.FOOTER
-            Logger.Debug("Footer detected.")
-            if Config.SkipFooter:
-                break
-            time.sleep(Config.UpdateInterval) # Let some time to the pipe to read last of data.
-            WW.DataInput.Interval = 0 # Don't wait for data anymore.
-
-        if WW.SimStatus.Step > WW.SimStatus.PrevStep:
-            WW.SimStatus.Recalculate()
-            WW.AccStats.Step = WW.SimStatus.Step
-            WW.AccStats.RecalculateStep()
-
-        if WW.SimStatus.Header or WW.SimStatus.Footer:
-            print(OutputLine, end='')
-
-except Exception as e:
-    Logger.Critical("Unhandled exception, breaking main loop.")
-    Logger.ExceptCrit(e)
-
-WW.ControlInput.RestoreBuffering()
-
-WW.UI.CurrentSection = UI.Section.FOOTER
-
-"""print(MeanStepETA, MeanTimeETA, MeanTest, Steps)
-
-MeanStepETA /= Steps
-MeanTimeETA /= Steps
-MeanTest /= Steps
-
-print(MeanStepETA, MeanTimeETA, MeanTest)"""
-#WW.DeactivateStreams()  # This will most probably hang
-WW.CloseStreams()
-
-if Config.AbortOnExit and WW.WarpxProcess != None:
-    WW.WarpxProcess.terminate()
-
-#EMsg = "Mean ETA: {0} / {1}".format(datetime.timedelta(seconds=MeanStepETA), datetime.timedelta(seconds=MeanTimeETA))
-#EMsg = "|{:^77}|".format(EMsg)
-if not Config.Quiet:
-    WW.UI.WriteSummary(WW.GetRunningElapsedTime())
+WW.RunMainLoop()
+WW.Finish()
