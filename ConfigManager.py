@@ -1,0 +1,146 @@
+
+import argparse
+
+def StrToBool(value):
+    try:
+#        print("Try conversion to float: ", value)
+        value = float(value)
+#        print("Success: ", value, type(value))
+        if value > 0:
+            value = True
+        else:
+            value = False
+#        print("Still successful.")
+    except Exception:
+#        print("Not successful. Trying again: ", value)
+        value = distutils.util.strtobool(value)
+        if value > 0:
+            value = True
+        else:
+            value = False
+    return value
+
+def StrToType(value, t):
+    if t == bool:
+        return StrToBool(value)
+    return t(value)
+
+def TypeDescription(t, NonFatal = False):
+    if t == bool:
+        return "boolean"
+    if t == int:
+        return "integer"
+    if t == float:
+        return "float"
+    if t == str:
+        return "string"
+    if NonFatal:
+        return t
+    raise TypeError("Unsupported type: {}".format(t))
+
+
+class IncludeAction(argparse.Action):
+    Used = False
+    def __call__(self, parser, namespace, value, option_string):
+        if type(value) == str:
+            self.IncludeFile(value)
+        else:
+            for name in value:
+                self.IncludeFile(name)
+        self.__class__.Used = True
+
+class ParamAction(argparse.Action):
+    Param = ""
+    UnpackList = False
+    def __init__(self, option_strings, dest, **kwargs):
+#        print("{}.__init__({}, {}, {}, {})".format(self.__class__.__name__, option_strings, dest, nargs, kwargs))
+        self.Param = kwargs.pop("VarName")
+        if kwargs["nargs"] == 1:
+            self.UnpackList = True
+        super().__init__(option_strings, dest, **kwargs)
+    def __call__(self, parser, namespace, values, option_string):
+        """if type(values) == list:
+            print("List?", values)
+            value = values[0]
+        else:
+            value = values"""
+        value = values
+        t = type(getattr(self.Config, self.Param))
+        if self.UnpackList and type(value) == list:
+            value = value[0]
+        try:
+            value = StrToType(value, t)
+        except:
+            self.Error("Value of param {} must be convertable to {}!".format(option_string, t.__name__))
+        setattr(self.Config, self.Param, value)
+        self.Logger.Debug("Command line: set {} to {}".format(self.Param, value))
+
+class ConfigManager:
+    ExecEnv = {}
+    ExecEnvExcl = []
+
+    def __init__(self, Config, Logger, Error, Fatal = None, Description = None):
+        self.Config = Config
+        self.Logger = Logger
+        self.Error = Error
+        self.Fatal = Fatal
+        IncludeAction.IncludeFile = self.IncludeFile
+        ParamAction.Config = Config
+        ParamAction.Logger = Logger
+        ParamAction.Error = Error
+        self.Params = []
+        self.Parser = argparse.ArgumentParser(description = Description)
+
+    def CreateExecEnv(self):
+        Ret = self.ExecEnv
+        cd = vars(self.Config)
+        for name in cd:
+            if name[:2] != "__" and name not in self.ExecEnvExcl:
+                Ret[name] = cd[name]
+        return Ret
+
+    def SyncConfig(self, glob):
+        cd = vars(self.Config)
+        for name in cd:
+            if name[:2] != "__" and name not in self.ExecEnvExcl and name in glob:
+                setattr(self.Config, name, glob[name])
+
+    def IncludeFile(self, fname):
+        self.Logger.Debug(f"Including file '{fname}'.")
+        try:
+            f = open(fname, "r")
+        except Exception as e:
+            self.Logger.Error(f"Cannot open file '{fname}'.")
+            self.Error(1, e)
+            return
+        prog = f.read()
+        env = self.CreateExecEnv()
+        mod = {}
+        try:
+            exec(prog, env, mod)
+        except Exception as e:
+            self.Logger.Error(f"Error while executing include file: '{fname}'")
+            self.Logger.ExceptError(1, e)
+            self.Error()
+        finally:
+            self.SyncConfig(mod)
+
+
+    def AddParam(self, VarName, *Args, **KArgs):
+        v = getattr(self.Config, VarName)
+        if v != None:
+            if not "nargs" in KArgs:
+                KArgs["nargs"] = '?' if "const" in KArgs else 1
+            if not "action" in KArgs:
+                KArgs["action"] = ParamAction
+            if not "help" in KArgs:
+                KArgs["help"] = "Type: {}.".format(TypeDescription(type(v), True))
+            self.Parser.add_argument(*Args, VarName = VarName, **KArgs)
+            self.Params.append(VarName)
+
+            self.Config.MaxParamLength = max(self.Config.MaxParamLength, len(VarName))
+        else:
+            raise NameError("Variable {VarName} not found.")
+
+    def Parse(self, Args):
+        return self.Parser.parse_args(Args)

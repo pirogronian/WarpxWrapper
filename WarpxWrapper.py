@@ -7,8 +7,8 @@ import regex
 import time
 import datetime
 import pathlib
-import enum
 import argparse
+import enum
 import signal
 import shutil
 import stat
@@ -26,6 +26,7 @@ from Logger import Logger, Verbosity
 import Processes
 from ControlManager import ControlManager
 from Storage import DirSize
+from ConfigManager import ConfigManager, IncludeAction
 
 class SourceType(enum.Enum):
     DEFAULT = 0 # It means the COMMAND
@@ -76,8 +77,6 @@ class Config:
     NDestPrintKey = "d"
     PauseKey = ' '
 
-Params = []
-
 Logger = Logger("WarpxWrapper")
 
 def Error(*args):
@@ -105,45 +104,20 @@ def setLogLevel(level):
 def getLogLevel():
     return Logger.Level
 
-def CreateExecEnv():
-    Ret = {
+CM = ConfigManager(
+    Config,
+    Logger,
+    Error = Error,
+    Description = "Small script for showing realtime WarpX time and progress stats and (optionally) to help running it.")
+
+CM.ExecEnv = {
         "Verbosity" : Verbosity,
         "SourceType" : SourceType,
         "getLogLevel" : getLogLevel,
         "setLogLevel" : setLogLevel
         }
-    cd = vars(Config)
-    for name in cd:
-        if name[:2] != "__" and name != "LogLevel":
-            Ret[name] = cd[name]
-    return Ret
 
-def SyncConfig(glob):
-    global Config
-    cd = vars(Config)
-    for name in cd:
-        if name[:2] != "__" and name != "LogLevel" and name in glob:
-            setattr(Config, name, glob[name])
-
-def IncludeFile(fname):
-    Logger.Debug(f"Including file '{fname}'.")
-    try:
-        f = open(fname, "r")
-    except Exception as e:
-        Logger.Error(f"Cannot open file '{fname}'.")
-        Error(1, e)
-        return
-    prog = f.read()
-    env = CreateExecEnv()
-    mod = {}
-    try:
-        exec(prog, env, mod)
-    except Exception as e:
-        Logger.Error(f"Error while executing include file: '{fname}'")
-        Logger.ExceptError(1, e)
-        Error()
-    finally:
-        SyncConfig(mod)
+CM.ExecEnvExcl = [ "LogLevel" ]
 
 def PrintParam(name, MinLength = 0):
     Value = getattr(Config, name)
@@ -158,12 +132,8 @@ def PrintParam(name, MinLength = 0):
 
 def PrintParams():
     Logger.Debug("Printing current configuration:")
-    for name in Params:
+    for name in CM.Params:
         PrintParam(name, Config.MaxParamLength)
-
-parser = argparse.ArgumentParser(
-        description = "Small script for showing realtime WarpX time and progress stats and (optionally) to help running it."
-    )
 
 LogLevels = {
         'debug': Verbosity.DEBUG,
@@ -183,17 +153,7 @@ class VerbosityAction(argparse.Action):
         Logger.Debug("Command line: set LogLevel to '{}'.".format(value))
 #parser.add_argument("-v", "--verbosity", nargs='?', action=VerboseAction, const='debug', choices = LogLevels.keys())
 
-class IncludeAction(argparse.Action):
-    Used = False
-    def __call__(self, parser, namespace, value, option_string):
-        if type(value) == str:
-            IncludeFile(value)
-        else:
-            for name in value:
-                IncludeFile(name)
-        self.__class__.Used = True
-
-parser.add_argument("-I", "--include", nargs='+', action=IncludeAction)
+CM.Parser.add_argument("-I", "--include", nargs='+', action=IncludeAction)
 
 Sources = {
         'command': SourceType.COMMAND,
@@ -220,126 +180,41 @@ class CommandAction(argparse.Action):
         Logger.Debug("Command line: set Command to {}".format(value))
 #parser.add_argument("-s", "--source", nargs=1, action=SourceAction, choices=Sources.keys())
 
-def StrToBool(value):
-    try:
-#        print("Try conversion to float: ", value)
-        value = float(value)
-#        print("Success: ", value, type(value))
-        if value > 0:
-            value = True
-        else:
-            value = False
-#        print("Still successful.")
-    except Exception:
-#        print("Not successful. Trying again: ", value)
-        value = distutils.util.strtobool(value)
-        if value > 0:
-            value = True
-        else:
-            value = False
-    return value
-
-def StrToType(value, t):
-    if t == bool:
-        return StrToBool(value)
-    return t(value)
-
-class ParamAction(argparse.Action):
-    Param = ""
-    UnpackList = False
-    def __init__(self, option_strings, dest, **kwargs):
-#        print("{}.__init__({}, {}, {}, {})".format(self.__class__.__name__, option_strings, dest, nargs, kwargs))
-        self.Param = kwargs.pop("VarName")
-        if kwargs["nargs"] == 1:
-            self.UnpackList = True
-        super().__init__(option_strings, dest, **kwargs)
-    def __call__(self, parser, namespace, values, option_string):
-        """if type(values) == list:
-            print("List?", values)
-            value = values[0]
-        else:
-            value = values"""
-        global Config
-        value = values
-        t = type(getattr(Config, self.Param))
-        if self.UnpackList and type(value) == list:
-            value = value[0]
-        try:
-            value = StrToType(value, t)
-        except:
-            Error("Value of param {} must be convertable to {}!".format(option_string, t.__name__))
-        setattr(Config, self.Param, value)
-        Logger.Debug("Command line: set {} to {}".format(self.Param, value))
-
-def TypeDescription(t, NonFatal = False):
-    if t == bool:
-        return "boolean"
-    if t == int:
-        return "integer"
-    if t == float:
-        return "float"
-    if t == str:
-        return "string"
-    if NonFatal:
-        return t
-    raise TypeError("Unsupported type: {}".format(t))
-
-def AddParam(VarName, *Args, **KArgs):
-    global Config
-    v = getattr(Config, VarName)
-    if v != None:
-        global parser
-        if not "nargs" in KArgs:
-            KArgs["nargs"] = '?' if "const" in KArgs else 1
-        if not "action" in KArgs:
-            KArgs["action"] = ParamAction
-        if not "help" in KArgs:
-            KArgs["help"] = "Type: {}.".format(TypeDescription(type(v), True))
-        parser.add_argument(*Args, VarName = VarName, **KArgs)
-        Params.append(VarName)
-
-        Config.MaxParamLength = max(Config.MaxParamLength, len(VarName))
-    else:
-        raise NameError("Variable {VarName} not found.")
-
-AddParam("LogLevel", "-v", "--verbosity", action=VerbosityAction, const='debug', choices=LogLevels.keys())
-AddParam("Quiet", "-q", "--quiet", const = True)
-AddParam("DontRun", "-r", "--dont-run", const = True)
-AddParam("ErrorIsFatal", "--error-fatal", const = True)
-AddParam("LogFile", "-l", "--log-file")
-AddParam("StoragePath", "-o", "--storage")
-AddParam("NonDestructivePrint", "-d", "--non-destructive-print", const = True)
-AddParam("UpdateInterval", "-u", "--upd-int", "--update-interval")
-AddParam("StorageInterval", "--st--int", "--storage-interval")
-AddParam("MaxStep", "-x", "--max-steps")
-AddParam("MaxTime", "-t", "--max-time")
-AddParam("SkipMain", "-a", "--skip-main-loop", const = True)
-AddParam("SkipFooter", "-f", "--skip-footer", const = True)
-AddParam("DontWaitForFooter", "--dont-wait-for-footer", const = True)
-AddParam("Source", "-s", "--source", action=SourceAction, choices=Sources.keys())
-AddParam("PID", "-p", "--pid")
-AddParam("AbortOnExit", "-k", "--abort-on-exit", const = True)
-AddParam("InputFile","-i", "--input-file")
-AddParam("IsFifo", "--fifo", "--pipe", const = True)
-AddParam("ExecBase", "--exec-base")
-AddParam("ExecDim", "--dim", "--exec-dim")
-AddParam("Executable", "--executable")
-AddParam("UseMpi", "-m", "--use-mpi", const = True)
-AddParam("Command", "-c", "--command", nargs="+", action=CommandAction)
-parser.add_argument("command", nargs="*")
+CM.AddParam("LogLevel", "-v", "--verbosity", action=VerbosityAction, const='debug', choices=LogLevels.keys())
+CM.AddParam("Quiet", "-q", "--quiet", const = True)
+CM.AddParam("DontRun", "-r", "--dont-run", const = True)
+CM.AddParam("ErrorIsFatal", "--error-fatal", const = True)
+CM.AddParam("LogFile", "-l", "--log-file")
+CM.AddParam("StoragePath", "-o", "--storage")
+CM.AddParam("NonDestructivePrint", "-d", "--non-destructive-print", const = True)
+CM.AddParam("UpdateInterval", "-u", "--upd-int", "--update-interval")
+CM.AddParam("StorageInterval", "--st--int", "--storage-interval")
+CM.AddParam("MaxStep", "-x", "--max-steps")
+CM.AddParam("MaxTime", "-t", "--max-time")
+CM.AddParam("SkipMain", "-a", "--skip-main-loop", const = True)
+CM.AddParam("SkipFooter", "-f", "--skip-footer", const = True)
+CM.AddParam("DontWaitForFooter", "--dont-wait-for-footer", const = True)
+CM.AddParam("Source", "-s", "--source", action=SourceAction, choices=Sources.keys())
+CM.AddParam("PID", "-p", "--pid")
+CM.AddParam("AbortOnExit", "-k", "--abort-on-exit", const = True)
+CM.AddParam("InputFile","-i", "--input-file")
+CM.AddParam("IsFifo", "--fifo", "--pipe", const = True)
+CM.AddParam("ExecBase", "--exec-base")
+CM.AddParam("ExecDim", "--dim", "--exec-dim")
+CM.AddParam("Executable", "--executable")
+CM.AddParam("UseMpi", "-m", "--use-mpi", const = True)
+CM.AddParam("Command", "-c", "--command", nargs="+", action=CommandAction)
+CM.Parser.add_argument("command", nargs="*")
 
 DefaultConfigFile = "config.py"
 if IsReadable(DefaultConfigFile): # Always try, never cry.
-    IncludeFile(DefaultConfigFile)
+    CM.IncludeFile(DefaultConfigFile)
 else:
     Logger.Debug(f"Cannot read default config file: '{DefaultConfigFile}'")
 
-args = parser.parse_args(sys.argv[1:])
+args = CM.Parse(sys.argv[1:])
 if len(args.command) > 0:
     Config.Command = args.command
-
-#DataStream = None
-#IsFifo = False
 
 class SimulationStats:
     Step = -1 # These two are replenished externally
