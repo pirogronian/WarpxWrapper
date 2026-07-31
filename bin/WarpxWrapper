@@ -18,7 +18,9 @@ class Config:
     StorageInterval = 5.0
     DontRun = False
 
-    LogFile = "Log.txt"
+    LogFile = "Log"
+    MaxLogSize = 0
+    MaxLogFileSize = 0
     StoragePath = "diags"
 
     MaxStep = -1
@@ -152,6 +154,8 @@ CM.AddParam("Quiet", "-q", "--quiet", const = True)
 CM.AddParam("DontRun", "-r", "--dont-run", const = True)
 CM.AddParam("ErrorIsFatal", "--error-fatal", const = True)
 CM.AddParam("LogFile", "-l", "--log-file")
+CM.AddParam("MaxLogSize", "--max-log-size")
+CM.AddParam("MaxLogFileSize", "--max-log-file-size")
 CM.AddParam("StoragePath", "-o", "--storage")
 CM.AddParam("NonDestructivePrint", "-d", "--non-destructive-print", const = True)
 CM.AddParam("UpdateInterval", "-u", "--upd-int", "--update-interval")

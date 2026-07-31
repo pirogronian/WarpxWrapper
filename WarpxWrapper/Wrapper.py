@@ -17,6 +17,7 @@ from WarpxWrapper import System
 from WarpxWrapper import ControlManager
 from WarpxWrapper import UI
 from WarpxWrapper import WarpxDataParser
+from WarpxWrapper.LimitedBlockWriter import LimitedBlockWriter
 
 class SimulationStatus:
     Header = True
@@ -391,6 +392,7 @@ class Wrapper:
     def PrepareLogOutput(self):
         if self.Config.LogFile == None and self.Config.LogFile == "":
             return
+        IsFifo = False
         self.Logger.Debug(f"Opening log file: '{self.Config.LogFile}'")
         Path = pathlib.Path(self.Config.LogFile)
         if Path.is_file():
@@ -404,7 +406,10 @@ class Wrapper:
             if IsFifo:
                 os.mkfifo(self.Config.InputFile)
             else:
-                os.mknod(self.Config.InputFile, stat.S_IFREG | 0o600)
+                self.LogOutput = LimitedBlockWriter(MaxSize = self.Config.MaxLogSize, BlockSize = self.Config.MaxLogFileSize, FileName = self.Config.LogFile)
+                self.Flush = True
+                self.Logger.Debug("Set limited block writer as data log output.")
+                return
         self.LogOutput = OutputStream()
         self.LogOutput.Flush = True
         if IsFifo:
