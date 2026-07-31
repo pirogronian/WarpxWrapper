@@ -1,6 +1,6 @@
 
 import argparse
-from Various import StrToType, TypeDescription
+from .Various import StrToType, TypeDescription
 
 class IncludeAction(argparse.Action):
     Used = False

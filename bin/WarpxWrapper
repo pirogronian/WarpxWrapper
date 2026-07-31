@@ -13,17 +13,16 @@ import stat
 import pypsutil
 from queue import SimpleQueue
 
-from NonBlockingStream import InputStream, InputTerminal, OutputStream
-from Timer import Timer
-from Various import CompareKeys
-from FormattedValue import FormattedTime
-from Logger import Logger, Verbosity
-import Processes
-from ControlManager import ControlManager
-from Storage import DirSize
-from ConfigManager import ConfigManager, IncludeAction
-from UI import UI
-from WarpxDataParser import WarpxDataParser
+from WarpxWrapper.NonBlockingStream import InputStream, InputTerminal, OutputStream
+from WarpxWrapper import Timer
+from WarpxWrapper import FormattedTime
+from WarpxWrapper import Logger, Verbosity
+from WarpxWrapper import Processes
+from WarpxWrapper import ControlManager
+from WarpxWrapper import DirSize
+from WarpxWrapper import ConfigManager, IncludeAction
+from WarpxWrapper import UI
+from WarpxWrapper import WarpxDataParser
 
 class SourceType(enum.Enum):
     DEFAULT = 0 # It means the COMMAND

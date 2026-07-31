@@ -1,8 +1,8 @@
 
 import enum
 from blessed import Terminal
-from FormattedValue import FormattedNumber, FormattedTime, SizeStr
-from Message import Message
+from .FormattedValue import FormattedNumber, FormattedTime, SizeStr
+from .Message import Message
 
 class UI:
     class Section(enum.Enum):
