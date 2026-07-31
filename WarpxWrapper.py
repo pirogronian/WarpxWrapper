@@ -24,6 +24,7 @@ from ControlManager import ControlManager
 from Storage import DirSize
 from ConfigManager import ConfigManager, IncludeAction
 from UI import UI
+from WarpxDataParser import WarpxDataParser
 
 class SourceType(enum.Enum):
     DEFAULT = 0 # It means the COMMAND
@@ -213,7 +214,13 @@ args = CM.Parse(sys.argv[1:])
 if len(args.command) > 0:
     Config.Command = args.command
 
-class SimulationStats:
+class SimulationStatus:
+    Header = True
+    Main = False
+    MainUpdated = False
+    SecondUpdated = False
+    Footer = False
+
     Step = -1 # These two are replenished externally
     Time = -1
 
@@ -450,13 +457,9 @@ class StorageStats:
 
 
 class State:
-    Header = True
-    Footer = False
     SkipMain = False
-
-    MainUpdated = False
-    SecondUpdated = False
-    ThirdUpdated = False
+    ProcessWasFinding = False
+    Footer = False
 
 ReHeadStr = "For full input parameters, see the file\\:"
 Re1     = regex.compile("TIME")
@@ -480,16 +483,17 @@ class WarpxWrapper:
     def __init__(self):
         self.State = State()
         self.UpdateInterval = Config.UpdateInterval
-        self.SimStats = SimulationStats(Config.MaxStep, Config.MaxTime)
+        self.SimStatus = SimulationStatus(Config.MaxStep, Config.MaxTime)
         self.AccStats = AccStats()
         self.StorageStats = StorageStats()
-        self.UI = UI(self.SimStats, self.AccStats, self.StorageStats)
+        self.UI = UI(self.SimStatus, self.AccStats, self.StorageStats)
         self.Control = ControlManager()
         self.EventQueue = SimpleQueue()
         self.DataInput = InputStream(Lines = True, EventQueue = self.EventQueue, Event = 1)
         self.ControlInput = InputTerminal(self.UI.Terminal, EventQueue = self.EventQueue, Event = 2)
         self.UpdateTimer = Timer(Config.UpdateInterval)
         self.StorageTimer = Timer(Config.StorageInterval)
+        self.DataParser = WarpxDataParser(self.SimStatus, Logger)
         self.PausedTime = 0
 
     def RegisterActions(self):
@@ -646,33 +650,6 @@ class WarpxWrapper:
         if self.LogOutput != None:
             self.LogOutput.Close()
 
-    def ParseUsedInput(self, fname):
-        try:
-            f = open(fname, "r")
-        except:
-            Logger.Warning(f"Cannot open used input file: '{fname}'")
-            return
-
-        line = ""
-        ReMaxStep = regex.compile("max_step = ")
-        ReStopTime = regex.compile("stop_time = ")
-        while 1:
-            line = f.readline()
-            if line == "":
-                break
-            if ReMaxStep.search(line):
-                nums = ReNum.findall(line)
-                try:
-                    self.SimStats.MaxStep = int(nums[len(nums) - 1])
-                except Exception as e:
-                    Logger.ExceptWarn(e)
-            if ReStopTime.search(line):
-                nums = ReNum.findall(line)
-                try:
-                    self.SimStats.MaxTime = float(nums[len(nums) - 1])
-                except Exception as e:
-                    Logger.ExceptWarn(e)
-
     def OnKey(self, Key):
         if not self.Control.Dispatch(Key):
             self.UI.Message(f"Key: {Key.encode()}")
@@ -756,32 +733,32 @@ class WarpxWrapper:
         ETA = 0
         AvgETA = 0
 
-        if self.SimStats.StepETA > 0:
-            ETA = self.SimStats.StepETA
-            if self.SimStats.TimeETA > 0:
-                ETA += self.SimStats.TimeETA
+        if self.SimStatus.StepETA > 0:
+            ETA = self.SimStatus.StepETA
+            if self.SimStatus.TimeETA > 0:
+                ETA += self.SimStatus.TimeETA
                 ETA /= 2
         else:
-            ETA = self.SimStats.TimeETA
+            ETA = self.SimStatus.TimeETA
 
-        if self.SimStats.AvgStepETA > 0:
-            AvgETA = self.SimStats.AvgStepETA
-            if self.SimStats.AvgTimeETA > 0:
-                AvgETA += self.SimStats.AvgTimeETA
+        if self.SimStatus.AvgStepETA > 0:
+            AvgETA = self.SimStatus.AvgStepETA
+            if self.SimStatus.AvgTimeETA > 0:
+                AvgETA += self.SimStatus.AvgTimeETA
                 AvgETA /= 2
         else:
-            AvgETA = self.SimStats.AvgTimeETA
+            AvgETA = self.SimStatus.AvgTimeETA
 
-        #print(f"SimStats.StepsLeft: {self.SimStats.StepsLeft}, AccStats.DataStepSpeed: {self.AccStats.DataStepSpeed}")
-        if self.SimStats.StepsLeft >= 0 and self.AccStats.DataSpeedStep >= 0:
-            self.AccStats.StepESA = self.AccStats.DataSize + self.SimStats.StepsLeft * self.AccStats.DataSpeedStep
+        #print(f"SimStatus.StepsLeft: {self.SimStatus.StepsLeft}, AccStats.DataStepSpeed: {self.AccStats.DataStepSpeed}")
+        if self.SimStatus.StepsLeft >= 0 and self.AccStats.DataSpeedStep >= 0:
+            self.AccStats.StepESA = self.AccStats.DataSize + self.SimStatus.StepsLeft * self.AccStats.DataSpeedStep
 
-        #print(f"SimStats.TimeETA: {self.SimStats.TimeETA}, AccStats.DataSpeed: {self.AccStats.DataSpeed}")
+        #print(f"SimStatus.TimeETA: {self.SimStatus.TimeETA}, AccStats.DataSpeed: {self.AccStats.DataSpeed}")
         if ETA >= 0 and self.AccStats.DataSpeed >= 0:
             self.AccStats.TimeESA = self.AccStats.DataSize + ETA * self.AccStats.DataSpeed
 
-        if self.SimStats.StepsLeft >= 0 and self.AccStats.AvgDataSpeedStep >= 0:
-            self.AccStats.AvgStepESA = self.AccStats.DataSize + self.SimStats.StepsLeft * self.AccStats.AvgDataSpeedStep
+        if self.SimStatus.StepsLeft >= 0 and self.AccStats.AvgDataSpeedStep >= 0:
+            self.AccStats.AvgStepESA = self.AccStats.DataSize + self.SimStatus.StepsLeft * self.AccStats.AvgDataSpeedStep
 
         if AvgETA >= 0 and self.AccStats.AvgDataSpeed >= 0:
             self.AccStats.AvgTimeESA = self.AccStats.DataSize + AvgETA * self.AccStats.AvgDataSpeed
@@ -803,12 +780,12 @@ class WarpxWrapper:
             self.StorageTimer.Reset()
 
         if self.UpdateTimer.Expired() or Force:
-            if self.State.MainUpdated and self.State.SecondUpdated:
-                self.State.MainUpdated = False
-                self.State.SecondUpdated = False
-            self.SimStats.PausedTime = self.GetPausedTime()
-            self.AccStats.PausedTime = self.SimStats.PausedTime
-            self.StorageStats.PausedTime = self.SimStats.PausedTime
+            if self.SimStatus.MainUpdated and self.SimStatus.SecondUpdated:
+                self.SimStatus.MainUpdated = False
+                self.SimStatus.SecondUpdated = False
+            self.SimStatus.PausedTime = self.GetPausedTime()
+            self.AccStats.PausedTime = self.SimStatus.PausedTime
+            self.StorageStats.PausedTime = self.SimStatus.PausedTime
             self.AccStats.Recalculate()
             self.CalculateESA()
             if self.WarpxProcess != None:
@@ -904,7 +881,7 @@ try:
         WW.AccStats.DataSize += len(OutputLine)
         #print(f"Increasing data size: {AccStats.DataSize}.")
 
-        if not WW.State.ThirdUpdated and WW.WarpxProcess == None and Config.Source == SourceType.FILE and Config.PID == 0:
+        if not WW.State.ProcessWasFinding and WW.WarpxProcess == None and Config.Source == SourceType.FILE and Config.PID == 0:
             Ps = Processes.FileUsers(Config.InputFile, ["w", "a"])
 #            print("")
 #            print(Ps)
@@ -915,7 +892,7 @@ try:
                     Logger.Debug(f"Detected Warpx process: {WW.WarpxProcess.name()} ({WarpxProcess.pid}).")
             if WW.WarpxProcess == None:
                 Logger.Warning("Warpx process not detected!")
-            WW.State.ThirdUpdated = True
+            WW.State.ProcessWasFinding = True
 
 
         if WW.StartTime < 0:
@@ -926,35 +903,14 @@ try:
         if WW.LogOutput != None:
             WW.LogOutput.Write(OutputLine)
 
-        if not WW.State.Footer and not WW.State.MainUpdated and Re1.search(OutputLine):
-            WW.State.Header = False # Just in case we missed something
-            nums = ReNum.findall(OutputLine)
+        if not WW.DataParser.ParseLine(OutputLine):
+            break
 
-            WW.SimStats.Step = int(nums[0])
-            WW.AccStats.Step = int(nums[0])
-            WW.SimStats.Time = float(nums[1])
-            WW.SimStats.TimeDelta = float(nums[2])
-
-            WW.SimStats.Recalculate()
-            WW.AccStats.RecalculateStep()
-
-            WW.State.MainUpdated = True
-
-        elif not WW.State.SecondUpdated and Re2.search(OutputLine):
-            nums = ReNum.findall(OutputLine)
-        #print(nums)
-
-            WW.SimStats.ElapsedInternalRealTime = float(nums[0])
-            WW.SimStats.InternalRealTimeDelta = float(nums[1])
-            WW.State.SecondUpdated = True
-
-        elif WW.State.Header == True and ReHead.match(OutputLine):
-            WW.UI.CurrentSection = UI.Section.MAIN
+        if WW.SimStatus.Main == True:
+            WW.State.Main = True
             WW.State.Header = False
-            PrefixLen = len(ReHeadStr)
-            WW.ParseUsedInput(OutputLine[PrefixLen:len(OutputLine) - 1])
-
-        elif WW.State.Footer == False and ReFoot.match(OutputLine):
+            WW.UI.CurrentSection = UI.Section.MAIN
+        if WW.SimStatus.Footer and not WW.State.Footer:
             WW.State.Footer = True
             WW.UI.CurrentSection = UI.Section.FOOTER
             Logger.Debug("Footer detected.")
@@ -962,11 +918,13 @@ try:
                 break
             time.sleep(Config.UpdateInterval) # Let some time to the pipe to read last of data.
             WW.DataInput.Interval = 0 # Don't wait for data anymore.
-        elif ReAbort.match(OutputLine):
-            Logger.Warning("Warpx aborted.")
-            break
 
-        if WW.State.Header or WW.State.Footer:
+        if WW.SimStatus.Step > WW.SimStatus.PrevStep:
+            WW.SimStatus.Recalculate()
+            WW.AccStats.Step = WW.SimStatus.Step
+            WW.AccStats.RecalculateStep()
+
+        if WW.SimStatus.Header or WW.SimStatus.Footer:
             print(OutputLine, end='')
 
 except Exception as e:
