@@ -18,7 +18,6 @@ from queue import SimpleQueue
 
 from FormattedValue import FormattedNumber, FormattedTime, SizeStr
 from NonBlockingStream import InputStream, InputTerminal, OutputStream
-import FitLine
 from MessageLine import MessageLine
 from Timer import Timer
 from Various import CompareKeys
