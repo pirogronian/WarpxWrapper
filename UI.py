@@ -2,7 +2,7 @@
 import enum
 from blessed import Terminal
 from FormattedValue import FormattedNumber, FormattedTime, SizeStr
-from MessageLine import Message
+from Message import Message
 
 class UI:
     class Section(enum.Enum):
@@ -230,7 +230,7 @@ class UI:
         self.PrintSeparator()
         self.PrintLine()
 
-    def Rewrite(self):
+    def Update(self, Force = False):
         self.CacheMaxLen()
         if self.CurrentSection != self.Section.MAIN:
             return
@@ -238,14 +238,14 @@ class UI:
             MoveUp = 0
             if self.First:
                 self.WriteHeader()
-            if self.SimStats.Updated or self.First:
+            if self.SimStats.Updated or Force or self.First:
                 MoveUp = self.SimStatsHeight
             else:
                 MoveUp = self.AccStatsHeight
 #            print(f"MoveUp: {MoveUp}")
             if MoveUp and not self.NonDestructive:
                 print(self.Terminal.move_up(MoveUp + 1))
-            if self.SimStats.Updated or self.First:
+            if self.SimStats.Updated or Force or self.First:
                 self.WriteSimStats()
             self.WriteAccStats()
             self.WriteProcStats()

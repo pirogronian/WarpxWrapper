@@ -677,7 +677,7 @@ class WarpxWrapper:
         if not self.Control.Dispatch(Key):
             self.UI.Message(f"Key: {Key.encode()}")
         if not self.Finishing:
-            self.UI.Rewrite()
+            self.UI.Update(Force = True)
 
     def ProcessControlInput(self):
         while 1:
@@ -796,6 +796,12 @@ class WarpxWrapper:
     def Update(self, Force = False):
         if self.StorageStats.StartSize < 0:
             self.StorageStats.StartSize = DirSize(Config.StoragePath)
+
+        if self.StorageTimer.Expired():
+            self.StorageStats.RawSize = DirSize(Config.StoragePath)
+            self.StorageStats.Recalculate()
+            self.StorageTimer.Reset()
+
         if self.UpdateTimer.Expired() or Force:
             if self.State.MainUpdated and self.State.SecondUpdated:
                 self.State.MainUpdated = False
@@ -815,13 +821,10 @@ class WarpxWrapper:
                 self.AccStats.CPUTime = self.ProcStats.CPU
                 self.UI.ProcStats = self.ProcStats
                     #print(str(self.ProcStats))
-            if not Config.Quiet:
-                self.UI.Rewrite()
             self.UpdateTimer.Reset()
-        if self.StorageTimer.Expired():
-            self.StorageStats.RawSize = DirSize(Config.StoragePath)
-            self.StorageStats.Recalculate()
-            self.StorageTimer.Reset()
+
+            if not Config.Quiet:
+                self.UI.Update()
 
 PrintParams()
 
