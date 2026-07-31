@@ -31,10 +31,12 @@ class ParamAction(argparse.Action):
         t = type(getattr(self.Config, self.Param))
         if self.UnpackList and type(value) == list:
             value = value[0]
-        try:
-            value = StrToType(value, t)
-        except:
-            self.Error("Value of param {} must be convertable to {}!".format(option_string, t.__name__))
+        if type(value) != t:
+            try:
+                #print(f"Param value for {self.Param}: {value} ({type(value)})")
+                value = StrToType(value, t)
+            except:
+                self.Error("Value of param {} must be convertable to {}!".format(option_string, t.__name__))
         setattr(self.Config, self.Param, value)
         self.Logger.Debug("Command line: set {} to {}".format(self.Param, value))
 
