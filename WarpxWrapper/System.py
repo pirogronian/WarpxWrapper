@@ -2,13 +2,20 @@
 import pypsutil
 import os
 
-def PauseTree(Process):
+def IsReadable(fname):
+    return os.access(fname, os.R_OK)
+
+def IsWritable(fname):
+    return os.access(fname, os.W_OK)
+
+
+def PauseProcTree(Process):
     Ps = Process.children(recursive=True)
     Process.suspend()
     for P in Ps:
         P.suspend()
 
-def ResumeTree(Process):
+def ResumeProcTree(Process):
     Ps = Process.children(recursive=True)
     Process.resume()
     for P in Ps:
@@ -51,7 +58,7 @@ def FileUsers(Path, Modes = None):
 
     return Ret
 
-class TreeStats:
+class ProcTreeStats:
     def __init__(self):
         self.ProcNum = 0
         self.ProcNames = {}
@@ -64,8 +71,8 @@ class TreeStats:
     def __str__(self):
         return f"TreeStats(ProcNum: {self.ProcNum}, ProcNames: {self.ProcNames})"
 
-def GetTreeStats(Process):
-    Stats = TreeStats()
+def GetProcTreeStats(Process):
+    Stats = ProcTreeStats()
     Tree = Process.children(recursive = True)
     Tree.insert(0, Process)
     Stats.ProcNum = len(Tree)
@@ -87,3 +94,14 @@ def GetTreeStats(Process):
     Stats.CrTime = Stats.CrTime / len(Tree)
 
     return Stats
+
+def DirSize(Path):
+    Ret = 0
+    for Dirpath, Dirnames, Filenames in os.walk(Path):
+        for F in Filenames:
+            FP = os.path.join(Dirpath, F)
+            # skip if it is symbolic link
+            if not os.path.islink(FP):
+                Ret += os.path.getsize(FP)
+
+    return Ret

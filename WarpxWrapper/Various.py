@@ -1,12 +1,4 @@
 
-import os
-
-def IsReadable(fname):
-    return os.access(fname, os.R_OK)
-
-def IsWritable(fname):
-    return os.access(fname, os.W_OK)
-
 def CompareKeys(c1, c2):
     #print(f"{c1} ({type(c1)}) || {c2} ({type(c2)})")
     if type(c1) == type(c2):

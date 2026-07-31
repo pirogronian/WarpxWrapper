@@ -5,7 +5,7 @@ import argparse
 import os
 import sys
 import time
-from WarpxWrapper import ConfigManager, IncludeAction, Logger, Verbosity, Wrapper, SourceType, IsReadable
+from WarpxWrapper import ConfigManager, IncludeAction, Logger, Verbosity, Wrapper, SourceType, System
 
 DefaultWarpxInputFileName = "input"
 
@@ -174,7 +174,7 @@ CM.AddParam("Command", "-c", "--command", nargs="+", action=CommandAction)
 CM.Parser.add_argument("command", nargs="*")
 
 DefaultConfigFile = "config.py"
-if IsReadable(DefaultConfigFile): # Always try, never cry.
+if System.IsReadable(DefaultConfigFile): # Always try, never cry.
     CM.IncludeFile(DefaultConfigFile)
 else:
     Logger.Debug(f"Cannot read default config file: '{DefaultConfigFile}'")

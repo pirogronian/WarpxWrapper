@@ -13,12 +13,10 @@ from queue import SimpleQueue
 from WarpxWrapper import InputStream, InputTerminal, OutputStream
 from WarpxWrapper import Timer
 from WarpxWrapper import FormattedTime
-from WarpxWrapper import Processes
+from WarpxWrapper import System
 from WarpxWrapper import ControlManager
-from WarpxWrapper import DirSize
 from WarpxWrapper import UI
 from WarpxWrapper import WarpxDataParser
-from WarpxWrapper import IsReadable
 
 class SimulationStatus:
     Header = True
@@ -362,7 +360,7 @@ class Wrapper:
         if self.Config.Command == "":
             if self.Config.InputFile == "":
                 self.Config.InputFile = DefaultWarpxInputFileName
-            if not IsReadable(self.Config.InputFile):
+            if not System.IsReadable(self.Config.InputFile):
                 Error(f"Warpx input file \"{self.Config.InputFile}\" is not readable.")
 
             CmdArgs.append(self.Config.InputFile)
@@ -471,14 +469,14 @@ class Wrapper:
 
     def Pause(self):
         if self.WarpxProcess != None:
-            Processes.PauseTree(self.WarpxProcess)
+            System.PauseProcTree(self.WarpxProcess)
         self.PausedAt = time.time()
         self.Paused = True
         self.UI.Status("Paused")
 
     def Resume(self):
         if self.WarpxProcess != None:
-            Processes.ResumeTree(self.WarpxProcess)
+            System.ResumeProcTree(self.WarpxProcess)
         self.Pausedtime += time.time() - self.PausedAt
         self.Paused = False
         self.UI.Status()
@@ -576,10 +574,10 @@ class Wrapper:
 
     def Update(self, Force = False):
         if self.StorageStats.StartSize < 0:
-            self.StorageStats.StartSize = DirSize(self.Config.StoragePath)
+            self.StorageStats.StartSize = System.DirSize(self.Config.StoragePath)
 
         if self.StorageTimer.Expired():
-            self.StorageStats.RawSize = DirSize(self.Config.StoragePath)
+            self.StorageStats.RawSize = System.DirSize(self.Config.StoragePath)
             self.StorageStats.Recalculate()
             self.StorageTimer.Reset()
 
@@ -595,7 +593,7 @@ class Wrapper:
             if self.WarpxProcess != None:
                     #print("Update proc info.")
                 try:
-                    self.ProcStats = Processes.GetTreeStats(self.WarpxProcess)
+                    self.ProcStats = System.GetProcTreeStats(self.WarpxProcess)
                 except pypsutil.NoSuchProcess as e:
                     self.WarpxProcess = None
                 self.AccStats.CPUStart = self.ProcStats.CrTime
@@ -653,7 +651,7 @@ class Wrapper:
         #print(f"Increasing data size: {AccStats.DataSize}.")
 
         if not self.State.ProcessWasFinding and self.WarpxProcess == None and self.Config.Source == SourceType.FILE and self.Config.PID == 0:
-            Ps = Processes.FileUsers(self.Config.InputFile, ["w", "a"])
+            Ps = System.FileUsers(self.Config.InputFile, ["w", "a"])
 #            print("")
 #            print(Ps)
             Me = pypsutil.Process()
