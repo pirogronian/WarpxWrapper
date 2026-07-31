@@ -259,6 +259,10 @@ class StorageStats:
             self.Speed = self.Size / self.Elapsed
             #print(f"St Speed: {self.Speed:.2f}, {SizeStr(self.Size)} - {SizeStr(self.StartSize)} = {SizeStr(self.Size - self.StartSize)} / {self.Elapsed:.4f}")
 
+class SystemStats:
+    FreeMemory = 0
+    FreeStorage = 0
+
 
 class State:
     SkipMain = False
@@ -288,7 +292,8 @@ class Wrapper:
         self.SimStatus = SimulationStatus(self.Config.MaxStep, self.Config.MaxTime)
         self.AccStats = AccStats()
         self.StorageStats = StorageStats()
-        self.UI = UI(self.SimStatus, self.AccStats, self.StorageStats)
+        self.SystemStats = SystemStats()
+        self.UI = UI(self.SimStatus, self.AccStats, self.StorageStats, self.SystemStats)
         self.Control = ControlManager()
         self.EventQueue = SimpleQueue()
         self.DataInput = InputStream(Lines = True, EventQueue = self.EventQueue, Event = 1)
@@ -571,6 +576,11 @@ class Wrapper:
         if AvgETA >= 0:
             self.StorageStats.AvgESA = self.StorageStats.Size + self.StorageStats.Speed * AvgETA
 
+    def UpdateSystemStats(self):
+        mem = pypsutil.virtual_memory()
+        st = pypsutil.disk_usage(self.Config.StoragePath)
+        self.SystemStats.FreeMemory = mem.available
+        self.SystemStats.FreeStorage = st.free
 
     def Update(self, Force = False):
         if self.StorageStats.StartSize < 0:
@@ -600,6 +610,8 @@ class Wrapper:
                 self.AccStats.CPUTime = self.ProcStats.CPU
                 self.UI.ProcStats = self.ProcStats
                     #print(str(self.ProcStats))
+            self.UpdateSystemStats()
+
             self.UpdateTimer.Reset()
 
             if not self.Config.Quiet:

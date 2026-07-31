@@ -17,11 +17,11 @@ class UI:
     Avg = False
     CurrentSection = Section.WAIT
 
-    SimStatsHeight = 13
-    AccStatsHeight = 9
+    SimStatsHeight = 15
+    AccStatsHeight = 11
     MessageLineHeight = 3
 
-    def __init__(self, SimStats, AccStats, StorageStats):
+    def __init__(self, SimStats, AccStats, StorageStats, SystemStats):
         self.FmtNmb = FormattedNumber()
         self.FmtTime = FormattedTime()
         self.FmtNmb.ForbidNegative = True
@@ -31,6 +31,7 @@ class UI:
         self.SimStats = SimStats
         self.AccStats = AccStats
         self.StorageStats = StorageStats
+        self.SystemStats = SystemStats
         self.Msg = Message(Timeout = 2)
 
     def CacheMaxLen(self, MaxLen = None):
@@ -215,6 +216,11 @@ class UI:
         self.PrintSeparator()
         self.PrintLeftPadding(f"Storage: {SizeStr(s.Size):>9}, {SizeStr(s.Speed):>8}/s, ESA: {SizeStr(ESA):>8}")
 
+    def WriteSystemStats(self):
+        s = self.SystemStats
+        self.PrintSeparator()
+        self.PrintLeftPadding(f"Avail. res:   mem: {SizeStr(s.FreeMemory):>9}, storage: {SizeStr(s.FreeStorage):>9}")
+
     def WriteMessageLine(self):
         minl, maxl = self.GetLen()
         self.PrintSeparator()
@@ -251,5 +257,6 @@ class UI:
             self.WriteProcStats()
             #print(self.StorageStats.Speed)
             self.WriteStorageStats()
+            self.WriteSystemStats()
             self.WriteMessageLine()
             self.First = False
