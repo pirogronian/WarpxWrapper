@@ -17,18 +17,18 @@ class UI:
     Avg = False
     CurrentSection = Section.WAIT
 
-    SimStatsHeight = 15
+    SimStatusHeight = 15
     AccStatsHeight = 11
     MessageLineHeight = 3
 
-    def __init__(self, SimStats, AccStats, StorageStats, SystemStats):
+    def __init__(self, SimStatus, AccStats, StorageStats, SystemStats):
         self.FmtNmb = FormattedNumber()
         self.FmtTime = FormattedTime()
         self.FmtNmb.ForbidNegative = True
         self.Terminal = Terminal()
         print(self.Terminal.clear_bol)
         self.First = True
-        self.SimStats = SimStats
+        self.SimStatus = SimStatus
         self.AccStats = AccStats
         self.StorageStats = StorageStats
         self.SystemStats = SystemStats
@@ -92,31 +92,31 @@ class UI:
 
     def GetSimSpeeds(self):
         if self.Avg:
-            return self.SimStats.AvgStepSpeed, self.SimStats.AvgTimeSpeed
-        return self.SimStats.StepSpeed, self.SimStats.TimeSpeed
+            return self.SimStatus.AvgStepSpeed, self.SimStatus.AvgTimeSpeed
+        return self.SimStatus.StepSpeed, self.SimStatus.TimeSpeed
 
     def GetEstSteps(self):
         ems = -1
         if self.Avg:
-            ems = self.SimStats.AvgEstMaxStep
+            ems = self.SimStatus.AvgEstMaxStep
         else:
-            ems = self.SimStats.EstMaxStep
-        els = ems - self.SimStats.Step
+            ems = self.SimStatus.EstMaxStep
+        els = ems - self.SimStatus.Step
         return ems, els
 
     def GetEstTime(self):
         emt = -1
         if self.Avg:
-            emt = self.SimStats.AvgEstMaxTime
+            emt = self.SimStatus.AvgEstMaxTime
         else:
-            emt = self.SimStats.EstMaxTime
-        elt = emt - self.SimStats.Time
+            emt = self.SimStatus.EstMaxTime
+        elt = emt - self.SimStatus.Time
         return emt, elt
 
     def GetSimETAs(self):
         if self.Avg:
-            return self.SimStats.AvgStepETA, self.SimStats.AvgTimeETA
-        return self.SimStats.StepETA, self.SimStats.TimeETA
+            return self.SimStatus.AvgStepETA, self.SimStatus.AvgTimeETA
+        return self.SimStatus.StepETA, self.SimStatus.TimeETA
 
     def GetDataSpeeds(self):
         if self.Avg:
@@ -152,10 +152,10 @@ class UI:
         self.PrintCentered("Time statistics:")
         self.PrintSeparator()
         self.PrintLeftPadding()
-        self.PrintLine(Times=self.SimStatsHeight)
+        self.PrintLine(Times=self.SimStatusHeight)
 
-    def WriteSimStats(self):
-        s = self.SimStats # Less to write
+    def WriteSimStatus(self):
+        s = self.SimStatus # Less to write
         fn = self.FmtNmb
         ft = self.FmtTime
         minl, maxl = self.GetLen()
@@ -186,7 +186,7 @@ class UI:
         s2 = f"Sim time: {ft.Str(s.Time):^12} / {MaxTstr:^15} : {LeftTstr:^15} ({fn.Str(s.TimeProgress):>3}%)," +\
         f"x{fn.Str(STSpeed):>9}, ETA: {ft.Str(TETA):>20}"
 
-        s3 = f"Elapsed: {ft.Str(s.ElapsedRealTime)}, delta: {ft.Str(s.RealTimeDelta)} ({ft.Str(s.TimeDelta * s.RealTimeDelta)}), eff: elapsed: {s.ElapsedRealTimeEfficiency}%, delta: {s.RealTimeDeltaEfficiency}%"
+        s3 = f"Elapsed: {ft.Str(s.ElapsedRealTime):^13}, delta: {ft.Str(s.RealTimeDelta):>10} (Sim: {ft.Str(STSpeed * s.RealTimeDelta):>10}, {ft.Str(s.TimeDelta):>10}/st)"
 
 #        if not self.NonDestructive:
 #            print('\r\033[A\033[A\033[A\033[A\033[A', end='')
@@ -194,7 +194,7 @@ class UI:
         self.PrintLeftPadding(s2)
         self.PrintLeftPadding(s3)
         self.PrintLeftPadding()
-        s.Updated = False
+        s.StatsUpdated = False
 
     def WriteAccStats(self):
         s = self.AccStats
@@ -244,15 +244,15 @@ class UI:
             MoveUp = 0
             if self.First:
                 self.WriteHeader()
-            if self.SimStats.Updated or Force or self.First:
-                MoveUp = self.SimStatsHeight
+            if self.SimStatus.StatsUpdated or Force or self.First:
+                MoveUp = self.SimStatusHeight
             else:
                 MoveUp = self.AccStatsHeight
 #            print(f"MoveUp: {MoveUp}")
             if MoveUp and not self.NonDestructive:
                 print(self.Terminal.move_up(MoveUp + 1))
-            if self.SimStats.Updated or Force or self.First:
-                self.WriteSimStats()
+            if self.SimStatus.StatsUpdated or Force or self.First:
+                self.WriteSimStatus()
             self.WriteAccStats()
             self.WriteProcStats()
             #print(self.StorageStats.Speed)

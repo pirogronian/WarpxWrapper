@@ -21,8 +21,8 @@ from WarpxWrapper import WarpxDataParser
 class SimulationStatus:
     Header = True
     Main = False
-    MainUpdated = False
-    SecondUpdated = False
+    Updated = False
+    StatsUpdated = False
     Footer = False
 
     Step = -1 # These two are replenished externally
@@ -73,12 +73,6 @@ class SimulationStatus:
     StepsPerTime = -1
     AvgTimePerStep = -1
     AvgStepsPerTime = -1
-
-    ElapsedInternalRealTime = -1
-    InternalRealTimeDelta = -1
-
-    ElapsedRealTimeEfficiency = -1
-    RealTimeDeltaEfficiency = -1
 
     def __init__(self, MaxStep, MaxTime):
         self.MaxStep = MaxStep
@@ -155,15 +149,11 @@ class SimulationStatus:
         if self.ElapsedRealTime > 0:
             self.CalculateAvgETA()
 
-        if self.ElapsedRealTime > 0:
-            self.ElapsedRealTimeEfficiency = int((self.ElapsedInternalRealTime /  self.ElapsedRealTime) * 100)
-        if self.RealTimeDelta > 0:
-            self.RealTimeDeltaEfficiency = int((self.InternalRealTimeDelta / self.RealTimeDelta) * 100)
-
         self.PrevStep = self.Step
         self.PrevTime = self.Time
         self.PrevRealTime = self.CurrentRealTime
-        self.Updated = True
+
+        self.StatsUpdated = True
 
 class AccStats:
     UpdNr = 0
@@ -592,9 +582,8 @@ class Wrapper:
             self.StorageTimer.Reset()
 
         if self.UpdateTimer.Expired() or Force:
-            if self.SimStatus.MainUpdated and self.SimStatus.SecondUpdated:
-                self.SimStatus.MainUpdated = False
-                self.SimStatus.SecondUpdated = False
+            if self.SimStatus.Updated:
+                self.SimStatus.Updated = False
             self.SimStatus.PausedTime = self.GetPausedTime()
             self.AccStats.PausedTime = self.SimStatus.PausedTime
             self.StorageStats.PausedTime = self.SimStatus.PausedTime

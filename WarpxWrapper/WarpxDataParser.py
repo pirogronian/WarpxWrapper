@@ -4,7 +4,7 @@ import regex
 class WarpxDataParser:
     ReHeadStr = "For full input parameters, see the file\\:"
     Re1     = regex.compile("TIME")
-    Re2     = regex.compile("Evolve time")
+#    Re2     = regex.compile("Evolve time")
     ReHead  = regex.compile(ReHeadStr)
     ReFoot  = regex.compile("Total Time")
     ReAbort = regex.compile("MPI_ABORT")
@@ -42,7 +42,7 @@ class WarpxDataParser:
                     self.Logger.ExceptWarn(e)
 
     def ParseLine(self, Line):
-        if not self.SimStatus.Footer and not self.SimStatus.MainUpdated and self.Re1.search(Line):
+        if not self.SimStatus.Footer and not self.SimStatus.Updated and self.Re1.search(Line):
             self.SimStatus.Header = False # Just in case we missed something
             self.SimStatus.Main = True
 
@@ -52,15 +52,7 @@ class WarpxDataParser:
             self.SimStatus.Time = float(nums[1])
             self.SimStatus.TimeDelta = float(nums[2])
 
-            self.SimStatus.MainUpdated = True
-
-        elif not self.SimStatus.SecondUpdated and self.Re2.search(Line):
-            nums = self.ReNum.findall(Line)
-        #print(nums)
-
-            self.SimStatus.ElapsedInternalRealTime = float(nums[0])
-            self.SimStatus.InternalRealTimeDelta = float(nums[1])
-            self.SimStatus.SecondUpdated = True
+            self.SimStatus.Updated = True
 
         elif self.SimStatus.Header == True and self.ReHead.match(Line):
             self.SimStatus.Header = False
