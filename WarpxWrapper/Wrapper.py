@@ -158,17 +158,9 @@ class SimulationStatus:
 
 class AccStats:
     UpdNr = 0
-    Step = 0
-    PrevStep = 0
     DataSize = 0
     PrevDataSize = 0
     PrevStepDataSize = 0
-
-    StartTime = -1
-    Elapsed = 0
-
-    CurrentTime = 0
-    PrevTime = 0
 
     DataSpeed = 0
     AvgDataSpeed = 0
@@ -188,47 +180,35 @@ class AccStats:
     CPU = 0
     AvgCPU = 0
 
-    def Recalculate(self):
+    def Recalculate(self, TimeDelta, ElapsedTime, PausedTime):
         self.UpdNr += 1
-        self.CurrentTime = time.time()
-        if self.StartTime < 0:
-            self.StartTime = self.CurrentTime
-        self.Elapsed = self.CurrentTime - self.StartTime - self.PausedTime
         #print(f"Upd # {self.UpdNr}. Loop: {self.Loop}.")
         #print(f"CTime: {self.CurrentTime:.2f}, prev time: {self.PrevTime:.2f}")
 
-        self.Delta = self.CurrentTime - self.PrevTime
         self.DataDelta = self.DataSize - self.PrevDataSize
         self.CPUDelta = self.CPUTime - self.PrevCPUTime
 
-        if self.Delta > 0:
-            self.DataSpeed = self.DataDelta / self.Delta
-            self.CPU = self.CPUDelta / self.Delta
+        if TimeDelta > 0:
+            self.DataSpeed = self.DataDelta / TimeDelta
+            self.CPU = self.CPUDelta / TimeDelta
 
-        if self.Elapsed > 0:
-            self.AvgDataSpeed = self.DataSize / self.Elapsed
+        if ElapsedTime > 0:
+            self.AvgDataSpeed = self.DataSize / ElapsedTime
 
         if self.CPUStart > 0:
-            self.AvgCPU = self.CPUTime / (time.time() - self.CPUStart - self.PausedTime)
+            self.AvgCPU = self.CPUTime / (time.time() - self.CPUStart - PausedTime)
             #print(f"Set AvgCPU: {self.CPUTime} / {time.time()} - {self.CPUStart} = / {time.time() - self.CPUStart} = {self.AvgCPU}")
 
-        self.PrevTime = self.CurrentTime
         self.PrevDataSize = self.DataSize
         self.PrevCPUTime = self.CPUTime
         #print(f"DDelta: {self.DataDelta} / {self.Delta:.2f}, {self.DataSpeed:.2f}/s")
 
-    def RecalculateStep(self):
-        if self.Step <= self.PrevStep:
-            self.Logger.Warning(f"Step: {self.Step} <= LastStep: {self.LastStep}. Nothing to calculate.")
-            return
-
-        self.StepDelta = self.Step - self.PrevStep
+    def RecalculateStep(self, Step, StepDelta):
         self.DataStepDelta = self.DataSize - self.PrevStepDataSize
-        if self.DataStepDelta > 0:
-            self.DataSpeedStep = self.DataStepDelta / self.StepDelta
-        if self.Step > 0:
-            self.AvgDataSpeedStep = self.DataSize / self.Step
-        self.LastStep = self.Step
+        if StepDelta > 0:
+            self.DataSpeedStep = self.DataStepDelta / StepDelta
+        if Step > 0:
+            self.AvgDataSpeedStep = self.DataSize / Step
 
 class StorageStats:
     RawSize = 0
@@ -600,9 +580,12 @@ class Wrapper:
             if self.SimStatus.Updated:
                 self.SimStatus.Updated = False
             self.SimStatus.PausedTime = self.GetPausedTime()
-            self.AccStats.PausedTime = self.SimStatus.PausedTime
             self.StorageStats.PausedTime = self.SimStatus.PausedTime
-            self.AccStats.Recalculate()
+            self.AccStats.Recalculate(
+                    self.SimStatus.RealTimeDelta,
+                    self.SimStatus.ElapsedRealTime,
+                    self.SimStatus.PausedTime
+                )
             self.CalculateESA()
             if self.WarpxProcess != None:
                     #print("Update proc info.")
@@ -708,8 +691,7 @@ class Wrapper:
 
         if self.SimStatus.Step > self.SimStatus.PrevStep:
             self.SimStatus.Recalculate()
-            self.AccStats.Step = self.SimStatus.Step
-            self.AccStats.RecalculateStep()
+            self.AccStats.RecalculateStep(self.SimStatus.Step, self.SimStatus.StepDelta)
 
         if self.SimStatus.Header or self.SimStatus.Footer:
             print(OutputLine, end='')
