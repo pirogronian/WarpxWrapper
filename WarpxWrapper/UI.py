@@ -1,4 +1,5 @@
 
+#import math
 import enum
 from blessed import Terminal
 from .FormattedValue import FormattedNumber, FormattedTime, SizeStr
@@ -178,12 +179,18 @@ class UI:
             MaxTstr = "~" + ft.Str(EMT)
             LeftTstr = "~" + ft.Str(ELT)
 
+        SProgPerc = int(s.StepsProgress * 100)
+        TProgPerc = int(s.TimeProgress * 100)
+
+        self.Terminal.progress_bar("normal", min(max(SProgPerc, 0), max(TProgPerc, 0)))
+
         SSSpeed, STSpeed = self.GetSimSpeeds()
         SETA, TETA = self.GetSimETAs()
-        s1 = f"Step:  {fn.Str(s.Step):^15} / {MaxSstr:^15} : {LeftSstr:^15} ({fn.Str(s.StepsProgress):>3}%)," +\
+
+        s1 = f"Step:  {fn.Str(s.Step):^15} / {MaxSstr:^15} : {LeftSstr:^15} ({fn.Str(SProgPerc):>3}%)," +\
         f"x{fn.Str(SSSpeed):>9}, ETA: {ft.Str(SETA):>20}"
 
-        s2 = f"Sim time: {ft.Str(s.Time):^12} / {MaxTstr:^15} : {LeftTstr:^15} ({fn.Str(s.TimeProgress):>3}%)," +\
+        s2 = f"Sim time: {ft.Str(s.Time):^12} / {MaxTstr:^15} : {LeftTstr:^15} ({fn.Str(TProgPerc):>3}%)," +\
         f"x{fn.Str(STSpeed):>9}, ETA: {ft.Str(TETA):>20}"
 
         s3 = f"Elapsed: {ft.Str(s.ElapsedRealTime):^13}, delta: {ft.Str(s.RealTimeDelta):>10} (Sim: {ft.Str(STSpeed * s.RealTimeDelta):>10}, {ft.Str(s.TimeDelta):>10}/st)"
@@ -235,6 +242,13 @@ class UI:
         self.PrintPadding()
         self.PrintSeparator()
         self.PrintLine()
+
+    def Setup(self):
+        self.Terminal.set_window_title("WarpxWrapper")
+
+    def Finish(self):
+        self.Terminal.set_window_title("")
+        self.Terminal.progress_bar('clear')
 
     def Update(self, Force = False):
         self.CacheMaxLen()

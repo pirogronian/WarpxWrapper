@@ -143,8 +143,8 @@ class SimulationStatus:
         if self.Time >= 0 and self.MaxTime > 0:
             self.TimeLeft = self.MaxTime - self.Time
 
-        self.StepsProgress = int((self.Step / self.MaxStep) * 100)
-        self.TimeProgress = int((self.Time / self.MaxTime) * 100)
+        self.StepsProgress = self.Step / self.MaxStep
+        self.TimeProgress = self.Time / self.MaxTime
 
         self.CalculateETA()
         if self.ElapsedRealTime > 0:
@@ -706,6 +706,7 @@ class Wrapper:
 
     def RunMainLoop(self):
         try:
+            self.UI.Setup()
             self.ControlInput.DisableBuffering()
 
             while 1:
@@ -721,6 +722,7 @@ class Wrapper:
             self.Logger.ExceptCrit(e)
 
         self.ControlInput.RestoreBuffering()
+        self.UI.Finish()
 
     def Finish(self):
         self.UI.CurrentSection = UI.Section.FOOTER
