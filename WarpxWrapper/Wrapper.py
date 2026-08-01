@@ -41,7 +41,6 @@ class SimulationStatus:
     TimeLeft = -1
     EstTimeLeft = -1
 
-
     StepsProgress = -1
     TimeProgress = -1
 
@@ -214,20 +213,14 @@ class StorageStats:
     RawSize = 0
     Size = 0
     StartSize = -1
-    StartTime = -1
-    PausedTime = 0
-    Elapsed = 0
     Speed = 0
     ESA = 0
     AvgESA = 0
 
-    def Recalculate(self):
-        if self.StartTime < 0:
-            self.StartTime = time.time()
+    def Recalculate(self, Elapsed):
         self.Size = self.RawSize - self.StartSize
-        self.Elapsed = time.time() - self.StartTime - self.PausedTime
-        if self.Elapsed > 0:
-            self.Speed = self.Size / self.Elapsed
+        if Elapsed > 0:
+            self.Speed = self.Size / Elapsed
             #print(f"St Speed: {self.Speed:.2f}, {SizeStr(self.Size)} - {SizeStr(self.StartSize)} = {SizeStr(self.Size - self.StartSize)} / {self.Elapsed:.4f}")
 
 class SystemStats:
@@ -577,14 +570,13 @@ class Wrapper:
 
         if self.StorageTimer.Expired():
             self.StorageStats.RawSize = System.DirSize(self.Config.StoragePath)
-            self.StorageStats.Recalculate()
+            self.StorageStats.Recalculate(self.SimStatus.ElapsedRealTime)
             self.StorageTimer.Reset()
 
         if self.UpdateTimer.Expired() or Force:
             if self.SimStatus.Updated:
                 self.SimStatus.Updated = False
             self.SimStatus.PausedTime = self.GetPausedTime()
-            self.StorageStats.PausedTime = self.SimStatus.PausedTime
             self.AccStats.Recalculate(
                     self.SimStatus.RealTimeDelta,
                     self.SimStatus.ElapsedRealTime,
