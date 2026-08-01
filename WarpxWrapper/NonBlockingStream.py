@@ -3,6 +3,7 @@ import io
 import os
 import sys
 import fcntl
+import termios
 import threading
 import queue
 import time
@@ -12,7 +13,7 @@ class CommonStream:
     Interval = 0.0
     QueueSizeThreshold = 0
 
-    def __init__(self, Stream = None, EventQueue = None, Event = True, Binary = False, Lines = False):
+    def __init__(self, Stream = None, EventQueue = None, Event = True, Binary = False, Lines = False, Interval = 0):
         self.Queue = queue.SimpleQueue()
         self.Stream = Stream
         self.Binary = Binary
@@ -22,6 +23,9 @@ class CommonStream:
         self.Event = Event
         self.Stop = False
         self.AutoClose = False
+        self.Paused = False
+        self._IsPaused = False
+        self.Interval = Interval
 
     def IsOpen(self):
         return isinstance(self.Stream, io.IOBase) and not self.Stream.closed
@@ -48,10 +52,32 @@ class CommonStream:
         self.Stop = True
         self.Thread.join(Timeout)
 
+    def Pause(self):
+        self.Paused = True
+
+    def Resume(self):
+        self.Paused = False
+
+    def IsPaused(self):
+        return self._IsPaused
+
+    def WaitForPaused(self):
+        while not self._IsPaused:
+            #print("Waiting...")
+            if self.Interval > 0:
+                time.sleep(self.Interval)
+
     def Daemon(self):
         self.Open()
 
         while not self.Stop:
+            if self.Paused:
+                self._IsPaused = True
+                if self.Interval > 0:
+                    time.sleep(self.Interval)
+                continue
+            else:
+                self._IsPaused = False
             ret = self.MainLoop()
             if ret == 0:
                 if self.Interval > 0:
@@ -182,13 +208,17 @@ class InputTerminal(InputStream):
     Buffered = True
     UseBlessed = False
 
-    def __init__(self, Terminal = None, EventQueue = None, Event = True, *args, **kargs):
+    def __init__(self, Terminal = None, EventQueue = None, Event = True, Interval = 0, UseBlessed = False, *args, **kargs):
         if Terminal == None:
             Terminal = blessed.Terminal(*args, **kargs)
 
         self.CBreakContext = Terminal.cbreak()
         self.Terminal = Terminal
-        super().__init__(sys.stdin, EventQueue, Event)
+        self.UseBlessed = UseBlessed
+        super().__init__(sys.stdin, EventQueue, Event, Interval = Interval)
+
+    def BufferingDisabled(self):
+        return self.CBreakContext
 
     def DisableBuffering(self):
         self.CBreakContext.__enter__()
@@ -198,9 +228,8 @@ class InputTerminal(InputStream):
         self.CBreakContext.__exit__(None, None, None)
 
     def BlessedRead(self):
-        #if self.Buffered:
-        #    return self.Stream.read()
-        return self.Terminal.inkey()
+        #print(f"Inkey (timeout={self.Interval})")
+        return self.Terminal.inkey(timeout=self.Interval)
 
     def OwnRead(self):
         Data = ""
@@ -220,6 +249,14 @@ class InputTerminal(InputStream):
         return Data
 
     def DirectRead(self):
+        #print("DirectRead.")
         if self.UseBlessed:
+            #print("UseBlessed.")
             return self.BlessedRead()
+        #print("Don't UseBlessed.")
         return self.OwnRead()
+
+    def EmulateKey(self, key):
+        for c in key:
+            # TIOCSTI (Terminal Input Character Simulation) przekazuje bajt do bufora stdin
+            fcntl.ioctl(sys.stdin.fileno(), termios.TIOCSTI, c.encode())
