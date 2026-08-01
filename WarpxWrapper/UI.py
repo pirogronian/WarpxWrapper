@@ -196,25 +196,24 @@ class UI:
         SSSpeed, STSpeed = self.GetSimSpeeds()
         SETA, TETA = self.GetSimETAs()
 
-        pbcs = self.Config.PBColors
+        if self.Config.ProgressBar:
+            pbcs = self.Terminal.reverse  #self.Config.PBColors
 
         s1 = f"Step:  {fn.Str(s.Step):^15} / {MaxSstr:^15} : {LeftSstr:^15} ({fn.Str(SProgPerc):>3}%)," +\
         f"x{fn.Str(SSSpeed):>9}, ETA: {ft.Str(SETA):>20}"
 
-        sl = len(s1)
-        pbe = int(s.StepsProgress * sl)
-
-        #print("Bar1 length: ", pbe, SProgPerc)
-        s1 = pbcs + s1[:pbe] + self.Terminal.normal + s1[pbe:]
+        if self.Config.ProgressBar:
+            sl = len(s1)
+            pbe = int(s.StepsProgress * sl)
+            s1 = pbcs + s1[:pbe] + self.Terminal.normal + s1[pbe:]
 
         s2 = f"Sim time: {ft.Str(s.Time):^12} / {MaxTstr:^15} : {LeftTstr:^15} ({fn.Str(TProgPerc):>3}%)," +\
         f"x{fn.Str(STSpeed):>9}, ETA: {ft.Str(TETA):>20}"
 
-        sl = len(s2)
-        pbe = int(s.TimeProgress * sl)
-
-        #print("Bar2 length: ", pbe)
-        s2 = pbcs + s2[:pbe] + self.Terminal.normal + s2[pbe:]
+        if self.Config.ProgressBar:
+            sl = len(s2)
+            pbe = int(s.TimeProgress * sl)
+            s2 = pbcs + s2[:pbe] + self.Terminal.normal + s2[pbe:]
 
         s3 = f"Elapsed: {ft.Str(s.ElapsedRealTime):^13}, delta: {ft.Str(s.RealTimeDelta):>10} (Sim: {ft.Str(STSpeed * s.RealTimeDelta):>10}, {ft.Str(s.TimeDelta):>10}/st)"
 

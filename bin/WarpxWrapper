@@ -5,13 +5,9 @@ import argparse
 import os
 import sys
 import time
-import blessed
 from WarpxWrapper import ConfigManager, IncludeAction, Logger, Verbosity, Wrapper, SourceType, System
 
 DefaultWarpxInputFileName = "input"
-
-term = blessed.Terminal() # For default colors probing
-print(term.clear_bol, end = '')
 
 class Config:
     MaxParamLength = 0
@@ -51,7 +47,7 @@ class Config:
     DontWaitForFooter = True
     NonDestructivePrint = False
 
-    PBColors = term.black_on_white
+    ProgressBar = True
 
     BreakKey = "\x1b"
     ISOKey = "f"
@@ -166,6 +162,7 @@ CM.AddParam("MaxLogSize", "--max-log-size")
 CM.AddParam("MaxLogFileSize", "--max-log-file-size")
 CM.AddParam("StoragePath", "-o", "--storage")
 CM.AddParam("NonDestructivePrint", "-d", "--non-destructive-print", const = True)
+CM.AddParam("ProgressBar", "-b", "--progress-bar", const = True)
 CM.AddParam("UpdateInterval", "-u", "--upd-int", "--update-interval")
 CM.AddParam("StorageInterval", "--st--int", "--storage-interval")
 CM.AddParam("MaxStep", "-x", "--max-steps")
