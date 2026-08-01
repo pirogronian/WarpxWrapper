@@ -560,18 +560,27 @@ class Wrapper:
 
     def UpdateSystemStats(self):
         mem = pypsutil.virtual_memory()
-        st = pypsutil.disk_usage(self.Config.StoragePath)
         self.SystemStats.FreeMemory = mem.available
-        self.SystemStats.FreeStorage = st.free
+        try:
+            st = pypsutil.disk_usage(self.Config.StoragePath)
+            self.SystemStats.FreeStorage = st.free
+        except FileNotFoundError:
+            pass
 
     def Update(self, Force = False):
         if self.StorageStats.StartSize < 0:
-            self.StorageStats.StartSize = System.DirSize(self.Config.StoragePath)
+            try:
+                self.StorageStats.StartSize = System.DirSize(self.Config.StoragePath)
+            except FileNotFoundError:
+                self.Logger.Warning(f"'{self.Config.StoragePath}' - file not found.")
 
         if self.StorageTimer.Expired():
-            self.StorageStats.RawSize = System.DirSize(self.Config.StoragePath)
-            self.StorageStats.Recalculate(self.SimStatus.ElapsedRealTime)
-            self.StorageTimer.Reset()
+            try:
+                self.StorageStats.RawSize = System.DirSize(self.Config.StoragePath)
+                self.StorageStats.Recalculate(self.SimStatus.ElapsedRealTime)
+                self.StorageTimer.Reset()
+            except FileNotFoundError:
+                pass
 
         if self.UpdateTimer.Expired() or Force:
             if self.SimStatus.Updated:
