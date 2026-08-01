@@ -54,6 +54,7 @@ class Config:
     NonDestructivePrintKey = "d"
     AvgKey = 'a'
     RawModeKey = 'r'
+    ProgressBarKey = 'p'
     PauseKey = ' '
 
 Logger = Logger("WarpxWrapper")

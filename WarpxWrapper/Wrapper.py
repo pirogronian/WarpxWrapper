@@ -281,6 +281,7 @@ class Wrapper:
         self.Control.Register(self.Config.AvgKey, self.SwitchAvgStats)
         self.Control.Register(self.Config.RawModeKey, self.SwitchRaw)
         self.Control.Register(self.Config.NonDestructivePrintKey, self.SwitchDestrictive)
+        self.Control.Register(self.Config.ProgressBarKey, self.SwitchProgressBar)
         self.Control.Register(self.Config.PauseKey, self.SwitchRunningState)
 
     def PrepareStdin(self):
@@ -492,16 +493,19 @@ class Wrapper:
             msg += "Normal"
         self.UI.Message(msg)
 
-    def UserBreak(self):
-        self.UI.PrintLine("\n\n")
-        self.Logger.Info(f"Breaking on user demand.")
-        self.Finishing = True
-
     def SwitchRaw(self):
         self.Raw = not self.Raw
         if not self.Raw:
             self.UI.First = True
         self.UI.Message(f"Raw mode: {self.Raw}")
+
+    def SwitchProgressBar(self):
+        self.Config.ProgressBar = not self.Config.ProgressBar
+
+    def UserBreak(self):
+        self.UI.PrintLine("\n\n")
+        self.Logger.Info(f"Breaking on user demand.")
+        self.Finishing = True
 
     def PrepareUI(self):
         self.UI.NonDestructive = self.Config.NonDestructivePrint
