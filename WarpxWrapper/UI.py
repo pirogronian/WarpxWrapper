@@ -22,17 +22,18 @@ class UI:
     AccStatsHeight = 11
     MessageLineHeight = 3
 
-    def __init__(self, SimStatus, AccStats, StorageStats, SystemStats):
+    def __init__(self, SimStatus, AccStats, StorageStats, SystemStats, Control):
+        self.Terminal = Control.Terminal
         self.FmtNmb = FormattedNumber()
         self.FmtTime = FormattedTime()
         self.FmtNmb.ForbidNegative = True
-        self.Terminal = Terminal()
         print(self.Terminal.clear_bol)
         self.First = True
         self.SimStatus = SimStatus
         self.AccStats = AccStats
         self.StorageStats = StorageStats
         self.SystemStats = SystemStats
+        self.ControlInput = Control
         self.Msg = Message(Timeout = 2)
 
     def CacheMaxLen(self, MaxLen = None):
@@ -182,16 +183,41 @@ class UI:
         SProgPerc = int(s.StepsProgress * 100)
         TProgPerc = int(s.TimeProgress * 100)
 
-        self.Terminal.progress_bar("normal", min(max(SProgPerc, 0), max(TProgPerc, 0)))
+        TermProgress = SProgPerc
+        if TermProgress < 0:
+            TermProgress = TProgPerc
+        else:
+            if TProgPerc > 0 and TProgPerc < TermProgress:
+                TermProgress = TProgPerc
+        TermProgress = max(TermProgress, 0)
+        #print("Terminal progress:", TermProgress)
+        self.Terminal.progress_bar("normal", TermProgress)
 
         SSSpeed, STSpeed = self.GetSimSpeeds()
         SETA, TETA = self.GetSimETAs()
 
+
+        fgc = self.Terminal.black
+        bgc = self.Terminal.on_white
+        pbcs = bgc + fgc
+
         s1 = f"Step:  {fn.Str(s.Step):^15} / {MaxSstr:^15} : {LeftSstr:^15} ({fn.Str(SProgPerc):>3}%)," +\
         f"x{fn.Str(SSSpeed):>9}, ETA: {ft.Str(SETA):>20}"
 
+        sl = len(s1)
+        pbe = int(s.StepsProgress * sl)
+
+        #print("Bar1 length: ", pbe, SProgPerc)
+        s1 = pbcs + s1[:pbe] + self.Terminal.normal + s1[pbe:]
+
         s2 = f"Sim time: {ft.Str(s.Time):^12} / {MaxTstr:^15} : {LeftTstr:^15} ({fn.Str(TProgPerc):>3}%)," +\
         f"x{fn.Str(STSpeed):>9}, ETA: {ft.Str(TETA):>20}"
+
+        sl = len(s2)
+        pbe = int(s.TimeProgress * sl)
+
+        #print("Bar2 length: ", pbe)
+        s2 = pbcs + s2[:pbe] + self.Terminal.normal + s2[pbe:]
 
         s3 = f"Elapsed: {ft.Str(s.ElapsedRealTime):^13}, delta: {ft.Str(s.RealTimeDelta):>10} (Sim: {ft.Str(STSpeed * s.RealTimeDelta):>10}, {ft.Str(s.TimeDelta):>10}/st)"
 
