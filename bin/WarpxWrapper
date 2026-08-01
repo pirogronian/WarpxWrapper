@@ -57,6 +57,7 @@ class Config:
     ISOKey = "f"
     NonDestructivePrintKey = "d"
     AvgKey = 'a'
+    RawModeKey = 'r'
     PauseKey = ' '
 
 Logger = Logger("WarpxWrapper")

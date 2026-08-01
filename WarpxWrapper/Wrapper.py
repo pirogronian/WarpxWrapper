@@ -274,6 +274,7 @@ class Wrapper:
     Paused = False
     WarpxProcess = None
     Finishing = False
+    Raw = False
 
     def __init__(self, Config, Logger):
         self.Config = Config
@@ -298,6 +299,7 @@ class Wrapper:
         self.Control.Register(self.Config.BreakKey, self.UserBreak)
         self.Control.Register(self.Config.ISOKey, self.SwitchISO)
         self.Control.Register(self.Config.AvgKey, self.SwitchAvgStats)
+        self.Control.Register(self.Config.RawModeKey, self.SwitchRaw)
         self.Control.Register(self.Config.NonDestructivePrintKey, self.SwitchDestrictive)
         self.Control.Register(self.Config.PauseKey, self.SwitchRunningState)
 
@@ -455,7 +457,7 @@ class Wrapper:
     def OnKey(self, Key):
         if not self.Control.Dispatch(Key):
             self.UI.Message(f"Key: {Key.encode()}")
-        if not self.Finishing:
+        if not (self.Finishing or self.Config.Quiet or self.Raw):
             self.UI.Update(Force = True)
 
     def ProcessControlInput(self):
@@ -490,6 +492,8 @@ class Wrapper:
 
     def SwitchDestrictive(self):
         self.Config.NonDestructivePrint = not self.Config.NonDestructivePrint
+        if not self.Config.NonDestructivePrint:
+            self.UI.First = True
 
     def SwitchAvgStats(self):
         self.UI.Avg = not self.UI.Avg
@@ -512,6 +516,12 @@ class Wrapper:
         self.UI.PrintLine("\n\n")
         self.Logger.Info(f"Breaking on user demand.")
         self.Finishing = True
+
+    def SwitchRaw(self):
+        self.Raw = not self.Raw
+        if not self.Raw:
+            self.UI.First = True
+        self.UI.Message(f"Raw mode: {self.Raw}")
 
     def PrepareUI(self):
         self.UI.NonDestructive = self.Config.NonDestructivePrint
@@ -608,7 +618,7 @@ class Wrapper:
 
             self.UpdateTimer.Reset()
 
-            if not self.Config.Quiet:
+            if not (self.Config.Quiet or self.Raw):
                 self.UI.Update()
 
     def MainLoop(self):
@@ -652,6 +662,8 @@ class Wrapper:
             else:
                 self.Logger.Debug("DataInput inactive, finishing.")
                 return False
+        if self.Raw:
+            print(OutputLine, end = '')
 
         self.AccStats.DataSize += len(OutputLine)
         #print(f"Increasing data size: {AccStats.DataSize}.")
