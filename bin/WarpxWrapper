@@ -5,7 +5,7 @@ import argparse
 import os
 import sys
 import time
-from WarpxWrapper import ConfigManager, IncludeAction, Logger, Verbosity, Wrapper, SourceType, System
+from WarpxWrapper import ConfigManager, IncludeAction, Logger, Verbosity, Wrapper, SourceType, System, StrToInt
 
 DefaultWarpxInputFileName = "input"
 
@@ -88,7 +88,8 @@ CM.ExecEnv = {
         "Verbosity" : Verbosity,
         "SourceType" : SourceType,
         "getLogLevel" : getLogLevel,
-        "setLogLevel" : setLogLevel
+        "setLogLevel" : setLogLevel,
+        "StrToInt" : StrToInt
         }
 
 CM.ExecEnvExcl = [ "LogLevel" ]

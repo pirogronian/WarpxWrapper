@@ -8,7 +8,7 @@ from .NonBlockingStream import InputStream, OutputStream, AppendStream, InputTer
 #import .System
 from .Timer import Timer
 from .UI import UI
-from .Various import StrToType, TypeDescription
+from .Various import StrToBool, StrToInt, StrToType, TypeDescription
 from .WarpxDataParser import WarpxDataParser
 from .Wrapper import Wrapper, SourceType
 from .LimitedBlockWriter import LimitedBlockWriter
