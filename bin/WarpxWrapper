@@ -5,9 +5,13 @@ import argparse
 import os
 import sys
 import time
+import blessed
 from WarpxWrapper import ConfigManager, IncludeAction, Logger, Verbosity, Wrapper, SourceType, System
 
 DefaultWarpxInputFileName = "input"
+
+term = blessed.Terminal()
+print(term.clear_bol, end = '')
 
 class Config:
     MaxParamLength = 0
@@ -46,6 +50,8 @@ class Config:
     SkipFooter = False
     DontWaitForFooter = True
     NonDestructivePrint = False
+
+    PBColors = term.black_on_white
 
     BreakKey = "\x1b"
     ISOKey = "f"

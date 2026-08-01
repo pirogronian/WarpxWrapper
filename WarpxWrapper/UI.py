@@ -12,7 +12,6 @@ class UI:
         MAIN = 2
         FOOTER = 3
 
-    NonDestructive = False
     MinLen = 0
     MaxLen = 0
     Avg = False
@@ -22,7 +21,7 @@ class UI:
     AccStatsHeight = 11
     MessageLineHeight = 3
 
-    def __init__(self, SimStatus, AccStats, StorageStats, SystemStats, Control):
+    def __init__(self, SimStatus, AccStats, StorageStats, SystemStats, Control, Config):
         self.Terminal = Control.Terminal
         self.FmtNmb = FormattedNumber()
         self.FmtTime = FormattedTime()
@@ -34,6 +33,7 @@ class UI:
         self.StorageStats = StorageStats
         self.SystemStats = SystemStats
         self.ControlInput = Control
+        self.Config = Config
         self.Msg = Message(Timeout = 2)
 
     def CacheMaxLen(self, MaxLen = None):
@@ -57,7 +57,7 @@ class UI:
     def PrintStaticLine(self, Text):
         Begin = "\r"
         End = ''
-        if self.NonDestructive:
+        if self.Config.NonDestructivePrint:
             Begin = ""
             End = "\n"
         self.PrintLine(Begin + Text, End = End)
@@ -149,7 +149,7 @@ class UI:
     def WriteHeader(self):
         lmin, lmax = self.GetLen()
 #        print(lmin, lmax, Length)
-        nd = self.NonDestructive
+        nd = self.Config.NonDestructivePrint
         self.PrintSeparator()
         self.PrintCentered("Time statistics:")
         self.PrintSeparator()
@@ -196,10 +196,7 @@ class UI:
         SSSpeed, STSpeed = self.GetSimSpeeds()
         SETA, TETA = self.GetSimETAs()
 
-
-        fgc = self.Terminal.black
-        bgc = self.Terminal.on_white
-        pbcs = bgc + fgc
+        pbcs = self.Config.PBColors
 
         s1 = f"Step:  {fn.Str(s.Step):^15} / {MaxSstr:^15} : {LeftSstr:^15} ({fn.Str(SProgPerc):>3}%)," +\
         f"x{fn.Str(SSSpeed):>9}, ETA: {ft.Str(SETA):>20}"
@@ -221,7 +218,7 @@ class UI:
 
         s3 = f"Elapsed: {ft.Str(s.ElapsedRealTime):^13}, delta: {ft.Str(s.RealTimeDelta):>10} (Sim: {ft.Str(STSpeed * s.RealTimeDelta):>10}, {ft.Str(s.TimeDelta):>10}/st)"
 
-#        if not self.NonDestructive:
+#        if not self.Config.NonDestructivePrint:
 #            print('\r\033[A\033[A\033[A\033[A\033[A', end='')
         self.PrintLeftPadding(s1)
         self.PrintLeftPadding(s2)
@@ -289,7 +286,7 @@ class UI:
             else:
                 MoveUp = self.AccStatsHeight
 #            print(f"MoveUp: {MoveUp}")
-            if MoveUp and not self.NonDestructive:
+            if MoveUp and not self.Config.NonDestructivePrint:
                 print(self.Terminal.move_up(MoveUp + 1))
             if self.SimStatus.StatsUpdated or Force or self.First:
                 self.WriteSimStatus()
