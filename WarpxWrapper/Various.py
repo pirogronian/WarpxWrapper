@@ -31,9 +31,26 @@ def StrToBool(value):
     return False
 #        print("Still successful.")
 
+SizeSuff = [ "k", "m", "g", "t", "p", "e", "z" ]
+
+def StrToInt(value):
+    mul = 1
+    for s in SizeSuff:
+        mul *= 1024
+        if value[-1:].lower() == s:
+            value = value[:-1]
+            value = float(value)
+            value *= mul
+            return int(value)
+
+    return int(value)
+
+
 def StrToType(value, t):
     if t == bool:
         return StrToBool(value)
+    if t == int:
+        return StrToInt(value)
     return t(value)
 
 def TypeDescription(t, NonFatal = False):

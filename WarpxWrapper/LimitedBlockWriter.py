@@ -25,10 +25,13 @@ class LimitedBlockWriter:
         self.OpenNew()
 
     def FilePath(self, Index):
+        if self.BlockSize == 0:
+            return f"{self.FileName}.{self.FileExt}"
         return f"{self.FileName}.{Index:03d}.{self.FileExt}"
 
     def OpenNew(self):
         path = self.FilePath(self.LastIndex)
+        #print(f"Open new file: {path}")
         self.Stream = open(path, "w")
         self.LastIndex += 1
 
@@ -49,6 +52,7 @@ class LimitedBlockWriter:
     def Write(self, Data):
         size = self.Stream.write(Data)
         if self.Flush:
+            #print("Flushing...")
             self.Stream.flush()
         self.CurrentBlockSize += size
         if self.BlockSize > 0 and self.CurrentBlockSize > self.BlockSize:

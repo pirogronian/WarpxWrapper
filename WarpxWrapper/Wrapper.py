@@ -407,7 +407,7 @@ class Wrapper:
                 os.mkfifo(self.Config.InputFile)
             else:
                 self.LogOutput = LimitedBlockWriter(MaxSize = self.Config.MaxLogSize, BlockSize = self.Config.MaxLogFileSize, FileName = self.Config.LogFile)
-                self.Flush = True
+                self.LogOutput.Flush = True
                 self.Logger.Debug("Set limited block writer as data log output.")
                 return
         self.LogOutput = OutputStream()
