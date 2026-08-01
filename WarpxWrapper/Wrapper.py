@@ -297,8 +297,8 @@ class Wrapper:
     def RegisterActions(self):
         self.Control.Register(self.Config.BreakKey, self.UserBreak)
         self.Control.Register(self.Config.ISOKey, self.SwitchISO)
-        self.Control.Register("a", self.SwitchAvgStats)
-        self.Control.Register(self.Config.NDestPrintKey, self.SwitchDestrictive)
+        self.Control.Register(self.Config.AvgKey, self.SwitchAvgStats)
+        self.Control.Register(self.Config.NonDestructivePrintKey, self.SwitchDestrictive)
         self.Control.Register(self.Config.PauseKey, self.SwitchRunningState)
 
     def PrepareStdin(self):
@@ -489,7 +489,7 @@ class Wrapper:
             self.Pause()
 
     def SwitchDestrictive(self):
-        self.UI.NonDestructive = not self.UI.NonDestructive
+        self.Config.NonDestructivePrint = not self.Config.NonDestructivePrint
 
     def SwitchAvgStats(self):
         self.UI.Avg = not self.UI.Avg

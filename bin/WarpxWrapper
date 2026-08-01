@@ -10,7 +10,7 @@ from WarpxWrapper import ConfigManager, IncludeAction, Logger, Verbosity, Wrappe
 
 DefaultWarpxInputFileName = "input"
 
-term = blessed.Terminal()
+term = blessed.Terminal() # For default colors probing
 print(term.clear_bol, end = '')
 
 class Config:
@@ -55,7 +55,8 @@ class Config:
 
     BreakKey = "\x1b"
     ISOKey = "f"
-    NDestPrintKey = "d"
+    NonDestructivePrintKey = "d"
+    AvgKey = 'a'
     PauseKey = ' '
 
 Logger = Logger("WarpxWrapper")
