@@ -34,7 +34,7 @@ class Config:
     Executable = ""
     Command = ""
 
-    UseMpi = False
+    Mpi = -1
 
     InputFile = ""
     IsFifo = True
@@ -180,7 +180,7 @@ CM.AddParam("IsFifo", "--fifo", "--pipe", const = True)
 CM.AddParam("ExecBase", "--exec-base")
 CM.AddParam("ExecDim", "--dim", "--exec-dim")
 CM.AddParam("Executable", "--executable")
-CM.AddParam("UseMpi", "-m", "--use-mpi", const = True)
+CM.AddParam("Mpi", "-m", "--mpi", const = 0)
 CM.AddParam("Command", "-c", "--command", nargs="+", action=CommandAction)
 CM.Parser.add_argument("command", nargs="*")
 

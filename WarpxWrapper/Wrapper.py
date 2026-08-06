@@ -314,8 +314,11 @@ class Wrapper:
     def PrepareCommand(self):
         CmdArgs = []
 
-        if self.Config.UseMpi:
+        if self.Config.Mpi >= 0:
             CmdArgs.append("mpirun")
+            if self.Config.Mpi > 0:
+                CmdArgs.append("-np")
+                CmdArgs.append(f"{self.Config.Mpi}")
 
         if type(self.Config.Command) == str and self.Config.Command != "":
             CmdArgs.extend(self.Config.Command.split())
