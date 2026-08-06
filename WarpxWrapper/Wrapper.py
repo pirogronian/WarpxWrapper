@@ -268,6 +268,19 @@ class Wrapper:
         self.DataParser = WarpxDataParser(self.SimStatus, self.Logger)
         self.PausedTime = 0
 
+    def Error(*args):
+        if args:
+            self.Logger.Error(*args)
+        if self.Config.ErrorIsFatal:
+            self.Logger.Error(" ^^^^ An error occured, aborting. ^^^^")
+            exit(1)
+
+    def Fatal(*args):
+        if args:
+            self.Logger.Critical(*args)
+        self.Logger.Critical(" ^^^^ An error occured, aborting. ^^^^")
+        exit(1)
+
     def RegisterActions(self):
         self.Control.Register(self.Config.BreakKey, self.UserBreak)
         self.Control.Register(self.Config.ISOKey, self.SwitchISO)
@@ -307,7 +320,7 @@ class Wrapper:
                 DataStream = open(self.Config.InputFile, "r")
             except Exception as e:
                 self.Logger.ExceptCritic(e)
-                Fatal(f"Cannot open data file '{self.Config.InputFile}' for reading.")
+                self.Fatal(f"Cannot open data file '{self.Config.InputFile}' for reading.")
             self.DataInput.Stream = DataStream
             self.Logger.Debug(f"File '{self.Config.InputFile}' successfully opened.")
 
@@ -336,7 +349,7 @@ class Wrapper:
             if self.Config.InputFile == "":
                 self.Config.InputFile = DefaultWarpxInputFileName
             if not System.IsReadable(self.Config.InputFile):
-                Error(f"Warpx input file \"{self.Config.InputFile}\" is not readable.")
+                self.Error(f"Warpx input file \"{self.Config.InputFile}\" is not readable.")
 
             CmdArgs.append(self.Config.InputFile)
 
@@ -356,7 +369,7 @@ class Wrapper:
                                         text=True)
         except Exception as e:
             self.Logger.ExceptCrit(e)
-            Fatal("Cannot create a subprocess to get its output.")
+            self.Fatal("Cannot create a subprocess to get its output.")
 
         self.DataInput.Stream = self.WarpxProcess.stdout
 
@@ -401,7 +414,7 @@ class Wrapper:
                 LogStream = open(self.Config.LogFile, "w")
             except Exception as e:
                 self.Logger.ExceptError(e)
-                Error(f"Cannot open log file '{self.Config.LogFile}' for writing.")
+                self.Error(f"Cannot open log file '{self.Config.LogFile}' for writing.")
             self.LogOutput.Stream = LogStream
             self.Logger.Debug(f"File '{self.Config.LogFile}' successfully opened.")
 
