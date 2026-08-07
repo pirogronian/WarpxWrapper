@@ -202,7 +202,7 @@ class UI:
         s1 = f"Step:  {fn.Str(s.Step):^15} / {MaxSstr:^15} : {LeftSstr:^15} ({fn.Str(SProgPerc):>3}%)," +\
         f"x{fn.Str(SSSpeed):>9}, ETA: {ft.Str(SETA):>20}"
 
-        if self.Config.ProgressBar:
+        if self.Config.ProgressBar and s.StepsProgress >= 0:
             sl = len(s1)
             pbe = int(s.StepsProgress * sl)
             s1 = pbcs + s1[:pbe] + self.Terminal.normal + s1[pbe:]
@@ -210,7 +210,7 @@ class UI:
         s2 = f"Sim time: {ft.Str(s.Time):^12} / {MaxTstr:^15} : {LeftTstr:^15} ({fn.Str(TProgPerc):>3}%)," +\
         f"x{fn.Str(STSpeed):>9}, ETA: {ft.Str(TETA):>20}"
 
-        if self.Config.ProgressBar:
+        if self.Config.ProgressBar and s.TimeProgress >= 0:
             sl = len(s2)
             pbe = int(s.TimeProgress * sl)
             s2 = pbcs + s2[:pbe] + self.Terminal.normal + s2[pbe:]

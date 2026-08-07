@@ -142,8 +142,10 @@ class SimulationStatus:
         if self.Time >= 0 and self.MaxTime > 0:
             self.TimeLeft = self.MaxTime - self.Time
 
-        self.StepsProgress = self.Step / self.MaxStep
-        self.TimeProgress = self.Time / self.MaxTime
+        if self.MaxStep > 0:
+            self.StepsProgress = self.Step / self.MaxStep
+        if self.MaxTime > 0:
+            self.TimeProgress = self.Time / self.MaxTime
 
         self.CalculateETA()
         if self.ElapsedRealTime > 0:
