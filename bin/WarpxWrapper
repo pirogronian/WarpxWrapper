@@ -155,70 +155,89 @@ class CommandAction(argparse.Action):
         Logger.Debug("Command line: set Command to {}".format(value))
 #parser.add_argument("-s", "--source", nargs=1, action=SourceAction, choices=Sources.keys())
 
-CM.AddParam("LogLevel", "-v", "--verbosity", action=VerbosityAction, const='debug', choices=LogLevels.keys())
-CM.AddParam("Quiet", "-q", "--quiet", const = True)
-CM.AddParam("DontRun", "-r", "--dont-run", const = True)
-CM.AddParam("ErrorIsFatal", "--error-fatal", const = True)
-CM.AddParam("LogFile", "-l", "--log-file")
-CM.AddParam("MaxLogSize", "--max-log-size")
-CM.AddParam("MaxLogFileSize", "--max-log-file-size")
-CM.AddParam("StoragePath", "-o", "--storage")
-CM.AddParam("NonDestructivePrint", "-d", "--non-destructive-print", const = True)
-CM.AddParam("ProgressBar", "-b", "--progress-bar", const = True)
-CM.AddParam("UpdateInterval", "-u", "--upd-int", "--update-interval")
-CM.AddParam("StorageInterval", "--st--int", "--storage-interval")
-CM.AddParam("MaxStep", "-x", "--max-steps")
-CM.AddParam("MaxTime", "-t", "--max-time")
-CM.AddParam("SkipMain", "-a", "--skip-main-loop", const = True)
-CM.AddParam("SkipFooter", "-f", "--skip-footer", const = True)
-CM.AddParam("DontWaitForFooter", "--dont-wait-for-footer", const = True)
-CM.AddParam("Source", "-s", "--source", action=SourceAction, choices=Sources.keys())
-CM.AddParam("PID", "-p", "--pid")
-CM.AddParam("AbortOnExit", "-k", "--abort-on-exit", const = True)
-CM.AddParam("InputFile","-i", "--input-file")
-CM.AddParam("IsFifo", "--fifo", "--pipe", const = True)
-CM.AddParam("ExecBase", "--exec-base")
-CM.AddParam("ExecDim", "--dim", "--exec-dim")
-CM.AddParam("Executable", "--executable")
-CM.AddParam("Mpi", "-m", "--mpi", const = 0)
-CM.AddParam("Command", "-c", "--command", nargs="+", action=CommandAction)
-CM.Parser.add_argument("command", nargs="*")
+def InitParams():
+    global CM
+    CM.AddParam("LogLevel", "-v", "--verbosity", action=VerbosityAction, const='debug', choices=LogLevels.keys())
+    CM.AddParam("Quiet", "-q", "--quiet", const = True)
+    CM.AddParam("DontRun", "-r", "--dont-run", const = True)
+    CM.AddParam("ErrorIsFatal", "--error-fatal", const = True)
+    CM.AddParam("LogFile", "-l", "--log-file")
+    CM.AddParam("MaxLogSize", "--max-log-size")
+    CM.AddParam("MaxLogFileSize", "--max-log-file-size")
+    CM.AddParam("StoragePath", "-o", "--storage")
+    CM.AddParam("NonDestructivePrint", "-d", "--non-destructive-print", const = True)
+    CM.AddParam("ProgressBar", "-b", "--progress-bar", const = True)
+    CM.AddParam("UpdateInterval", "-u", "--upd-int", "--update-interval")
+    CM.AddParam("StorageInterval", "--st--int", "--storage-interval")
+    CM.AddParam("MaxStep", "-x", "--max-steps")
+    CM.AddParam("MaxTime", "-t", "--max-time")
+    CM.AddParam("SkipMain", "-a", "--skip-main-loop", const = True)
+    CM.AddParam("SkipFooter", "-f", "--skip-footer", const = True)
+    CM.AddParam("DontWaitForFooter", "--dont-wait-for-footer", const = True)
+    CM.AddParam("Source", "-s", "--source", action=SourceAction, choices=Sources.keys())
+    CM.AddParam("PID", "-p", "--pid")
+    CM.AddParam("AbortOnExit", "-k", "--abort-on-exit", const = True)
+    CM.AddParam("InputFile","-i", "--input-file")
+    CM.AddParam("IsFifo", "--fifo", "--pipe", const = True)
+    CM.AddParam("ExecBase", "--exec-base")
+    CM.AddParam("ExecDim", "--dim", "--exec-dim")
+    CM.AddParam("Executable", "--executable")
+    CM.AddParam("Mpi", "-m", "--mpi", const = 0)
+    CM.AddParam("Command", "-c", "--command", nargs="+", action=CommandAction)
+    CM.Parser.add_argument("command", nargs="*")
 
-DefaultConfigFile = "config.py"
-if System.IsReadable(DefaultConfigFile): # Always try, never cry.
-    CM.IncludeFile(DefaultConfigFile)
-else:
-    Logger.Debug(f"Cannot read default config file: '{DefaultConfigFile}'")
+def InitDefaultConfig():
+    global CM
+    global Logger
+    DefaultConfigFile = "config.py"
+    if System.IsReadable(DefaultConfigFile): # Always try, never cry.
+        CM.IncludeFile(DefaultConfigFile)
+    else:
+        Logger.Debug(f"Cannot read default config file: '{DefaultConfigFile}'")
 
-args = CM.Parse(sys.argv[1:])
-if len(args.command) > 0:
-    Config.Command = args.command
+def main():
+    global CM
+    global Logger
 
-PrintParams()
+    ret = 0
+
+    InitParams()
+    InitDefaultConfig()
+
+    args = CM.Parse(sys.argv[1:])
+    if len(args.command) > 0:
+        Config.Command = args.command
+
+    PrintParams()
 
 
-WW = Wrapper(Config, Logger)
-WW.PrepareSource()
-WW.PrepareDataStream()
-WW.PrepareUI()
-WW.RegisterActions()
-WW.PrepareLogOutput()
-WW.ActivateStreams()
+    WW = Wrapper(Config, Logger)
+    WW.PrepareSource()
+    WW.PrepareDataStream()
+    WW.PrepareUI()
+    WW.RegisterActions()
+    WW.PrepareLogOutput()
+    WW.ActivateStreams()
 
-if Config.DontRun:
-    exit(0)
+    if Config.DontRun:
+        exit(0)
 
-WW.WaitForDataStart = time.time()
-Logger.Debug("\n      Start waiting for WarpX Data...\n")
+    WW.WaitForDataStart = time.time()
+    Logger.Debug("\n      Start waiting for WarpX Data...\n")
 
-print("\n")
+    print("\n")
 
-if WW.WarpxProcess == None and Config.PID > 0:
-    try:
-        WW.WarpxProcess = pypsutil.Process(Config.PID)
-    except Exception as e:
-        Logger.ExceptError(e)
-        Logger.Error(f"Cannot assign Warpx process from given PID: {Config.PID}")
+    if WW.WarpxProcess == None and Config.PID > 0:
+        try:
+            WW.WarpxProcess = pypsutil.Process(Config.PID)
+        except Exception as e:
+            Logger.ExceptError(e)
+            Logger.Error(f"Cannot assign Warpx process from given PID: {Config.PID}")
 
-WW.RunMainLoop()
-WW.Finish()
+    WW.RunMainLoop()
+    WW.Finish()
+
+    return ret
+
+if __name__ == "__main__":
+    main()
