@@ -270,14 +270,14 @@ class Wrapper:
         self.DataParser = WarpxDataParser(self.SimStatus, self.Logger)
         self.PausedTime = 0
 
-    def Error(*args):
+    def Error(self, *args):
         if args:
             self.Logger.Error(*args)
         if self.Config.ErrorIsFatal:
             self.Logger.Error(" ^^^^ An error occured, aborting. ^^^^")
             exit(1)
 
-    def Fatal(*args):
+    def Fatal(self, *args):
         if args:
             self.Logger.Critical(*args)
         self.Logger.Critical(" ^^^^ An error occured, aborting. ^^^^")
@@ -296,7 +296,7 @@ class Wrapper:
         self.DataInput.Input = sys.stdin
         self.ControlInput.Stream = None
 
-    def PrepareInputFileName(self):
+    def PrepareInputFile(self):
         IsFifo = self.Config.IsFifo
         self.Logger.Debug(f"Opening WarpX output file: '{self.Config.InputFile}'")
         Path = pathlib.Path(self.Config.InputFile)
@@ -349,7 +349,7 @@ class Wrapper:
 
         if self.Config.Command == "":
             if self.Config.InputFile == "":
-                self.Config.InputFile = DefaultWarpxInputFileName
+                self.Error(f"Warpx input file is not defined.")
             if not System.IsReadable(self.Config.InputFile):
                 self.Error(f"Warpx input file \"{self.Config.InputFile}\" is not readable.")
 
@@ -379,7 +379,7 @@ class Wrapper:
         if self.Config.Source == SourceType.STDIN:
             self.PrepareStdin()
         elif self.Config.Source == SourceType.FILE:
-            self.PrepareInputFileName()
+            self.PrepareInputFile()
         else:
             self.PrepareCommand()
 
