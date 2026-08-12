@@ -99,7 +99,10 @@ class ConfigManager:
             if not "action" in KArgs:
                 KArgs["action"] = ParamAction
             if not "help" in KArgs:
-                KArgs["help"] = "Type: {}.".format(TypeDescription(type(v), True))
+                help = ""
+            else:
+                help = KArgs["help"]
+            KArgs["help"] = f"Type: {TypeDescription(type(v), True)}. Python config variable is '{VarName}'. {help}"
             self.Parser.add_argument(*Args, VarName = VarName, **KArgs)
             self.Params.append(VarName)
 

@@ -329,9 +329,9 @@ class Wrapper:
     def PrepareCommand(self):
         CmdArgs = []
 
-        if self.Config.Mpi >= 0:
+        if self.Config.Mpi > 0:
             CmdArgs.append("mpirun")
-            if self.Config.Mpi > 0:
+            if self.Config.Mpi > 1:
                 CmdArgs.append("-np")
                 CmdArgs.append(f"{self.Config.Mpi}")
 
