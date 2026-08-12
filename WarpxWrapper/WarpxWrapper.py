@@ -32,6 +32,7 @@ class Config:
     ExecDim = "3d"
 
     Executable = ""
+    Args = []
     Command = ""
 
     Mpi = -1
@@ -185,6 +186,7 @@ def InitParams():
     CM.AddParam("ExecDim", "--dim", "--exec-dim")
     CM.AddParam("Executable", "--executable")
     CM.AddParam("Mpi", "-m", "--mpi", default = 0, const = 1, metavar="num_processes")
+    CM.AddParam("Args", "--args", nargs="+")
     CM.AddParam("Command", "-c", "--command", nargs="+", action=CommandAction)
     CM.Parser.add_argument("command", nargs="*")
 

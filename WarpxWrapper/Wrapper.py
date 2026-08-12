@@ -9,6 +9,7 @@ import pathlib
 import stat
 import pypsutil
 from queue import SimpleQueue
+import shlex
 
 from WarpxWrapper import InputStream, InputTerminal, OutputStream
 from WarpxWrapper import Timer
@@ -339,7 +340,7 @@ class Wrapper:
             CmdArgs.extend(self.Config.Command.split())
         elif type(self.Config.Command) == list and len(self.Config.Command) > 0:
             for arg in self.Config.Command:
-                subargs = arg.split()
+                subargs = shlex.split(arg)
                 CmdArgs.extend(subargs)
         else:
             if self.Config.Executable != "":
@@ -347,13 +348,14 @@ class Wrapper:
             else:
                 CmdArgs.append(self.Config.ExecBase + self.Config.ExecDim)
 
-        if self.Config.Command == "":
             if self.Config.InputFile == "":
                 self.Error(f"Warpx input file is not defined.")
             if not System.IsReadable(self.Config.InputFile):
                 self.Error(f"Warpx input file \"{self.Config.InputFile}\" is not readable.")
 
             CmdArgs.append(self.Config.InputFile)
+
+            CmdArgs.extend(self.Config.Args)
 
         RunMsg = f"|   Running WarpX 3D with the following command: {CmdArgs}   |"
         RunMsgLen = len(RunMsg)
