@@ -203,6 +203,17 @@ class OutputStream(CommonStream):
 class AppendStream(OutputStream):
     Mode = "a"
 
+# stdout wrapper to prevent Terminal hang on init
+
+class NoQueryStream:
+    def __init__(self, target_stream):
+        self._stream = target_stream
+
+    def isatty(self):
+        return False
+
+    def __getattr__(self, name):
+        return getattr(self._stream, name)
 
 class InputTerminal(InputStream):
     Buffered = True
@@ -210,7 +221,7 @@ class InputTerminal(InputStream):
 
     def __init__(self, Terminal = None, EventQueue = None, Event = True, Interval = 0, UseBlessed = False, *args, **kargs):
         if Terminal == None:
-            Terminal = blessed.Terminal(*args, **kargs)
+            Terminal = blessed.Terminal(stream = NoQueryStream(sys.stdout), *args, **kargs)
 
         self.CBreakContext = Terminal.cbreak()
         self.Terminal = Terminal

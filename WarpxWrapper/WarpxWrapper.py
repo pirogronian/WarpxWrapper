@@ -271,7 +271,7 @@ class WarpxWrapper:
         self.Control = ControlManager()
         self.EventQueue = SimpleQueue()
         self.DataInput = InputStream(Lines = True, EventQueue = self.EventQueue, Event = 1)
-        self.ControlInput = InputTerminal(EventQueue = self.EventQueue, Event = 2, Interval = 0, UseBlessed = False)
+        self.ControlInput = InputTerminal(EventQueue = self.EventQueue, Event = 2, Interval = 0, UseBlessed = False, force_styling=True)
         self.UI = UI(self.SimStatus, self.AccStats, self.StorageStats, self.SystemStats, self.ControlInput, self.Config)
         self.UpdateTimer = Timer(self.Config.UpdateInterval)
         self.StorageTimer = Timer(self.Config.StorageInterval)
