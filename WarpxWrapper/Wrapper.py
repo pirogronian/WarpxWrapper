@@ -290,6 +290,11 @@ class Wrapper:
         self.Logger.Critical(" ^^^^ An error occured, aborting. ^^^^")
         exit(1)
 
+    def CallEventHandler(self, name, *args, **kargs):
+        if hasattr(self.Config, "EventHandler"):
+            if hasattr(self.Config.EventHandler, name):
+                return getattr(self.Config.EventHandler, name)(*args, **kargs)
+
     def RegisterActions(self):
         self.Control.Register(self.Config.BreakKey, self.UserBreak)
         self.Control.Register(self.Config.ISOKey, self.SwitchISO)
@@ -724,8 +729,7 @@ class Wrapper:
         if self.SimStatus.Step > self.SimStatus.PrevStep:
             self.SimStatus.Recalculate()
             self.AccStats.RecalculateStep(self.SimStatus.Step, self.SimStatus.StepDelta)
-            if self.Config.EventHandler:
-                self.Config.EventHandler.OnStep(self.SimStatus.Step, self.SimStatus.Time)
+            self.CallEventHandler("OnStep", self.SimStatus.Step, self.SimStatus.Time)
 
         if self.SimStatus.Header or self.SimStatus.Footer:
             print(OutputLine, end='')
@@ -733,6 +737,8 @@ class Wrapper:
         return True
 
     def RunMainLoop(self):
+        ret = None
+
         try:
             self.UI.Setup()
             self.ControlInput.DisableBuffering()
@@ -742,7 +748,8 @@ class Wrapper:
                     self.Logger.Debug("Skipping main.")
                     break
 
-                if not self.MainLoop():
+                ret = self.MainLoop()
+                if not ret:
                     break
 
         except Exception as e:
@@ -751,6 +758,8 @@ class Wrapper:
 
         self.ControlInput.RestoreBuffering()
         self.UI.Finish()
+
+        return ret
 
     def Finish(self):
         self.UI.CurrentSection = UI.Section.FOOTER
@@ -763,5 +772,4 @@ class Wrapper:
         if not self.Config.Quiet:
             self.UI.WriteSummary(self.GetRunningElapsedTime())
 
-        if self.Config.EventHandler:
-            return self.Config.EventHandler.OnFinish()
+        return self.CallEventHandler("OnFinish")
