@@ -1,209 +1,772 @@
-#!/usr/bin/python -u
 
-import enum
-import argparse
-import os
 import sys
+import os
+import subprocess
 import time
-from WarpxWrapper import ConfigManager, IncludeAction, Logger, Verbosity, Wrapper, SourceNames, System
+import enum
+import datetime
+import pathlib
+import stat
+import pypsutil
+from queue import SimpleQueue
+import shlex
 
-DefaultWarpxInputFileName = "input"
+from WarpxWrapper import InputStream, InputTerminal, OutputStream
+from WarpxWrapper import Timer
+from WarpxWrapper import FormattedTime
+from WarpxWrapper import System
+from WarpxWrapper import ControlManager
+from WarpxWrapper import UI
+from WarpxWrapper import WarpxDataParser
+from WarpxWrapper.LimitedBlockWriter import LimitedBlockWriter
+from WarpxWrapper import IterableToStr2D
 
-class Config:
-    MaxParamLength = 0
-    LogLevel = "info"
-    Quiet = False
-    ErrorIsFatal = True
-    UpdateInterval = 0.5
-    StorageInterval = 5.0
-    DontRun = False
+class SimulationStatus:
+    Header = True
+    Main = False
+    Updated = False
+    StatsUpdated = False
+    Footer = False
 
-    LogFile = "Log"
-    MaxLogSize = 0
-    MaxLogFileSize = 0
-    StoragePath = "diags"
+    Step = -1 # These two are replenished externally
+    Time = -1
 
-    MaxStep = -1
-    MaxTime = -1.0
+    MaxStep = -1 # These two are set once at the beginning
+    EstMaxStep = -1
+    AvgEstMaxStep = -1
+    MaxTime = -1
+    EstMaxTime = -1
+    AvgEstMaxTime = -1
 
-    Source = "command"
+    StepsLeft = -1
+    EstStepsLeft = -1
+    TimeLeft = -1
+    EstTimeLeft = -1
 
-    ExecBase = "warpx."
-    ExecDim = "3d"
+    StepsProgress = -1
+    TimeProgress = -1
 
-    Executable = ""
-    Args = []
-    Command = ""
+    CurrentRealTime = 0 # This is replenished automatically
 
-    Mpi = -1
+    PrevStep = 0
+    PrevTime = 0
+    PrevRealTime = 0
 
-    InputFile = ""
-    IsFifo = True
+    StartRealTime = 0
+    ElapsedRealTime = 0
 
-    PID = 0
-    AbortOnExit = False
+    StepDelta = -1
+    TimeDelta = -1 # This also is replenished externally
+    RealTimeDelta = -1
 
+    StepSpeed = 0
+    TimeSpeed = 0
+
+    AvgStepSpeed = 0
+    AvgTimeSpeed = 0
+
+    StepETA = -1
+    TimeETA = -1
+
+    AvgStepETA = -1
+    AvgTimeETA = -1
+
+    TimePerStep = -1
+    StepsPerTime = -1
+    AvgTimePerStep = -1
+    AvgStepsPerTime = -1
+
+    def __init__(self, MaxStep, MaxTime):
+        self.MaxStep = MaxStep
+        self.MaxTime = MaxTime
+#        self.StartRealTime = time.time()
+        self.Updated = False
+
+    def CalculateETA(self):
+        self.StepDelta = self.Step - self.PrevStep
+        # TimeDelta was provided externally, but is no longer
+        self.TimeDelta = self.Time - self.PrevTime
+
+        self.RealTimeDelta = self.CurrentRealTime - self.PrevRealTime
+
+        if self.MaxStep > 0 and self.StepDelta > 0:
+            self.TimePerStep = self.TimeDelta / self.StepDelta
+            self.EstMaxTime = self.Time + self.TimePerStep * self.StepsLeft
+
+            self.AvgTimePerStep = self.Time / self.Step
+            self.AvgEstMaxTime = self.Time + self.AvgTimePerStep * self.StepsLeft
+
+        if self.MaxTime > 0 and self.TimeDelta > 0:
+            self.StepsPerTime = self.StepDelta / self.TimeDelta
+            self.EstMaxStep = self.Step + self.StepsPerTime * self.TimeLeft
+
+            self.AvgStepsPerTime = self.Step / self.Time
+            self.AvgEstMaxStep = self.Step + self.AvgStepsPerTime * self.TimeLeft
+
+        if self.RealTimeDelta > 0:
+            self.StepSpeed = self.StepDelta / self.RealTimeDelta
+            self.TimeSpeed = self.TimeDelta / self.RealTimeDelta
+            #print(f"Set StepSpeed: {self.StepSpeed}, ({self.StepDelta} / {self.RealTimeDelta})")
+            #print(f"Set TimeSpeed: {self.TimeSpeed}, ({self.TimeDelta} / {self.RealTimeDelta})")
+
+        if self.StepSpeed > 0:
+            self.StepETA = self.StepsLeft / self.StepSpeed
+        if self.TimeSpeed > 0:
+            self.TimeETA = self.TimeLeft / self.TimeSpeed
+
+    def CalculateAvgETA(self):
+        self.AvgStepSpeed = self.Step / self.ElapsedRealTime
+        if self.AvgStepSpeed > 0:
+            self.AvgStepETA = self.StepsLeft / self.AvgStepSpeed
+
+        self.AvgTimeSpeed = self.Time / self.ElapsedRealTime
+        if self.AvgTimeSpeed > 0:
+            self.AvgTimeETA = self.TimeLeft / self.AvgTimeSpeed
+
+    def Recalculate(self, Time = None):
+        if self.Step <= self.PrevStep:
+            self.Logger.Warning(f"Step {self.Step} <= last step: {self.PrevStep}. Nothing to calculate.")
+            return
+        if Time == None:
+            Time = time.time()
+
+        if self.StartRealTime == 0:
+            self.StartRealTime = Time
+
+#        print(f"TimeDelta: {self.TimeDelta}, StepDelta: {self.StepDelta}")
+
+        self.CurrentRealTime = Time
+        self.ElapsedRealTime = self.CurrentRealTime - self.StartRealTime - self.PausedTime
+
+        if self.Step >= 0 and self.MaxStep > 0:
+            self.StepsLeft = self.MaxStep - self.Step
+
+        if self.Time >= 0 and self.MaxTime > 0:
+            self.TimeLeft = self.MaxTime - self.Time
+
+        if self.MaxStep > 0:
+            self.StepsProgress = self.Step / self.MaxStep
+        if self.MaxTime > 0:
+            self.TimeProgress = self.Time / self.MaxTime
+
+        self.CalculateETA()
+        if self.ElapsedRealTime > 0:
+            self.CalculateAvgETA()
+
+        self.PrevStep = self.Step
+        self.PrevTime = self.Time
+        self.PrevRealTime = self.CurrentRealTime
+
+        self.StatsUpdated = True
+
+class AccStats:
+    UpdNr = 0
+    DataSize = 0
+    PrevDataSize = 0
+    PrevStepDataSize = 0
+
+    DataSpeed = 0
+    AvgDataSpeed = 0
+
+    DataSpeedStep = 0
+    AvgDataSpeedStep = 0
+
+    StepESA = 0
+    TimeESA = 0
+
+    AvgStepESA = 0
+    AvgTimeESA = 0
+
+    CPUStart = 0
+    CPUTime = 0
+    PrevCPUTime = 0
+    CPU = 0
+    AvgCPU = 0
+
+    def Recalculate(self, TimeDelta, ElapsedTime, PausedTime):
+        self.UpdNr += 1
+        #print(f"Upd # {self.UpdNr}. Loop: {self.Loop}.")
+        #print(f"CTime: {self.CurrentTime:.2f}, prev time: {self.PrevTime:.2f}")
+
+        self.DataDelta = self.DataSize - self.PrevDataSize
+        self.CPUDelta = self.CPUTime - self.PrevCPUTime
+
+        if TimeDelta > 0:
+            self.DataSpeed = self.DataDelta / TimeDelta
+            self.CPU = self.CPUDelta / TimeDelta
+
+        if ElapsedTime > 0:
+            self.AvgDataSpeed = self.DataSize / ElapsedTime
+
+        if self.CPUStart > 0:
+            self.AvgCPU = self.CPUTime / (time.time() - self.CPUStart - PausedTime)
+            #print(f"Set AvgCPU: {self.CPUTime} / {time.time()} - {self.CPUStart} = / {time.time() - self.CPUStart} = {self.AvgCPU}")
+
+        self.PrevDataSize = self.DataSize
+        self.PrevCPUTime = self.CPUTime
+        #print(f"DDelta: {self.DataDelta} / {self.Delta:.2f}, {self.DataSpeed:.2f}/s")
+
+    def RecalculateStep(self, Step, StepDelta):
+        self.DataStepDelta = self.DataSize - self.PrevStepDataSize
+        if StepDelta > 0:
+            self.DataSpeedStep = self.DataStepDelta / StepDelta
+        if Step > 0:
+            self.AvgDataSpeedStep = self.DataSize / Step
+
+class StorageStats:
+    RawSize = 0
+    Size = 0
+    StartSize = -1
+    Speed = 0
+    ESA = 0
+    AvgESA = 0
+
+    def Recalculate(self, Elapsed):
+        self.Size = self.RawSize - self.StartSize
+        if Elapsed > 0:
+            self.Speed = self.Size / Elapsed
+            #print(f"St Speed: {self.Speed:.2f}, {SizeStr(self.Size)} - {SizeStr(self.StartSize)} = {SizeStr(self.Size - self.StartSize)} / {self.Elapsed:.4f}")
+
+class SystemStats:
+    FreeMemory = 0
+    FreeStorage = 0
+
+
+class State:
     SkipMain = False
-    SkipFooter = False
-    DontWaitForFooter = True
-    NonDestructivePrint = False
+    ProcessWasFinding = False
+    Footer = False
 
-    ProgressBar = True
+class SourceType(enum.Enum):
+    DEFAULT = 0 # It means the COMMAND
+    COMMAND = 1
+    FILE    = 2
+    STDIN   = 3
 
-    BreakKey = "\x1b"
-    ISOKey = "f"
-    NonDestructivePrintKey = "d"
-    AvgKey = 'a'
-    RawModeKey = 'r'
-    ProgressBarKey = 'p'
-    PauseKey = ' '
+SourceNames = {
+    "command": SourceType.COMMAND,
+    "file": SourceType.FILE,
+    "stdin": SourceType.STDIN
+    }
 
-Logger = Logger("WarpxWrapper", Config)
+class WarpxWrapper:
+    UpdateInterval = 0.5
+    StartTime = -1
+    PausedAt = -1
+    Pausedtime = 0
+    Paused = False
+    WarpxProcess = None
+    Finishing = False
+    Raw = False
 
-def Error(*args):
-    if args:
-        Logger.Error(*args)
-    if Config.ErrorIsFatal:
-        Logger.Error(" ^^^^ An error occured, aborting. ^^^^")
+    def __init__(self, Config, Logger):
+        self.Config = Config
+        self.Logger = Logger
+        self.State = State()
+        self.UpdateInterval = self.Config.UpdateInterval
+        self.SimStatus = SimulationStatus(self.Config.MaxStep, self.Config.MaxTime)
+        self.AccStats = AccStats()
+        self.StorageStats = StorageStats()
+        self.SystemStats = SystemStats()
+        self.Control = ControlManager()
+        self.EventQueue = SimpleQueue()
+        self.DataInput = InputStream(Lines = True, EventQueue = self.EventQueue, Event = 1)
+        self.ControlInput = InputTerminal(EventQueue = self.EventQueue, Event = 2, Interval = 0, UseBlessed = False)
+        self.UI = UI(self.SimStatus, self.AccStats, self.StorageStats, self.SystemStats, self.ControlInput, self.Config)
+        self.UpdateTimer = Timer(self.Config.UpdateInterval)
+        self.StorageTimer = Timer(self.Config.StorageInterval)
+        self.DataParser = WarpxDataParser(self.SimStatus, self.Logger)
+        self.PausedTime = 0
+
+    def Error(self, *args):
+        if args:
+            self.Logger.Error(*args)
+        if self.Config.ErrorIsFatal:
+            self.Logger.Error(" ^^^^ An error occured, aborting. ^^^^")
+            exit(1)
+
+    def Fatal(self, *args):
+        if args:
+            self.Logger.Critical(*args)
+        self.Logger.Critical(" ^^^^ An error occured, aborting. ^^^^")
         exit(1)
 
-def Fatal(*args):
-    if args:
-        Logger.Critical(*args)
-        Logger.Critical(" ^^^^ An error occured, aborting. ^^^^")
-        exit(1)
+    def CallEventHandler(self, name, *args, **kargs):
+        if hasattr(self.Config, "EventHandler"):
+            if hasattr(self.Config.EventHandler, name):
+                return getattr(self.Config.EventHandler, name)(*args, **kargs)
 
-def setLogLevel(level):
-    Logger.Level = level
+    def RegisterActions(self):
+        self.Control.Register(self.Config.BreakKey, self.UserBreak)
+        self.Control.Register(self.Config.ISOKey, self.SwitchISO)
+        self.Control.Register(self.Config.AvgKey, self.SwitchAvgStats)
+        self.Control.Register(self.Config.RawModeKey, self.SwitchRaw)
+        self.Control.Register(self.Config.NonDestructivePrintKey, self.SwitchDestrictive)
+        self.Control.Register(self.Config.ProgressBarKey, self.SwitchProgressBar)
+        self.Control.Register(self.Config.PauseKey, self.SwitchRunningState)
 
-def getLogLevel():
-    return Logger.Level
+    def PrepareStdin(self):
+        self.DataInput.Input = sys.stdin
+        self.ControlInput.Stream = None
 
-CM = ConfigManager(
-    Config,
-    Logger,
-    Error = Error,
-    Description = "Small script for showing realtime WarpX time and progress stats and (optionally) to help running it.")
-
-def PrintParam(name, MinLength = 0):
-    Value = getattr(Config, name)
-    Type = type(Value)
-    Extra = MinLength - len(name)
-    if Extra < 0:
-        Extra = 0
-    if Type == str:
-        Value = f"\"{Value}\""
-    fmt = f"{name} = " + Extra * "-" + f" {Value} ({Type.__name__})"
-    Logger.Debug(1, fmt)
-
-def PrintParams():
-    Logger.Debug("Printing current configuration:")
-    for name in CM.Params:
-        PrintParam(name, Config.MaxParamLength)
-
-CM.Parser.add_argument("-I", "--include", nargs='+', action=IncludeAction, metavar="python_file")
-
-class CommandAction(argparse.Action):
-    def __init__(self, option_strings, dest, **kwargs):
-        kwargs.pop("VarName")
-        super().__init__(option_strings, dest, **kwargs)
-    def __call__(self, parser, namespace, value, option_string):
-        Config.Command = value
-        Logger.Debug("Command line: set Command to {}".format(value))
-#parser.add_argument("-s", "--source", nargs=1, action=SourceAction, choices=Sources.keys())
-
-def InitParams():
-    global CM
-    CM.AddParam("LogLevel", "-v", "--verbosity",
-                const='debug', choices=Verbosity.keys(),
-                help = "Verbosity level. In include files don't use associated variable directly, use getLogLevel() and setLogLevel() instead.")
-    CM.AddParam("Quiet", "-q", "--quiet", const = True, help = "Quiet mode. Turns off UI printing.")
-    CM.AddParam("DontRun", "-r", "--dont-run", const = True, help = "Stops just before main loop. Useful for debugging.")
-    CM.AddParam("ErrorIsFatal", "--error-fatal", const = True, help = "Whether to exit on errors.")
-    CM.AddParam("LogFile", "-l", "--log-file", metavar="log_file_path")
-    CM.AddParam("MaxLogSize", "--max-log-size", metavar="size")
-    CM.AddParam("MaxLogFileSize", "--max-log-file-size", metavar="size")
-    CM.AddParam("StoragePath", "-o", "--storage", metavar="storage_path")
-    CM.AddParam("NonDestructivePrint", "-d", "--non-destructive-print", const = True)
-    CM.AddParam("ProgressBar", "-b", "--progress-bar", const = True)
-    CM.AddParam("UpdateInterval", "-u", "--upd-int", "--update-interval", metavar="seconds")
-    CM.AddParam("StorageInterval", "--st--int", "--storage-interval", metavar="seconds")
-    CM.AddParam("MaxStep", "-x", "--max-steps")
-    CM.AddParam("MaxTime", "-t", "--max-time")
-    CM.AddParam("SkipMain", "-a", "--skip-main-loop", const = True)
-    CM.AddParam("SkipFooter", "-f", "--skip-footer", const = True)
-    CM.AddParam("DontWaitForFooter", "--dont-wait-for-footer", const = True)
-    CM.AddParam("Source", "-s", "--source", choices=SourceNames.keys())
-    CM.AddParam("PID", "-p", "--pid")
-    CM.AddParam("AbortOnExit", "-k", "--abort-on-exit", const = True)
-    CM.AddParam("InputFile","-i", "--input-file")
-    CM.AddParam("IsFifo", "--fifo", "--pipe", const = True)
-    CM.AddParam("ExecBase", "--exec-base")
-    CM.AddParam("ExecDim", "--dim", "--exec-dim")
-    CM.AddParam("Executable", "--executable")
-    CM.AddParam("Mpi", "-m", "--mpi", default = 0, const = 1, metavar="num_processes")
-    CM.AddParam("Args", "--args", nargs="+")
-    CM.AddParam("Command", "-c", "--command", nargs="+", action=CommandAction)
-    CM.Parser.add_argument("command", nargs="*")
-
-def InitDefaultConfig():
-    global CM
-    global Logger
-    DefaultConfigFile = "config.py"
-    if System.IsReadable(DefaultConfigFile): # Always try, never cry.
-        CM.IncludeFile(DefaultConfigFile)
-    else:
-        Logger.Debug(f"Cannot read default config file: '{DefaultConfigFile}'")
-
-def main():
-    global CM
-    global Logger
-
-    ret = 0
-
-    InitParams()
-    InitDefaultConfig()
-
-    args = CM.Parse(sys.argv[1:])
-    if len(args.command) > 0:
-        Config.Command = args.command
-
-    PrintParams()
-
-
-    while 1:
-        WW = Wrapper(Config, Logger)
-
-        WW.PrepareSource()
-        WW.PrepareDataStream()
-        WW.PrepareUI()
-        WW.RegisterActions()
-        WW.PrepareLogOutput()
-        WW.ActivateStreams()
-
-        if Config.DontRun:
-            Logger.Debug("Don't run. Exiting...")
-            return 0
-
-        WW.WaitForDataStart = time.time()
-        Logger.Debug("\n      Start waiting for WarpX Data...\n")
-
-        print("\n")
-
-        if WW.WarpxProcess == None and Config.PID > 0:
+    def PrepareInputFile(self):
+        IsFifo = self.Config.IsFifo
+        self.Logger.Debug(f"Opening WarpX output file: '{self.Config.InputFile}'")
+        Path = pathlib.Path(self.Config.InputFile)
+        if Path.is_file():
+            if Path.is_fifo():
+                IsFifo = True
+            else:
+                IsFifo = False
+        elif Path.is_fifo():
+            IsFifo = True
+        else:
+            if IsFifo:
+                os.mkfifo(self.Config.InputFile)
+            else:
+                os.mknod(self.Config.InputFile, stat.S_IFREG | 0o600)
+        if IsFifo:
+            self.Logger.Debug("Input file is a pipe. Open it inside thread.")
+            self.DataInput.Stream = self.Config.InputFile
+        else:
+            self.Logger.Debug("Input fle is an ordinary file. Don't exit if read zero bytes.")
+            self.DataInput.Interval = self.Config.UpdateInterval
             try:
-                WW.WarpxProcess = pypsutil.Process(Config.PID)
+                DataStream = open(self.Config.InputFile, "r")
             except Exception as e:
-                Logger.ExceptError(e)
-                Logger.Error(f"Cannot assign Warpx process from given PID: {Config.PID}")
+                self.Logger.ExceptCritic(e)
+                self.Fatal(f"Cannot open data file '{self.Config.InputFile}' for reading.")
+            self.DataInput.Stream = DataStream
+            self.Logger.Debug(f"File '{self.Config.InputFile}' successfully opened.")
 
-        WW.RunMainLoop()
-        loop = WW.Finish()
-        del WW
-        if not loop:
-            break
+    def PrepareCommand(self):
+        CmdArgs = []
 
-    return ret
+        if self.Config.Mpi > 0:
+            CmdArgs.append("mpirun")
+            if self.Config.Mpi > 1:
+                CmdArgs.append("-np")
+                CmdArgs.append(f"{self.Config.Mpi}")
 
-if __name__ == "__main__":
-    main()
+        if type(self.Config.Command) == str and self.Config.Command != "":
+            CmdArgs.extend(self.Config.Command.split())
+        elif type(self.Config.Command) == list and len(self.Config.Command) > 0:
+            for arg in self.Config.Command:
+                subargs = shlex.split(arg)
+                CmdArgs.extend(subargs)
+        else:
+            if self.Config.Executable != "":
+                CmdArgs.append(self.Config.Executable)
+            else:
+                CmdArgs.append(self.Config.ExecBase + self.Config.ExecDim)
+
+            if self.Config.InputFile == "":
+                self.Error(f"Warpx input file is not defined.")
+            if not System.IsReadable(self.Config.InputFile):
+                self.Error(f"Warpx input file \"{self.Config.InputFile}\" is not readable.")
+
+            CmdArgs.append(self.Config.InputFile)
+
+            CmdArgs.extend(self.Config.Args)
+
+        self.Logger.Debug(f"Running WarpX 3D with the following command:\n" + IterableToStr2D(CmdArgs))
+
+        try:
+            self.WarpxProcess = pypsutil.Popen(args=CmdArgs,
+                                        stdin=subprocess.DEVNULL,
+                                        stdout=subprocess.PIPE,
+                                        stderr=subprocess.STDOUT,
+                                        text=True)
+        except Exception as e:
+            self.Logger.ExceptCrit(e)
+            self.Fatal("Cannot create a subprocess to get its output.")
+
+        self.DataInput.Stream = self.WarpxProcess.stdout
+
+    def PrepareSource(self):
+        S = SourceNames[self.Config.Source]
+        if S == SourceType.STDIN:
+            self.PrepareStdin()
+        elif S == SourceType.FILE:
+            self.PrepareInputFile()
+        else:
+            self.PrepareCommand()
+
+    def PrepareLogOutput(self):
+        if self.Config.LogFile == None and self.Config.LogFile == "":
+            return
+        IsFifo = False
+        self.Logger.Debug(f"Opening log file: '{self.Config.LogFile}'")
+        Path = pathlib.Path(self.Config.LogFile)
+        if Path.is_file():
+            if Path.is_fifo():
+                IsFifo = True
+            else:
+                IsFifo = False
+        elif Path.is_fifo():
+            IsFifo = True
+        else:
+            if IsFifo:
+                os.mkfifo(self.Config.InputFile)
+            else:
+                self.LogOutput = LimitedBlockWriter(MaxSize = self.Config.MaxLogSize, BlockSize = self.Config.MaxLogFileSize, FileName = self.Config.LogFile)
+                self.LogOutput.Flush = True
+                self.Logger.Debug("Set limited block writer as data log output.")
+                return
+        self.LogOutput = OutputStream()
+        self.LogOutput.Flush = True
+        if IsFifo:
+            self.Logger.Debug("Log file is a pipe. Open it inside thread.")
+            self.LogOutput.Stream = self.Config.InputFile
+        else:
+            self.Logger.Debug("Log file is an ordinary file.")
+            LogStream = None
+            try:
+                LogStream = open(self.Config.LogFile, "w")
+            except Exception as e:
+                self.Logger.ExceptError(e)
+                self.Error(f"Cannot open log file '{self.Config.LogFile}' for writing.")
+            self.LogOutput.Stream = LogStream
+            self.Logger.Debug(f"File '{self.Config.LogFile}' successfully opened.")
+
+    def PrepareDataStream(self):
+        self.DataInput.QueueSizeThreshold = 100
+
+    def ActivateStreams(self):
+        self.Logger.Debug("Activating non-blocking data input.")
+        self.DataInput.Activate()
+        self.Logger.Debug(1, f"Input activity status: {self.DataInput.IsActive()}.")
+
+        if self.ControlInput.Stream != None:
+            self.Logger.Debug("Activating non-blocking control input.")
+            self.ControlInput.Activate()
+            self.Logger.Debug(1, f"Input Activity status: {self.ControlInput.IsActive()}.")
+        else:
+            self.Logger.Debug("Stdin used for data, don't activate control input.")
+
+        if self.LogOutput != None:
+            self.Logger.Debug("Activating non-blocking log output.")
+            self.LogOutput.Activate()
+            self.Logger.Debug(1, f"Output Activity status: {self.LogOutput.IsActive()}.")
+
+    def CloseStreams(self):
+        self.DataInput.Close(0)
+        #self.ControlInput.Stream.close() # stdin shouldnt be closed, right?
+        if self.LogOutput != None:
+            self.LogOutput.Close()
+
+    def OnKey(self, Key):
+        if not self.Control.Dispatch(Key):
+            self.UI.Message(f"Key: {Key.encode()}")
+        if not (self.Finishing or self.Config.Quiet or self.Raw):
+            self.UI.Update(Force = True)
+
+    def ProcessControlInput(self):
+        while 1:
+            Key = self.ControlInput.Read()
+            if Key == None:
+                break
+            self.OnKey(Key)
+            if self.Finishing:
+                break
+
+    def Pause(self):
+        if self.WarpxProcess != None:
+            System.PauseProcTree(self.WarpxProcess)
+        self.PausedAt = time.time()
+        self.Paused = True
+        self.UI.Status("Paused")
+
+    def Resume(self):
+        if self.WarpxProcess != None:
+            System.ResumeProcTree(self.WarpxProcess)
+        self.Pausedtime += time.time() - self.PausedAt
+        self.Paused = False
+        self.UI.Status()
+        self.UI.Message("Resumed")
+
+    def SwitchRunningState(self):
+        if self.Paused:
+            self.Resume()
+        else:
+            self.Pause()
+
+    def SwitchDestrictive(self):
+        self.Config.NonDestructivePrint = not self.Config.NonDestructivePrint
+        if not self.Config.NonDestructivePrint:
+            self.UI.First = True
+
+    def SwitchAvgStats(self):
+        self.UI.Avg = not self.UI.Avg
+        self.UI.Message(f"Avg: {self.UI.Avg}")
+
+    def SwitchISO(self):
+        msg = "Format: "
+        if self.UI.FmtTime.CurrentFormat == FormattedTime.Format.NORMAL:
+            self.UI.FmtTime.CurrentFormat = FormattedTime.Format.ISO
+            msg += "ISO"
+        elif self.UI.FmtTime.CurrentFormat == FormattedTime.Format.ISO:
+            self.UI.FmtTime.CurrentFormat = FormattedTime.Format.RAW
+            msg += "Raw"
+        elif self.UI.FmtTime.CurrentFormat == FormattedTime.Format.RAW:
+            self.UI.FmtTime.CurrentFormat = FormattedTime.Format.NORMAL
+            msg += "Normal"
+        self.UI.Message(msg)
+
+    def SwitchRaw(self):
+        self.Raw = not self.Raw
+        if not self.Raw:
+            self.UI.First = True
+        self.UI.Message(f"Raw mode: {self.Raw}")
+
+    def SwitchProgressBar(self):
+        self.Config.ProgressBar = not self.Config.ProgressBar
+
+    def UserBreak(self):
+        self.UI.PrintLine("\n\n")
+        self.Logger.Info(f"Breaking on user demand.")
+        self.Finishing = True
+
+    def PrepareUI(self):
+        self.UI.NonDestructive = self.Config.NonDestructivePrint
+        self.UI.MinLen = 79
+        self.UI.CacheMaxLen()
+
+    def GetTotalElapsedTime(self):
+        return time.time() - self.StartTime
+
+    def GetRunningElapsedTime(self):
+        if self.Paused:
+            return self.PausedAt - self.StartTime - self.PausedTime
+        return self.GetTotalElapsedTime() - self.PausedTime
+
+    def GetPausedTime(self):
+        ret = self.PausedTime
+        if self.Paused:
+            ret += time.time() - self.PausedAt
+        return ret
+
+    def CalculateESA(self):
+        ETA = 0
+        AvgETA = 0
+
+        if self.SimStatus.StepETA > 0:
+            ETA = self.SimStatus.StepETA
+            if self.SimStatus.TimeETA > 0:
+                ETA += self.SimStatus.TimeETA
+                ETA /= 2
+        else:
+            ETA = self.SimStatus.TimeETA
+
+        if self.SimStatus.AvgStepETA > 0:
+            AvgETA = self.SimStatus.AvgStepETA
+            if self.SimStatus.AvgTimeETA > 0:
+                AvgETA += self.SimStatus.AvgTimeETA
+                AvgETA /= 2
+        else:
+            AvgETA = self.SimStatus.AvgTimeETA
+
+        #print(f"SimStatus.StepsLeft: {self.SimStatus.StepsLeft}, AccStats.DataStepSpeed: {self.AccStats.DataStepSpeed}")
+        if self.SimStatus.StepsLeft >= 0 and self.AccStats.DataSpeedStep >= 0:
+            self.AccStats.StepESA = self.AccStats.DataSize + self.SimStatus.StepsLeft * self.AccStats.DataSpeedStep
+
+        #print(f"SimStatus.TimeETA: {self.SimStatus.TimeETA}, AccStats.DataSpeed: {self.AccStats.DataSpeed}")
+        if ETA >= 0 and self.AccStats.DataSpeed >= 0:
+            self.AccStats.TimeESA = self.AccStats.DataSize + ETA * self.AccStats.DataSpeed
+
+        if self.SimStatus.StepsLeft >= 0 and self.AccStats.AvgDataSpeedStep >= 0:
+            self.AccStats.AvgStepESA = self.AccStats.DataSize + self.SimStatus.StepsLeft * self.AccStats.AvgDataSpeedStep
+
+        if AvgETA >= 0 and self.AccStats.AvgDataSpeed >= 0:
+            self.AccStats.AvgTimeESA = self.AccStats.DataSize + AvgETA * self.AccStats.AvgDataSpeed
+
+        if ETA >= 0:
+            self.StorageStats.ESA = self.StorageStats.Size + self.StorageStats.Speed * ETA
+
+        if AvgETA >= 0:
+            self.StorageStats.AvgESA = self.StorageStats.Size + self.StorageStats.Speed * AvgETA
+
+    def UpdateSystemStats(self):
+        mem = pypsutil.virtual_memory()
+        self.SystemStats.FreeMemory = mem.available
+        try:
+            st = pypsutil.disk_usage(self.Config.StoragePath)
+            self.SystemStats.FreeStorage = st.free
+        except FileNotFoundError:
+            pass
+
+    def Update(self, Force = False):
+        if self.StorageStats.StartSize < 0:
+            try:
+                self.StorageStats.StartSize = System.DirSize(self.Config.StoragePath)
+            except FileNotFoundError:
+                self.Logger.Warning(f"'{self.Config.StoragePath}' - file not found.")
+
+        if self.StorageTimer.Expired():
+            try:
+                self.StorageStats.RawSize = System.DirSize(self.Config.StoragePath)
+                self.StorageStats.Recalculate(self.SimStatus.ElapsedRealTime)
+                self.StorageTimer.Reset()
+            except FileNotFoundError:
+                pass
+
+        if self.UpdateTimer.Expired() or Force:
+            if self.SimStatus.Updated:
+                self.SimStatus.Updated = False
+            self.SimStatus.PausedTime = self.GetPausedTime()
+            self.AccStats.Recalculate(
+                    self.SimStatus.RealTimeDelta,
+                    self.SimStatus.ElapsedRealTime,
+                    self.SimStatus.PausedTime
+                )
+            self.CalculateESA()
+            if self.WarpxProcess != None:
+                    #print("Update proc info.")
+                try:
+                    self.ProcStats = System.GetProcTreeStats(self.WarpxProcess)
+                except pypsutil.NoSuchProcess as e:
+                    self.WarpxProcess = None
+                self.AccStats.CPUStart = self.ProcStats.CrTime
+                self.AccStats.CPUTime = self.ProcStats.CPU
+                self.UI.ProcStats = self.ProcStats
+                    #print(str(self.ProcStats))
+            self.UpdateSystemStats()
+
+            self.UpdateTimer.Reset()
+
+            if not (self.Config.Quiet or self.Raw):
+                self.UI.Update()
+
+    def MainLoop(self):
+        self.Update()
+
+        while not self.EventQueue.empty():
+            self.EventQueue.get_nowait() # eat stalled events
+
+        self.ProcessControlInput()
+
+        if self.Finishing:
+            if self.StartTime < 0:
+                self.StartTime = time.time()
+            self.Logger.Debug("Finishing.")
+            return 1
+
+        if self.StartTime < 0:
+            WaitingFor = time.time() - self.WaitForDataStart
+            if WaitingFor > 0:
+                self.UI.PrintStaticLine(f"   Waiting for WarpX to start sending data for: {self.UI.FmtTime.Str(WaitingFor)}")
+
+        #if not (Header or Footer):
+        #    self.UI.Update()
+
+        OutputLine = self.DataInput.Read()
+        if OutputLine == None or OutputLine == "":
+            #print("Read null string")
+            if (self.DataInput.IsActive()):
+#                print(f"DataInput active, waiting for {self.Config.UpdateInterval}.")
+                Event = None
+                try:
+                    Event = self.EventQueue.get(timeout=self.Config.UpdateInterval)
+                except Exception as e:
+                    #Logger.Debug("Exception while waiting for event.")
+                    #Logger.ExceptDebug(e)
+                    pass
+#                t = type(Event)
+#                print("Got event:", Event, t)
+#                if t == float:
+#                    print("Time delay:", time.time() - Event)
+                return 0 # So all interactivity must take place earlier
+            else:
+                self.Logger.Debug("DataInput inactive, finishing.")
+                return 1
+        if self.Raw:
+            print(OutputLine, end = '')
+
+        self.AccStats.DataSize += len(OutputLine)
+
+        #print(f"Increasing data size: {AccStats.DataSize}.")
+
+        if not self.State.ProcessWasFinding and self.WarpxProcess == None and self.Config.Source == SourceType.FILE and self.Config.PID == 0:
+            Ps = System.FileUsers(self.Config.InputFile, ["w", "a"])
+#            print("")
+#            print(Ps)
+            Me = pypsutil.Process()
+            for P in Ps:
+                if P != Me:
+                    WarpxProcess = P
+                    self.Logger.Debug(f"Detected Warpx process: {self.WarpxProcess.name()} ({WarpxProcess.pid}).")
+            if self.WarpxProcess == None:
+                self.Logger.Warning("Warpx process not detected!")
+            self.State.ProcessWasFinding = True
+
+
+        if self.StartTime < 0:
+            self.StartTime = time.time()
+            self.UI.CurrentSection = UI.Section.HEADER
+            self.UI.PrintLine("\n   Got data, starting processing.")
+
+        if self.LogOutput != None:
+            self.LogOutput.Write(OutputLine)
+
+        if self.DataParser.ParseLine(OutputLine) == 2:
+            return 2
+
+        if self.SimStatus.Main == True:
+            self.State.Main = True
+            self.State.Header = False
+            self.UI.CurrentSection = UI.Section.MAIN
+        if self.SimStatus.Footer and not self.State.Footer:
+            self.State.Footer = True
+            self.UI.CurrentSection = UI.Section.FOOTER
+            self.Logger.Debug("Footer detected.")
+            if self.Config.SkipFooter:
+                return 1
+            time.sleep(self.Config.UpdateInterval) # Let some time to the pipe to read last of data.
+            self.DataInput.Interval = 0 # Don't wait for data anymore.
+
+        if self.SimStatus.Step > self.SimStatus.PrevStep:
+            self.SimStatus.Recalculate()
+            self.AccStats.RecalculateStep(self.SimStatus.Step, self.SimStatus.StepDelta)
+            self.CallEventHandler("OnStep", self.SimStatus.Step, self.SimStatus.Time)
+
+        if self.SimStatus.Header or self.SimStatus.Footer:
+            print(OutputLine, end='')
+
+        return 0
+
+    def RunMainLoop(self):
+        try:
+            self.UI.Setup()
+            self.ControlInput.DisableBuffering()
+
+            while 1:
+                if self.Config.SkipMain:
+                    self.Logger.Debug("Skipping main.")
+                    break
+
+                self.ExitCode = self.MainLoop()
+                if self.ExitCode > 0:
+                    self.Logger.Debug(f"Exiting with code: {self.ExitCode}")
+                    break
+
+        except Exception as e:
+            self.Logger.Critical("Unhandled exception, breaking main loop.")
+            self.Logger.ExceptCrit(e)
+
+        self.ControlInput.RestoreBuffering()
+        self.UI.Finish()
+
+        return self.ExitCode
+
+    def Finish(self):
+        self.UI.CurrentSection = UI.Section.FOOTER
+
+        self.CloseStreams()
+
+        if self.Config.AbortOnExit and self.WarpxProcess != None:
+            self.WarpxProcess.terminate()
+
+        if not self.Config.Quiet:
+            self.UI.WriteSummary(self.GetRunningElapsedTime())
+
+        return self.CallEventHandler("OnFinish", self.ExitCode)

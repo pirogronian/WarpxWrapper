@@ -10,5 +10,5 @@ from .Timer import Timer
 from .UI import UI
 from .Various import StrToBool, StrToInt, StrToType, TypeDescription, IterableToStr2D
 from .WarpxDataParser import WarpxDataParser
-from .Wrapper import Wrapper, SourceType, SourceNames
+from .WarpxWrapper import WarpxWrapper, SourceType, SourceNames
 from .LimitedBlockWriter import LimitedBlockWriter

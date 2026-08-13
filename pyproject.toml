@@ -19,7 +19,7 @@ classifiers = [
 ]
 
 [project.scripts]
-WarpxWrapper = "WarpxWrapper.WarpxWrapper:main"
+WarpxWrapper = "WarpxWrapper.Main:main"
 
 [project.urls]
 "Source code" = "https://github.com/pirogronian/WarpxWrapper"
