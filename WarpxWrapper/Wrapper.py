@@ -19,6 +19,7 @@ from WarpxWrapper import ControlManager
 from WarpxWrapper import UI
 from WarpxWrapper import WarpxDataParser
 from WarpxWrapper.LimitedBlockWriter import LimitedBlockWriter
+from WarpxWrapper import IterableToStr2D
 
 class SimulationStatus:
     Header = True
@@ -368,10 +369,8 @@ class Wrapper:
 
             CmdArgs.extend(self.Config.Args)
 
-        RunMsg = f"|   Running WarpX 3D with the following command: {CmdArgs}   |"
-        RunMsgLen = len(RunMsg)
+        RunMsg = f"Running WarpX 3D with the following command:\n" + IterableToStr2D(CmdArgs)
 
-        Panel = "-" * RunMsgLen
         self.Logger.Debug(Panel)
         self.Logger.Debug(RunMsg)
         self.Logger.Debug(Panel)
@@ -687,6 +686,7 @@ class Wrapper:
             print(OutputLine, end = '')
 
         self.AccStats.DataSize += len(OutputLine)
+
         #print(f"Increasing data size: {AccStats.DataSize}.")
 
         if not self.State.ProcessWasFinding and self.WarpxProcess == None and self.Config.Source == SourceType.FILE and self.Config.PID == 0:

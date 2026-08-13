@@ -66,6 +66,13 @@ def TypeDescription(t, NonFatal = False):
         return t
     raise TypeError("Unsupported type: {}".format(t))
 
+def IterableToStr2D(Iterable, Padding = 2):
+    ret = ""
+    for item in Iterable:
+        ret += " " * Padding + str(item) + "\n"
+
+    return ret
+
 """"
 
 def CompareSequences(s1, s2):
