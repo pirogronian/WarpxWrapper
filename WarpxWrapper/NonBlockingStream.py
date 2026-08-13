@@ -203,25 +203,14 @@ class OutputStream(CommonStream):
 class AppendStream(OutputStream):
     Mode = "a"
 
-# stdout wrapper to prevent Terminal hang on init
-
-class NoQueryStream:
-    def __init__(self, target_stream):
-        self._stream = target_stream
-
-    def isatty(self):
-        return False
-
-    def __getattr__(self, name):
-        return getattr(self._stream, name)
-
 class InputTerminal(InputStream):
     Buffered = True
     UseBlessed = False
 
     def __init__(self, Terminal = None, EventQueue = None, Event = True, Interval = 0, UseBlessed = False, *args, **kargs):
         if Terminal == None:
-            Terminal = blessed.Terminal(stream = NoQueryStream(sys.stdout), *args, **kargs)
+            os.environ["ANSICON"] = "True" # prevent hanging waiting for terminal answer (keypress needed)
+            Terminal = blessed.Terminal(*args, **kargs)
 
         self.CBreakContext = Terminal.cbreak()
         self.Terminal = Terminal
@@ -251,10 +240,10 @@ class InputTerminal(InputStream):
             C = self.Stream.read(1)
             self.EnableBlocking()
             if len(C) > 0:
-                #print("Add char: ", C)
+#                print("Add char: ", C)
                 Data += C
             else:
-                #print("End sequence, return data.")
+#                print("End sequence, return data.")
                 break
 #        print(f"Red: {Data}")
         return Data
