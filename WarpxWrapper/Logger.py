@@ -2,12 +2,13 @@
 import enum
 import logging
 
-class Verbosity(enum.Enum):
-    DEBUG = logging.DEBUG
-    INFO = logging.INFO
-    WARNING = logging.WARNING
-    ERROR = logging.ERROR
-    CRITICAL = logging.CRITICAL
+Verbosity = {
+    "debug": logging.DEBUG,
+    "info": logging.INFO,
+    "warning": logging.WARNING,
+    "error": logging.ERROR,
+    "critical": logging.CRITICAL
+    }
 
 class ColorfulFormatter(logging.Formatter):
 
@@ -48,54 +49,55 @@ def Prepare(*arg):
     return msg
 
 class Logger:
-    def __init__(self, name):
+    def __init__(self, name, config):
         self.Inner = logging.getLogger(name)
         self.Handler = logging.StreamHandler()
         self.Formatter = ColorfulFormatter()
         self.Handler.setFormatter(self.Formatter)
         self.Inner.addHandler(self.Handler)
         self.Inner.setLevel(logging.INFO)
-        self.Level = Verbosity.INFO
+        self.Config = config
 
     def Log(self, level, *args):
-        if self.Inner.level != self.Level.value: # Let user for simple LogLevel = <level> to work
-            self.Inner.setLevel(self.Level.value)
+        loglevel = Verbosity[self.Config.LogLevel]
+        if self.Inner.level != loglevel: # Let user for simple LogLevel = <level> to work
+            self.Inner.setLevel(loglevel)
         msg = Prepare(*args)
-        self.Inner.log(level.value, msg)
+        self.Inner.log(level, msg)
 
     def Debug(self, *args):
-        self.Log(Verbosity.DEBUG, *args)
+        self.Log(logging.DEBUG, *args)
 
     def Info(self, *args):
-        self.Log(Verbosity.INFO, *args)
+        self.Log(logging.INFO, *args)
 
     def Warning(self, *args):
-        self.Log(Verbosity.WARNING, *args)
+        self.Log(logging.WARNING, *args)
 
     def Error(self, *args):
-        self.Log(Verbosity.ERROR, *args)
+        self.Log(logging.ERROR, *args)
 
     def Critical(self, *args):
-        self.Log(Verbosity.CRITICAL, *args)
+        self.Log(logging.CRITICAL, *args)
 
     def Except(self, level, *args):
 #    print(level, LogLevel)
-        if level.value >= self.Level.value:
+        if level >= self.Inner.level:
             msg = Prepare(args)
             self.Inner.exception(msg)
 
     def ExceptDebug(self, *args):
-        self.Except(Verbosity.DEBUG, *args)
+        self.Except(logging.DEBUG, *args)
 
     def ExceptInfo(self, *args):
-        self.Except(Verbosity.INFO, *args)
+        self.Except(logging.INFO, *args)
 
     def ExceptWarn(self, *args):
-        self.Except(Verbosity.WARNING, *args)
+        self.Except(logging.WARNING, *args)
 
     def ExceptError(self, *args):
-        self.Except(Verbosity.ERROR, *args)
+        self.Except(logging.ERROR, *args)
 
     def ExceptCrit(self, *args):
-        self.Except(Verbosity.CRITICAL, *args)
+        self.Except(logging.CRITICAL, *args)
 

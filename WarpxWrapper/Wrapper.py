@@ -242,6 +242,12 @@ class SourceType(enum.Enum):
     FILE    = 2
     STDIN   = 3
 
+SourceNames = {
+    "command": SourceType.COMMAND,
+    "file": SourceType.FILE,
+    "stdin": SourceType.STDIN
+    }
+
 class Wrapper:
     UpdateInterval = 0.5
     StartTime = -1
@@ -378,9 +384,10 @@ class Wrapper:
         self.DataInput.Stream = self.WarpxProcess.stdout
 
     def PrepareSource(self):
-        if self.Config.Source == SourceType.STDIN:
+        S = SourceNames[self.Config.Source]
+        if S == SourceType.STDIN:
             self.PrepareStdin()
-        elif self.Config.Source == SourceType.FILE:
+        elif S == SourceType.FILE:
             self.PrepareInputFile()
         else:
             self.PrepareCommand()
@@ -717,6 +724,8 @@ class Wrapper:
         if self.SimStatus.Step > self.SimStatus.PrevStep:
             self.SimStatus.Recalculate()
             self.AccStats.RecalculateStep(self.SimStatus.Step, self.SimStatus.StepDelta)
+            if self.Config.EventHandler:
+                self.Config.EventHandler.OnStep(self.SimStatus.Step, self.SimStatus.Time)
 
         if self.SimStatus.Header or self.SimStatus.Footer:
             print(OutputLine, end='')
@@ -753,3 +762,6 @@ class Wrapper:
 
         if not self.Config.Quiet:
             self.UI.WriteSummary(self.GetRunningElapsedTime())
+
+        if self.Config.EventHandler:
+            return self.Config.EventHandler.OnFinish()

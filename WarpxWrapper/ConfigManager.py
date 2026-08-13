@@ -1,6 +1,6 @@
 
 import argparse
-from .Various import StrToType, TypeDescription
+from .Various import StrToType, TypeDescription, StrToInt
 
 class IncludeAction(argparse.Action):
     Used = False
@@ -41,8 +41,6 @@ class ParamAction(argparse.Action):
         self.Logger.Debug("Command line: set {} to {}".format(self.Param, value))
 
 class ConfigManager:
-    ExecEnv = {}
-    ExecEnvExcl = []
 
     def __init__(self, Config, Logger, Error, Fatal = None, Description = None):
         self.Config = Config
@@ -56,20 +54,6 @@ class ConfigManager:
         self.Params = []
         self.Parser = argparse.ArgumentParser(description = Description)
 
-    def CreateExecEnv(self):
-        Ret = self.ExecEnv
-        cd = vars(self.Config)
-        for name in cd:
-            if name[:2] != "__" and name not in self.ExecEnvExcl:
-                Ret[name] = cd[name]
-        return Ret
-
-    def SyncConfig(self, glob):
-        cd = vars(self.Config)
-        for name in cd:
-            if name[:2] != "__" and name not in self.ExecEnvExcl and name in glob:
-                setattr(self.Config, name, glob[name])
-
     def IncludeFile(self, fname):
         self.Logger.Debug(f"Including file '{fname}'.")
         try:
@@ -79,16 +63,13 @@ class ConfigManager:
             self.Error(1, e)
             return
         prog = f.read()
-        env = self.CreateExecEnv()
-        mod = {}
+
         try:
-            exec(prog, env, mod)
+            exec(prog, {"Config": self.Config, "StrToInt": StrToInt})
         except Exception as e:
             self.Logger.Error(f"Error while executing include file: '{fname}'")
             self.Logger.ExceptError(1, e)
             self.Error()
-        finally:
-            self.SyncConfig(mod)
 
 
     def AddParam(self, VarName, *Args, **KArgs):

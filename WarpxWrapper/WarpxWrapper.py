@@ -5,13 +5,13 @@ import argparse
 import os
 import sys
 import time
-from WarpxWrapper import ConfigManager, IncludeAction, Logger, Verbosity, Wrapper, SourceType, System, StrToInt
+from WarpxWrapper import ConfigManager, IncludeAction, Logger, Verbosity, Wrapper, SourceNames, System
 
 DefaultWarpxInputFileName = "input"
 
 class Config:
     MaxParamLength = 0
-    LogLevel = Verbosity.INFO # It does nothig, but must be due to AddParam() requirements
+    LogLevel = "info"
     Quiet = False
     ErrorIsFatal = True
     UpdateInterval = 0.5
@@ -26,7 +26,7 @@ class Config:
     MaxStep = -1
     MaxTime = -1.0
 
-    Source = SourceType.DEFAULT
+    Source = "command"
 
     ExecBase = "warpx."
     ExecDim = "3d"
@@ -58,7 +58,7 @@ class Config:
     ProgressBarKey = 'p'
     PauseKey = ' '
 
-Logger = Logger("WarpxWrapper")
+Logger = Logger("WarpxWrapper", Config)
 
 def Error(*args):
     if args:
@@ -85,16 +85,6 @@ CM = ConfigManager(
     Error = Error,
     Description = "Small script for showing realtime WarpX time and progress stats and (optionally) to help running it.")
 
-CM.ExecEnv = {
-        "Verbosity" : Verbosity,
-        "SourceType" : SourceType,
-        "getLogLevel" : getLogLevel,
-        "setLogLevel" : setLogLevel,
-        "StrToInt" : StrToInt
-        }
-
-CM.ExecEnvExcl = [ "LogLevel" ]
-
 def PrintParam(name, MinLength = 0):
     Value = getattr(Config, name)
     Type = type(Value)
@@ -111,41 +101,7 @@ def PrintParams():
     for name in CM.Params:
         PrintParam(name, Config.MaxParamLength)
 
-LogLevels = {
-        'debug': Verbosity.DEBUG,
-        'info': Verbosity.INFO,
-        'warning': Verbosity.WARNING,
-        'error' : Verbosity.ERROR,
-        'critical' : Verbosity.CRITICAL
-    }
-
-class VerbosityAction(argparse.Action):
-    def __init__(self, option_strings, dest, **kwargs):
-        kwargs.pop("VarName")
-        super().__init__(option_strings, dest, **kwargs)
-    def __call__(self, parser, namespace, value, option_string):
-        global Config
-        setLogLevel(LogLevels[value])
-        Logger.Debug("Command line: set LogLevel to '{}'.".format(value))
-#parser.add_argument("-v", "--verbosity", nargs='?', action=VerboseAction, const='debug', choices = LogLevels.keys())
-
 CM.Parser.add_argument("-I", "--include", nargs='+', action=IncludeAction, metavar="python_file")
-
-Sources = {
-        'command': SourceType.COMMAND,
-        'file': SourceType.FILE,
-        'stdin': SourceType.STDIN
-    }
-
-class SourceAction(argparse.Action):
-    def __init__(self, option_strings, dest, **kwargs):
-        kwargs.pop("VarName")
-        super().__init__(option_strings, dest, **kwargs)
-    def __call__(self, parser, namespace, value, option_string):
-        global Source
-        key = value[0]
-        Config.Source = Sources[key]
-        Logger.Debug("Command line: set Source to {}".format(key))
 
 class CommandAction(argparse.Action):
     def __init__(self, option_strings, dest, **kwargs):
@@ -158,8 +114,8 @@ class CommandAction(argparse.Action):
 
 def InitParams():
     global CM
-    CM.AddParam("LogLevel", "-v", "--verbosity", action=VerbosityAction,
-                const='debug', choices=LogLevels.keys(),
+    CM.AddParam("LogLevel", "-v", "--verbosity",
+                const='debug', choices=Verbosity.keys(),
                 help = "Verbosity level. In include files don't use associated variable directly, use getLogLevel() and setLogLevel() instead.")
     CM.AddParam("Quiet", "-q", "--quiet", const = True, help = "Quiet mode. Turns off UI printing.")
     CM.AddParam("DontRun", "-r", "--dont-run", const = True, help = "Stops just before main loop. Useful for debugging.")
@@ -177,7 +133,7 @@ def InitParams():
     CM.AddParam("SkipMain", "-a", "--skip-main-loop", const = True)
     CM.AddParam("SkipFooter", "-f", "--skip-footer", const = True)
     CM.AddParam("DontWaitForFooter", "--dont-wait-for-footer", const = True)
-    CM.AddParam("Source", "-s", "--source", action=SourceAction, choices=Sources.keys())
+    CM.AddParam("Source", "-s", "--source", choices=SourceNames.keys())
     CM.AddParam("PID", "-p", "--pid")
     CM.AddParam("AbortOnExit", "-k", "--abort-on-exit", const = True)
     CM.AddParam("InputFile","-i", "--input-file")
@@ -215,32 +171,37 @@ def main():
     PrintParams()
 
 
-    WW = Wrapper(Config, Logger)
-    WW.PrepareSource()
-    WW.PrepareDataStream()
-    WW.PrepareUI()
-    WW.RegisterActions()
-    WW.PrepareLogOutput()
-    WW.ActivateStreams()
+    while 1:
+        WW = Wrapper(Config, Logger)
 
-    if Config.DontRun:
-        Logger.Debug("Don't run. Exiting...")
-        return 0
+        WW.PrepareSource()
+        WW.PrepareDataStream()
+        WW.PrepareUI()
+        WW.RegisterActions()
+        WW.PrepareLogOutput()
+        WW.ActivateStreams()
 
-    WW.WaitForDataStart = time.time()
-    Logger.Debug("\n      Start waiting for WarpX Data...\n")
+        if Config.DontRun:
+            Logger.Debug("Don't run. Exiting...")
+            return 0
 
-    print("\n")
+        WW.WaitForDataStart = time.time()
+        Logger.Debug("\n      Start waiting for WarpX Data...\n")
 
-    if WW.WarpxProcess == None and Config.PID > 0:
-        try:
-            WW.WarpxProcess = pypsutil.Process(Config.PID)
-        except Exception as e:
-            Logger.ExceptError(e)
-            Logger.Error(f"Cannot assign Warpx process from given PID: {Config.PID}")
+        print("\n")
 
-    WW.RunMainLoop()
-    WW.Finish()
+        if WW.WarpxProcess == None and Config.PID > 0:
+            try:
+                WW.WarpxProcess = pypsutil.Process(Config.PID)
+            except Exception as e:
+                Logger.ExceptError(e)
+                Logger.Error(f"Cannot assign Warpx process from given PID: {Config.PID}")
+
+        WW.RunMainLoop()
+        loop = WW.Finish()
+        del WW
+        if not loop:
+            break
 
     return ret
 
