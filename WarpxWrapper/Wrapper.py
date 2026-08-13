@@ -369,11 +369,7 @@ class Wrapper:
 
             CmdArgs.extend(self.Config.Args)
 
-        RunMsg = f"Running WarpX 3D with the following command:\n" + IterableToStr2D(CmdArgs)
-
-        self.Logger.Debug(Panel)
-        self.Logger.Debug(RunMsg)
-        self.Logger.Debug(Panel)
+        self.Logger.Debug(f"Running WarpX 3D with the following command:\n" + IterableToStr2D(CmdArgs))
 
         try:
             self.WarpxProcess = pypsutil.Popen(args=CmdArgs,
@@ -652,6 +648,7 @@ class Wrapper:
         if self.Finishing:
             if self.StartTime < 0:
                 self.StartTime = time.time()
+            self.Logger.Debug("Finishing.")
             return 1
 
         if self.StartTime < 0:
@@ -678,7 +675,7 @@ class Wrapper:
 #                print("Got event:", Event, t)
 #                if t == float:
 #                    print("Time delay:", time.time() - Event)
-                return True # So all interactivity must take place earlier
+                return 0 # So all interactivity must take place earlier
             else:
                 self.Logger.Debug("DataInput inactive, finishing.")
                 return 1
@@ -749,6 +746,7 @@ class Wrapper:
 
                 self.ExitCode = self.MainLoop()
                 if self.ExitCode > 0:
+                    self.Logger.Debug(f"Exiting with code: {self.ExitCode}")
                     break
 
         except Exception as e:
