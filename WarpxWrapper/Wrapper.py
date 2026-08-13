@@ -535,6 +535,7 @@ class Wrapper:
     def PrepareUI(self):
         self.UI.NonDestructive = self.Config.NonDestructivePrint
         self.UI.MinLen = 79
+        self.UI.CacheMaxLen()
 
     def GetTotalElapsedTime(self):
         return time.time() - self.StartTime
@@ -652,7 +653,7 @@ class Wrapper:
         if self.Finishing:
             if self.StartTime < 0:
                 self.StartTime = time.time()
-            return False
+            return 1
 
         if self.StartTime < 0:
             WaitingFor = time.time() - self.WaitForDataStart
@@ -681,7 +682,7 @@ class Wrapper:
                 return True # So all interactivity must take place earlier
             else:
                 self.Logger.Debug("DataInput inactive, finishing.")
-                return False
+                return 1
         if self.Raw:
             print(OutputLine, end = '')
 
@@ -710,8 +711,8 @@ class Wrapper:
         if self.LogOutput != None:
             self.LogOutput.Write(OutputLine)
 
-        if not self.DataParser.ParseLine(OutputLine):
-            return False
+        if self.DataParser.ParseLine(OutputLine) == 2:
+            return 2
 
         if self.SimStatus.Main == True:
             self.State.Main = True
@@ -722,7 +723,7 @@ class Wrapper:
             self.UI.CurrentSection = UI.Section.FOOTER
             self.Logger.Debug("Footer detected.")
             if self.Config.SkipFooter:
-                return False
+                return 1
             time.sleep(self.Config.UpdateInterval) # Let some time to the pipe to read last of data.
             self.DataInput.Interval = 0 # Don't wait for data anymore.
 
@@ -734,11 +735,9 @@ class Wrapper:
         if self.SimStatus.Header or self.SimStatus.Footer:
             print(OutputLine, end='')
 
-        return True
+        return 0
 
     def RunMainLoop(self):
-        ret = None
-
         try:
             self.UI.Setup()
             self.ControlInput.DisableBuffering()
@@ -748,8 +747,8 @@ class Wrapper:
                     self.Logger.Debug("Skipping main.")
                     break
 
-                ret = self.MainLoop()
-                if not ret:
+                self.ExitCode = self.MainLoop()
+                if self.ExitCode > 0:
                     break
 
         except Exception as e:
@@ -759,7 +758,7 @@ class Wrapper:
         self.ControlInput.RestoreBuffering()
         self.UI.Finish()
 
-        return ret
+        return self.ExitCode
 
     def Finish(self):
         self.UI.CurrentSection = UI.Section.FOOTER
@@ -772,4 +771,4 @@ class Wrapper:
         if not self.Config.Quiet:
             self.UI.WriteSummary(self.GetRunningElapsedTime())
 
-        return self.CallEventHandler("OnFinish")
+        return self.CallEventHandler("OnFinish", self.ExitCode)

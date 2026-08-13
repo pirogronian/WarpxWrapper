@@ -65,6 +65,6 @@ class WarpxDataParser:
             self.SimStatus.Footer = True
         elif self.ReAbort.match(Line):
             self.Logger.Warning("Warpx aborted.")
-            return False
+            return 2
 
-        return True
+        return 0
