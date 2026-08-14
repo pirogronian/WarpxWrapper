@@ -88,6 +88,8 @@ class CommonStream:
             self.Stream.close()
 
     def Activate(self, Stream = None):
+        if self.IsActive():
+            return
         if Stream != None:
             self.Stream = Stream
         self.Thread = threading.Thread(target=self.Daemon, daemon = True)
