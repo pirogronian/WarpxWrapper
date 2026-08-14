@@ -21,11 +21,14 @@ class CommonStream:
 #        print("Got event queue with value: ", EventQueue)
         self.EventQueue = EventQueue
         self.Event = Event
+        self.Interval = Interval
+        self.ResetState()
+
+    def ResetState(self):
         self.Stop = False
         self.AutoClose = False
         self.Paused = False
         self._IsPaused = False
-        self.Interval = Interval
 
     def IsOpen(self):
         return isinstance(self.Stream, io.IOBase) and not self.Stream.closed
@@ -90,11 +93,13 @@ class CommonStream:
 
     def Activate(self, Stream = None):
         if self.IsActive():
-            return
+            return 1
+        self.ResetState()
         if Stream != None:
             self.Stream = Stream
         self.Thread = threading.Thread(target=self.Daemon, daemon = True)
         self.Thread.start()
+        return 0
 
     def Deactivate(self, Timeout = None):
         self.Stop = True
