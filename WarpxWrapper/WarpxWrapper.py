@@ -281,7 +281,7 @@ class WarpxWrapper:
         self.PausedTime = 0
 
     def ResetState(self):
-        self.Finishing = False
+        self.UserBreak = False
         self.WarpxProcess = None
         self.State.Reset()
         self.SimStatus.Reset()
@@ -311,7 +311,7 @@ class WarpxWrapper:
                 return getattr(self.Config.EventHandler, name)(*args, **kargs)
 
     def RegisterActions(self):
-        self.Control.Register(self.Config.BreakKey, self.UserBreak)
+        self.Control.Register(self.Config.BreakKey, self.DoUserBreak)
         self.Control.Register(self.Config.ISOKey, self.SwitchISO)
         self.Control.Register(self.Config.AvgKey, self.SwitchAvgStats)
         self.Control.Register(self.Config.RawModeKey, self.SwitchRaw)
@@ -477,7 +477,7 @@ class WarpxWrapper:
     def OnKey(self, Key):
         if not self.Control.Dispatch(Key):
             self.UI.Message(f"Key: {Key.encode()}")
-        if not (self.Finishing or self.Config.Quiet or self.Raw):
+        if not (self.UserBreak or self.Config.Quiet or self.Raw):
             self.UI.Update(Force = True)
 
     def ProcessControlInput(self):
@@ -486,7 +486,7 @@ class WarpxWrapper:
             if Key == None:
                 break
             self.OnKey(Key)
-            if self.Finishing:
+            if self.UserBreak:
                 break
 
     def Pause(self):
@@ -541,10 +541,10 @@ class WarpxWrapper:
     def SwitchProgressBar(self):
         self.Config.ProgressBar = not self.Config.ProgressBar
 
-    def UserBreak(self):
+    def DoUserBreak(self):
         self.UI.PrintLine("\n\n")
         self.Logger.Info(f"Breaking on user demand.")
-        self.Finishing = True
+        self.UserBreak = True
 
     def PrepareUI(self):
         self.UI.NonDestructive = self.Config.NonDestructivePrint
@@ -665,11 +665,11 @@ class WarpxWrapper:
 
         self.ProcessControlInput()
 
-        if self.Finishing:
+        if self.UserBreak:
             if self.StartTime < 0:
                 self.StartTime = time.time()
-            self.Logger.Debug("Finishing.")
-            return 1
+            self.Logger.Debug("User break.")
+            return 3
 
         if self.StartTime < 0:
             WaitingFor = time.time() - self.WaitForDataStart
@@ -772,6 +772,7 @@ class WarpxWrapper:
         except Exception as e:
             self.Logger.Critical("Unhandled exception, breaking main loop.")
             self.Logger.ExceptCrit(e)
+            self.ExitCode = 4
 
         return self.ExitCode
 
