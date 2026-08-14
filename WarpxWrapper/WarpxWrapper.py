@@ -466,7 +466,7 @@ class WarpxWrapper:
             self.Logger.Debug(1, f"Output Activity status: {self.LogOutput.IsActive()}.")
 
     def CloseDataStream(self):
-        self.DataInput.Close(0)
+        self.DataInput.Close()
         #if self.LogOutput != None:
         #    self.LogOutput.Close()
 
