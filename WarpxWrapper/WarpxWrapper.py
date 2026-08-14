@@ -82,6 +82,10 @@ class SimulationStatus:
         # TimeDelta was provided externally, but is no longer
         self.TimeDelta = self.Time - self.PrevTime
 
+        #print(f"Step: {self.Step}, Time: {self.Time}")
+        #print(f"PrevStep: {self.PrevStep}, PrevTime: {self.PrevTime}")
+        #print(f"Deltas: step {self.StepDelta}, time {self.TimeDelta}")
+
         self.RealTimeDelta = self.CurrentRealTime - self.PrevRealTime
 
         if self.MaxStep > 0 and self.StepDelta > 0:
@@ -128,7 +132,7 @@ class SimulationStatus:
         if self.StartRealTime == 0:
             self.StartRealTime = Time
 
-#        print(f"TimeDelta: {self.TimeDelta}, StepDelta: {self.StepDelta}")
+        #print(f"TimeDelta: {self.TimeDelta}, StepDelta: {self.StepDelta}")
 
         self.CurrentRealTime = Time
         self.ElapsedRealTime = self.CurrentRealTime - self.StartRealTime - self.PausedTime

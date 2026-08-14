@@ -29,6 +29,10 @@ class CommonStream:
         self.AutoClose = False
         self.Paused = False
         self._IsPaused = False
+        while not self.Queue.empty():
+            self.Queue.get_nowait()
+        while not self.EventQueue.empty():
+            self.EventQueue.get_nowait()
 
     def IsOpen(self):
         return isinstance(self.Stream, io.IOBase) and not self.Stream.closed
