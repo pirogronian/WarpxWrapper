@@ -83,6 +83,7 @@ class CommonStream:
                 if self.Interval > 0:
                     time.sleep(self.Interval)
                 else:
+                    print("Zero data, exiting.")
                     break
         if self.AutoClose:
             self.Stream.close()
@@ -100,7 +101,7 @@ class CommonStream:
         self.Thread.join(Timeout)
 
     def IsActive(self):
-        return self.Thread.is_alive()
+        return hasattr(self, "Thread") and self.Thread.is_alive()
 
     def DisableBlocking(self):
         fd = self.Stream.fileno()
