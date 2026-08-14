@@ -27,7 +27,6 @@ class UI:
         self.FmtTime = FormattedTime()
         self.FmtNmb.ForbidNegative = True
         print(self.Terminal.clear_bol)
-        self.First = True
         self.SimStatus = SimStatus
         self.AccStats = AccStats
         self.StorageStats = StorageStats
@@ -35,6 +34,10 @@ class UI:
         self.ControlInput = Control
         self.Config = Config
         self.Msg = Message(Timeout = 2)
+
+    def ResetState(self):
+        self.CurrentSection = self.Section.WAIT
+        self.First = True
 
     def CacheMaxLen(self, MaxLen = None):
         if MaxLen == None:

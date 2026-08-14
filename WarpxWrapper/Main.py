@@ -171,39 +171,9 @@ def main():
     PrintParams()
 
 
-    while 1:
-        WW = WarpxWrapper(Config, Logger)
+    WW = WarpxWrapper(Config, Logger)
 
-        WW.PrepareSource()
-        WW.PrepareDataStream()
-        WW.PrepareUI()
-        WW.RegisterActions()
-        WW.PrepareLogOutput()
-        WW.ActivateStreams()
-
-        if Config.DontRun:
-            Logger.Debug("Don't run. Exiting...")
-            return 0
-
-        WW.WaitForDataStart = time.time()
-        Logger.Debug("\n      Start waiting for WarpX Data...\n")
-
-        print("\n")
-
-        if WW.WarpxProcess == None and Config.PID > 0:
-            try:
-                WW.WarpxProcess = pypsutil.Process(Config.PID)
-            except Exception as e:
-                Logger.ExceptError(e)
-                Logger.Error(f"Cannot assign Warpx process from given PID: {Config.PID}")
-
-        WW.RunMainLoop()
-        loop = WW.Finish()
-        del WW
-        if not loop:
-            break
-
-    return ret
+    return WW.Run()
 
 if __name__ == "__main__":
     main()

@@ -22,65 +22,60 @@ from WarpxWrapper.LimitedBlockWriter import LimitedBlockWriter
 from WarpxWrapper import IterableToStr2D
 
 class SimulationStatus:
-    Header = True
-    Main = False
-    Updated = False
-    StatsUpdated = False
-    Footer = False
-
-    Step = -1 # These two are replenished externally
-    Time = -1
-
-    MaxStep = -1 # These two are set once at the beginning
-    EstMaxStep = -1
-    AvgEstMaxStep = -1
-    MaxTime = -1
-    EstMaxTime = -1
-    AvgEstMaxTime = -1
-
-    StepsLeft = -1
-    EstStepsLeft = -1
-    TimeLeft = -1
-    EstTimeLeft = -1
-
-    StepsProgress = -1
-    TimeProgress = -1
-
-    CurrentRealTime = 0 # This is replenished automatically
-
-    PrevStep = 0
-    PrevTime = 0
-    PrevRealTime = 0
-
-    StartRealTime = 0
-    ElapsedRealTime = 0
-
-    StepDelta = -1
-    TimeDelta = -1 # This also is replenished externally
-    RealTimeDelta = -1
-
-    StepSpeed = 0
-    TimeSpeed = 0
-
-    AvgStepSpeed = 0
-    AvgTimeSpeed = 0
-
-    StepETA = -1
-    TimeETA = -1
-
-    AvgStepETA = -1
-    AvgTimeETA = -1
-
-    TimePerStep = -1
-    StepsPerTime = -1
-    AvgTimePerStep = -1
-    AvgStepsPerTime = -1
-
-    def __init__(self, MaxStep, MaxTime):
-        self.MaxStep = MaxStep
-        self.MaxTime = MaxTime
-#        self.StartRealTime = time.time()
+    def Reset(self):
+        self.Header = True
+        self.Main = False
         self.Updated = False
+        self.StatsUpdated = False
+        self.Footer = False
+
+        self.Step = -1 # These two are replenished externally
+        self.Time = -1
+
+        self.MaxStep = -1 # These two are set once at the beginning
+        self.EstMaxStep = -1
+        self.AvgEstMaxStep = -1
+        self.MaxTime = -1
+        self.EstMaxTime = -1
+        self.AvgEstMaxTime = -1
+
+        self.StepsLeft = -1
+        self.EstStepsLeft = -1
+        self.TimeLeft = -1
+        self.EstTimeLeft = -1
+
+        self.StepsProgress = -1
+        self.TimeProgress = -1
+
+        self.CurrentRealTime = 0 # This is replenished automatically
+
+        self.PrevStep = 0
+        self.PrevTime = 0
+        self.PrevRealTime = 0
+
+        self.StartRealTime = 0
+        self.ElapsedRealTime = 0
+
+        self.StepDelta = -1
+        self.TimeDelta = -1 # This also is replenished externally
+        self.RealTimeDelta = -1
+
+        self.StepSpeed = 0
+        self.TimeSpeed = 0
+
+        self.AvgStepSpeed = 0
+        self.AvgTimeSpeed = 0
+
+        self.StepETA = -1
+        self.TimeETA = -1
+
+        self.AvgStepETA = -1
+        self.AvgTimeETA = -1
+
+        self.TimePerStep = -1
+        self.StepsPerTime = -1
+        self.AvgTimePerStep = -1
+        self.AvgStepsPerTime = -1
 
     def CalculateETA(self):
         self.StepDelta = self.Step - self.PrevStep
@@ -160,28 +155,29 @@ class SimulationStatus:
         self.StatsUpdated = True
 
 class AccStats:
-    UpdNr = 0
-    DataSize = 0
-    PrevDataSize = 0
-    PrevStepDataSize = 0
+    def Reset(self):
+        self.UpdNr = 0
+        self.DataSize = 0
+        self.PrevDataSize = 0
+        self.PrevStepDataSize = 0
 
-    DataSpeed = 0
-    AvgDataSpeed = 0
+        self.DataSpeed = 0
+        self.AvgDataSpeed = 0
 
-    DataSpeedStep = 0
-    AvgDataSpeedStep = 0
+        self.DataSpeedStep = 0
+        self.AvgDataSpeedStep = 0
 
-    StepESA = 0
-    TimeESA = 0
+        self.StepESA = 0
+        self.TimeESA = 0
 
-    AvgStepESA = 0
-    AvgTimeESA = 0
+        self.AvgStepESA = 0
+        self.AvgTimeESA = 0
 
-    CPUStart = 0
-    CPUTime = 0
-    PrevCPUTime = 0
-    CPU = 0
-    AvgCPU = 0
+        self.CPUStart = 0
+        self.CPUTime = 0
+        self.PrevCPUTime = 0
+        self.CPU = 0
+        self.AvgCPU = 0
 
     def Recalculate(self, TimeDelta, ElapsedTime, PausedTime):
         self.UpdNr += 1
@@ -214,12 +210,13 @@ class AccStats:
             self.AvgDataSpeedStep = self.DataSize / Step
 
 class StorageStats:
-    RawSize = 0
-    Size = 0
-    StartSize = -1
-    Speed = 0
-    ESA = 0
-    AvgESA = 0
+    def Reset(self):
+        self.RawSize = 0
+        self.Size = 0
+        self.StartSize = -1
+        self.Speed = 0
+        self.ESA = 0
+        self.AvgESA = 0
 
     def Recalculate(self, Elapsed):
         self.Size = self.RawSize - self.StartSize
@@ -233,9 +230,10 @@ class SystemStats:
 
 
 class State:
-    SkipMain = False
-    ProcessWasFinding = False
-    Footer = False
+    def Reset(self):
+        self.SkipMain = False
+        self.ProcessWasFinding = False
+        self.Footer = False
 
 class SourceType(enum.Enum):
     DEFAULT = 0 # It means the COMMAND
@@ -264,7 +262,7 @@ class WarpxWrapper:
         self.Logger = Logger
         self.State = State()
         self.UpdateInterval = self.Config.UpdateInterval
-        self.SimStatus = SimulationStatus(self.Config.MaxStep, self.Config.MaxTime)
+        self.SimStatus = SimulationStatus()
         self.AccStats = AccStats()
         self.StorageStats = StorageStats()
         self.SystemStats = SystemStats()
@@ -277,6 +275,18 @@ class WarpxWrapper:
         self.StorageTimer = Timer(self.Config.StorageInterval)
         self.DataParser = WarpxDataParser(self.SimStatus, self.Logger)
         self.PausedTime = 0
+
+    def ResetState(self):
+        self.Finishing = False
+        self.WarpxProcess = None
+        self.State.Reset()
+        self.SimStatus.Reset()
+        self.AccStats.Reset()
+        self.StorageStats.Reset()
+        self.SimStatus.MaxStep = self.Config.MaxStep
+        self.SimStatus.MaxTime = self.Config.MaxTime
+        self.UI.ResetState()
+
 
     def Error(self, *args):
         if args:
@@ -432,11 +442,13 @@ class WarpxWrapper:
     def PrepareDataStream(self):
         self.DataInput.QueueSizeThreshold = 100
 
-    def ActivateStreams(self):
+    def ActivateDataStream(self):
         self.Logger.Debug("Activating non-blocking data input.")
-        self.DataInput.Activate()
+        if self.DataInput.Activate() == 1:
+            raise RuntimeError("Another thread is already active!")
         self.Logger.Debug(1, f"Input activity status: {self.DataInput.IsActive()}.")
 
+    def ActivateStreams(self):
         if self.ControlInput.Stream != None:
             self.Logger.Debug("Activating non-blocking control input.")
             self.ControlInput.Activate()
@@ -449,9 +461,12 @@ class WarpxWrapper:
             self.LogOutput.Activate()
             self.Logger.Debug(1, f"Output Activity status: {self.LogOutput.IsActive()}.")
 
-    def CloseStreams(self):
+    def CloseDataStream(self):
         self.DataInput.Close(0)
-        #self.ControlInput.Stream.close() # stdin shouldnt be closed, right?
+        #if self.LogOutput != None:
+        #    self.LogOutput.Close()
+
+    def CloseLogStream(self):
         if self.LogOutput != None:
             self.LogOutput.Close()
 
@@ -531,6 +546,7 @@ class WarpxWrapper:
         self.UI.NonDestructive = self.Config.NonDestructivePrint
         self.UI.MinLen = 79
         self.UI.CacheMaxLen()
+        self.UI.Setup()
 
     def GetTotalElapsedTime(self):
         return time.time() - self.StartTime
@@ -736,9 +752,9 @@ class WarpxWrapper:
 
     def RunMainLoop(self):
         try:
-            self.UI.Setup()
-            self.ControlInput.DisableBuffering()
-
+            if self.Config.DontRun:
+                Logger.Debug("Don't run. Exiting...")
+                return 0
             while 1:
                 if self.Config.SkipMain:
                     self.Logger.Debug("Skipping main.")
@@ -753,15 +769,12 @@ class WarpxWrapper:
             self.Logger.Critical("Unhandled exception, breaking main loop.")
             self.Logger.ExceptCrit(e)
 
-        self.ControlInput.RestoreBuffering()
-        self.UI.Finish()
-
         return self.ExitCode
 
     def Finish(self):
         self.UI.CurrentSection = UI.Section.FOOTER
 
-        self.CloseStreams()
+        self.CloseDataStream()
 
         if self.Config.AbortOnExit and self.WarpxProcess != None:
             self.WarpxProcess.terminate()
@@ -770,3 +783,43 @@ class WarpxWrapper:
             self.UI.WriteSummary(self.GetRunningElapsedTime())
 
         return self.CallEventHandler("OnFinish", self.ExitCode)
+
+    def Run(self):
+        self.PrepareUI()
+        self.RegisterActions()
+        self.PrepareLogOutput()
+        self.ActivateStreams()
+        self.ControlInput.DisableBuffering()
+
+        try:
+            while True:
+                self.ResetState()
+                self.PrepareSource()
+                self.PrepareDataStream()
+                self.ActivateDataStream()
+
+                if self.WarpxProcess == None and Config.PID > 0:
+                    try:
+                        self.WarpxProcess = pypsutil.Process(Config.PID)
+                    except Exception as e:
+                        Logger.ExceptError(e)
+                        Logger.Error(f"Cannot assign Warpx process from given PID: {Config.PID}")
+
+                self.WaitForDataStart = time.time()
+                self.Logger.Debug("\n      Start waiting for WarpX Data...\n")
+
+                self.RunMainLoop()
+                if not self.Finish():
+                    break
+        except Exception as e:
+            self.ControlInput.RestoreBuffering()
+            self.Logger.Critical("Unhandled exception occured.")
+            self.Logger.ExceptCrit(e)
+            self.ExitCode = 4
+
+        finally:
+            self.ControlInput.RestoreBuffering()
+            self.CloseLogStream()
+            self.UI.Finish()
+
+        return self.ExitCode
