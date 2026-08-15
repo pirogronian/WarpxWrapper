@@ -799,6 +799,7 @@ class WarpxWrapper:
         try:
             while True:
                 self.ResetState()
+                self.CallEventHandler("OnInit")
                 self.PrepareSource()
                 self.PrepareDataStream()
                 self.ActivateDataStream()
