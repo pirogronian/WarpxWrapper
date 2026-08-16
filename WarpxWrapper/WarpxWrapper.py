@@ -674,7 +674,7 @@ class WarpxWrapper:
         if self.StartTime < 0:
             WaitingFor = time.time() - self.WaitForDataStart
             if WaitingFor > 0:
-                self.UI.PrintStaticLine(f"   Waiting for WarpX to start sending data for: {self.UI.FmtTime.Str(WaitingFor)}")
+                self.UI.PrintStaticLine(f"Waiting for WarpX to start sending data for: {self.UI.FmtTime.Str(WaitingFor)}")
 
         #if not (Header or Footer):
         #    self.UI.Update()
@@ -723,7 +723,7 @@ class WarpxWrapper:
         if self.StartTime < 0:
             self.StartTime = time.time()
             self.UI.CurrentSection = UI.Section.HEADER
-            self.UI.PrintLine("\n   Got data, starting processing.")
+            self.UI.PrintLine("\nGot data, starting processing.\n")
 
         if self.LogOutput != None:
             self.LogOutput.Write(OutputLine)
@@ -812,7 +812,7 @@ class WarpxWrapper:
                         Logger.Error(f"Cannot assign Warpx process from given PID: {Config.PID}")
 
                 self.WaitForDataStart = time.time()
-                self.Logger.Debug("\n      Start waiting for WarpX Data...\n")
+                self.Logger.Debug("Start waiting for WarpX data...\n")
 
                 self.RunMainLoop()
                 if not self.Finish():

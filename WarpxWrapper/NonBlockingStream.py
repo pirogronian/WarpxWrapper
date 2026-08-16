@@ -90,7 +90,7 @@ class CommonStream:
                 if self.Interval > 0:
                     time.sleep(self.Interval)
                 else:
-                    print("Zero data, exiting.")
+                    #print("Zero data, exiting.")
                     break
         if self.AutoClose:
             self.Stream.close()
