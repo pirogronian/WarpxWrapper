@@ -1,7 +1,7 @@
 [project]
 name = "WarpxWrapper"
 dependencies = ["blessed", "pypsutil", "regex"]
-version = "1.0-rc"
+version = "2.0-rc"
 authors = [
     { name = "Łukasz Buczyński", email = "lukasz.a.buczynski@gmail.com" }
 ]
