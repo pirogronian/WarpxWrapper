@@ -26,6 +26,9 @@ class Config:
     MaxStep = -1
     MaxTime = -1.0
 
+    SeqMaxStep = -1
+    SeqMaxTime = -1.0
+
     Source = "command"
 
     ExecBase = "warpx."
@@ -51,6 +54,7 @@ class Config:
     ProgressBar = True
 
     BreakKey = "\x1b"
+    SeqKey = 's'
     ISOKey = "f"
     NonDestructivePrintKey = "d"
     AvgKey = 'a'

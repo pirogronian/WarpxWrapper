@@ -193,6 +193,7 @@ class UI:
             if TProgPerc > 0 and TProgPerc < TermProgress:
                 TermProgress = TProgPerc
         TermProgress = max(TermProgress, 0)
+        TermProgress = min(TermProgress, 100)
         #print("Terminal progress:", TermProgress)
         self.Terminal.progress_bar("normal", TermProgress)
 
