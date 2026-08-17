@@ -29,6 +29,12 @@ class SimulationStatus:
         self.StatsUpdated = False
         self.Footer = False
 
+        self.StartRealTime = time.time()
+        self.ElapsedRealTime = 0
+        self.Paused = False
+        self.PausedAt = 0
+        self.PausedRealTime = 0
+
         self.Step = -1 # These two are replenished externally
         self.Time = -1
 
@@ -53,9 +59,6 @@ class SimulationStatus:
         self.PrevTime = 0
         self.PrevRealTime = 0
 
-        self.StartRealTime = 0
-        self.ElapsedRealTime = 0
-
         self.StepDelta = -1
         self.TimeDelta = -1 # This also is replenished externally
         self.RealTimeDelta = -1
@@ -77,6 +80,24 @@ class SimulationStatus:
         self.AvgTimePerStep = -1
         self.AvgStepsPerTime = -1
 
+    def Pause(self):
+        self.PausedAt = time.time()
+        self.Paused = True
+
+    def Resume(self):
+        self.PausedRealTime += time.time() - self.PausedAt()
+        self.Paused = False
+
+    def CompElapsedRealTime(self):
+        if self.Paused:
+            return self.PausedAt - self.StartRealTime - self.PausedRealTime
+        return time.time() - self.StartRealTime - self.PausedRealTime
+
+    def CompPausedRealTime(self):
+        if self.Paused:
+            return time.time() - self.PausedAt + self.PausedRealTime
+        return self.PausedRealTime
+
     def CalculateETA(self):
         self.StepDelta = self.Step - self.PrevStep
         # TimeDelta was provided externally, but is no longer
@@ -86,7 +107,7 @@ class SimulationStatus:
         #print(f"PrevStep: {self.PrevStep}, PrevTime: {self.PrevTime}")
         #print(f"Deltas: step {self.StepDelta}, time {self.TimeDelta}")
 
-        self.RealTimeDelta = self.CurrentRealTime - self.PrevRealTime
+        self.RealTimeDelta = self.ElapsedRealTime - self.PrevRealTime
 
         if self.MaxStep > 0 and self.StepDelta > 0:
             self.TimePerStep = self.TimeDelta / self.StepDelta
@@ -122,23 +143,13 @@ class SimulationStatus:
         if self.AvgTimeSpeed > 0:
             self.AvgTimeETA = self.TimeLeft / self.AvgTimeSpeed
 
-    def Recalculate(self, Time = None):
-        if self.Step <= self.PrevStep:
-            self.Logger.Warning(f"Step {self.Step} <= last step: {self.PrevStep}. Nothing to calculate.")
-            return
-        if self.Time <= self.PrevTime:
-            self.Logger.Warning(f"Time {self.Time} <= last time: {self.PrevTime}. Nothing to calculate.")
-            return
-        if Time == None:
-            Time = time.time()
-
-        if self.StartRealTime == 0:
-            self.StartRealTime = Time
-
+    def Recalculate(self):
         #print(f"TimeDelta: {self.TimeDelta}, StepDelta: {self.StepDelta}")
 
-        self.CurrentRealTime = Time
-        self.ElapsedRealTime = self.CurrentRealTime - self.StartRealTime - self.PausedTime
+        self.ElapsedRealTime = self.CompElapsedRealTime()
+        self.PausedRealTime = self.CompPausedRealTime()
+
+        self.RealTimeDelta = self.ElapsedRealTime - self.PrevRealTime
 
         if self.Step >= 0 and self.MaxStep > 0:
             self.StepsLeft = self.MaxStep - self.Step
@@ -157,7 +168,7 @@ class SimulationStatus:
 
         self.PrevStep = self.Step
         self.PrevTime = self.Time
-        self.PrevRealTime = self.CurrentRealTime
+        self.PrevRealTime = self.ElapsedRealTime
 
         self.StatsUpdated = True
 
@@ -187,8 +198,8 @@ class SimSequenceStatus:
         self.StepsProgress = -1
         self.TimeProgress = -1
 
-        self.StartRealTime = 0
         self.ElapsedRealTime = 0
+        self.PausedRealTime = 0
 
         self.AvgStepSpeed = 0
         self.AvgTimeSpeed = 0
@@ -217,6 +228,13 @@ class SimSequenceStatus:
         self.PrevStep = self.Step
         self.PrevTime = self.Time
         self.PrevRealTime = self.ElapsedRealTime
+        self.PrevPausedTime = self.PausedRealTime
+
+    def CompElapsedRealTime(self, SimStatus):
+        return self.PrevRealTime + SimStatus.CompElapsedRealTime()
+
+    def CompPausedRealTime(self, SimStatus):
+        return self.PrevPausedTime + SimStatus.CompPausedRealTime()
 
     def Recalculate(self, SimStatus, MaxStep = -1, MaxTime = -1):
         self.MaxStep = MaxStep
@@ -231,7 +249,7 @@ class SimSequenceStatus:
 
         self.Step = self.PrevStep + SimStatus.Step
         self.Time = self.PrevTime + SimStatus.Time
-        self.ElapsedRealTime = self.PrevRealTime + SimStatus.ElapsedRealTime
+        self.ElapsedRealTime = self.CompElapsedRealTime(SimStatus)
 
         if self.ElapsedRealTime > 0:
             self.AvgStepSpeed = self.Step / self.ElapsedRealTime
@@ -616,23 +634,23 @@ class WarpxWrapper:
     def Pause(self):
         if self.WarpxProcess != None:
             System.PauseProcTree(self.WarpxProcess)
-        self.PausedAt = time.time()
-        self.Paused = True
+        self.SimStatus.Pause()
         self.UI.Status("Paused")
 
     def Resume(self):
         if self.WarpxProcess != None:
             System.ResumeProcTree(self.WarpxProcess)
-        self.Pausedtime += time.time() - self.PausedAt
-        self.Paused = False
+        self.SimStatus.Resume()
         self.UI.Status()
         self.UI.Message("Resumed")
 
     def SwitchRunningState(self):
-        if self.Paused:
+        if self.SimStatus.Paused:
             self.Resume()
         else:
             self.Pause()
+        self.SimStatus.Recalculate()
+        self.SimSeqStatus.Recalculate(self.SimStatus)
 
     def SwitchDestrictive(self):
         self.Config.NonDestructivePrint = not self.Config.NonDestructivePrint
@@ -686,20 +704,6 @@ class WarpxWrapper:
         self.UI.MinLen = 79
         self.UI.CacheMaxLen()
         self.UI.Setup()
-
-    def GetTotalElapsedTime(self):
-        return time.time() - self.StartTime
-
-    def GetRunningElapsedTime(self):
-        if self.Paused:
-            return self.PausedAt - self.StartTime - self.PausedTime
-        return self.GetTotalElapsedTime() - self.PausedTime
-
-    def GetPausedTime(self):
-        ret = self.PausedTime
-        if self.Paused:
-            ret += time.time() - self.PausedAt
-        return ret
 
     def CalculateESA(self):
         ETA = 0
@@ -773,11 +777,10 @@ class WarpxWrapper:
         if self.UpdateTimer.Expired() or Force:
             if self.SimStatus.Updated:
                 self.SimStatus.Updated = False
-            self.SimStatus.PausedTime = self.GetPausedTime()
             self.AccStats.Recalculate(
                     self.SimStatus.RealTimeDelta,
                     self.SimStatus.ElapsedRealTime,
-                    self.SimStatus.PausedTime
+                    self.SimStatus.PausedRealTime
                 )
             self.CalculateESA()
             if self.WarpxProcess != None:
@@ -931,7 +934,7 @@ class WarpxWrapper:
             self.WarpxProcess.terminate()
 
         if not self.Config.Quiet:
-            self.UI.WriteSummary(self.GetRunningElapsedTime())
+            self.UI.WriteSummary(self.SimSeqStatus.ElapsedRealTime)
 
         return self.CallEventHandler("OnFinish", self.ExitCode)
 
