@@ -645,6 +645,8 @@ class WarpxWrapper:
             self.UI.SimStatus = self.SimStatus
             self.UI.Message("Current iteration stats")
 
+        self.CalculateESA()
+
     def SwitchAvgStats(self):
         self.UI.Avg = not self.UI.Avg
         self.UI.Message(f"Avg: {self.UI.Avg}")
@@ -700,32 +702,37 @@ class WarpxWrapper:
         ETA = 0
         AvgETA = 0
 
-        if self.SimStatus.StepETA > 0:
-            ETA = self.SimStatus.StepETA
-            if self.SimStatus.TimeETA > 0:
-                ETA += self.SimStatus.TimeETA
+        if self.SimSeq:
+            Sim = self.SimSeqStatus
+        else:
+            Sim = self.SimStatus
+
+        if Sim.StepETA > 0:
+            ETA = Sim.StepETA
+            if Sim.TimeETA > 0:
+                ETA += Sim.TimeETA
                 ETA /= 2
         else:
-            ETA = self.SimStatus.TimeETA
+            ETA = Sim.TimeETA
 
-        if self.SimStatus.AvgStepETA > 0:
-            AvgETA = self.SimStatus.AvgStepETA
-            if self.SimStatus.AvgTimeETA > 0:
-                AvgETA += self.SimStatus.AvgTimeETA
+        if Sim.AvgStepETA > 0:
+            AvgETA = Sim.AvgStepETA
+            if Sim.AvgTimeETA > 0:
+                AvgETA += Sim.AvgTimeETA
                 AvgETA /= 2
         else:
-            AvgETA = self.SimStatus.AvgTimeETA
+            AvgETA = Sim.AvgTimeETA
 
         #print(f"SimStatus.StepsLeft: {self.SimStatus.StepsLeft}, AccStats.DataStepSpeed: {self.AccStats.DataStepSpeed}")
-        if self.SimStatus.StepsLeft >= 0 and self.AccStats.DataSpeedStep >= 0:
-            self.AccStats.StepESA = self.AccStats.DataSize + self.SimStatus.StepsLeft * self.AccStats.DataSpeedStep
+        if Sim.StepsLeft >= 0 and self.AccStats.DataSpeedStep >= 0:
+            self.AccStats.StepESA = self.AccStats.DataSize + Sim.StepsLeft * self.AccStats.DataSpeedStep
 
         #print(f"SimStatus.TimeETA: {self.SimStatus.TimeETA}, AccStats.DataSpeed: {self.AccStats.DataSpeed}")
         if ETA >= 0 and self.AccStats.DataSpeed >= 0:
             self.AccStats.TimeESA = self.AccStats.DataSize + ETA * self.AccStats.DataSpeed
 
-        if self.SimStatus.StepsLeft >= 0 and self.AccStats.AvgDataSpeedStep >= 0:
-            self.AccStats.AvgStepESA = self.AccStats.DataSize + self.SimStatus.StepsLeft * self.AccStats.AvgDataSpeedStep
+        if Sim.StepsLeft >= 0 and self.AccStats.AvgDataSpeedStep >= 0:
+            self.AccStats.AvgStepESA = self.AccStats.DataSize + Sim.StepsLeft * self.AccStats.AvgDataSpeedStep
 
         if AvgETA >= 0 and self.AccStats.AvgDataSpeed >= 0:
             self.AccStats.AvgTimeESA = self.AccStats.DataSize + AvgETA * self.AccStats.AvgDataSpeed
