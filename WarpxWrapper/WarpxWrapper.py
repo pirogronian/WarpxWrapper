@@ -126,6 +126,9 @@ class SimulationStatus:
         if self.Step <= self.PrevStep:
             self.Logger.Warning(f"Step {self.Step} <= last step: {self.PrevStep}. Nothing to calculate.")
             return
+        if self.Time <= self.PrevTime:
+            self.Logger.Warning(f"Time {self.Time} <= last time: {self.PrevTime}. Nothing to calculate.")
+            return
         if Time == None:
             Time = time.time()
 
