@@ -1,7 +1,7 @@
 [project]
 name = "WarpxWrapper"
 dependencies = ["blessed", "pypsutil", "regex"]
-version = "2.0-rc"
+dynamic = ["version"]
 authors = [
     { name = "Łukasz Buczyński", email = "lukasz.a.buczynski@gmail.com" }
 ]
@@ -25,5 +25,11 @@ WarpxWrapper = "WarpxWrapper.Main:main"
 "Source code" = "https://github.com/pirogronian/WarpxWrapper"
 
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling", "hatch-vcs"]
 build-backend = "hatchling.build"
+
+[tool.hatch.version]
+source = "vcs"
+
+[tool.hatch.build.hooks.vcs]
+version-file = "WarpxWrapper/_version.py"

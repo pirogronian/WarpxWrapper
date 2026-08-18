@@ -5,7 +5,7 @@ import argparse
 import os
 import sys
 import time
-from WarpxWrapper import ConfigManager, IncludeAction, Logger, Verbosity, WarpxWrapper, SourceNames, System
+from WarpxWrapper import ConfigManager, IncludeAction, Logger, Verbosity, WarpxWrapper, SourceNames, System, __version__
 
 DefaultWarpxInputFileName = "input"
 
@@ -87,7 +87,8 @@ CM = ConfigManager(
     Config,
     Logger,
     Error = Error,
-    Description = "Small script for showing realtime WarpX time and progress stats and (optionally) to help running it.")
+    prog = f"WarpxWrapper {__version__}",
+    description = "Small script for showing realtime WarpX time and progress stats and (optionally) to help running it.")
 
 def PrintParam(name, MinLength = 0):
     Value = getattr(Config, name)

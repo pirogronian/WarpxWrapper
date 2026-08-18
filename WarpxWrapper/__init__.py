@@ -12,3 +12,4 @@ from .Various import StrToBool, StrToInt, StrToType, TypeDescription, IterableTo
 from .WarpxDataParser import WarpxDataParser
 from .WarpxWrapper import WarpxWrapper, SourceType, SourceNames
 from .LimitedBlockWriter import LimitedBlockWriter
+from ._version import __version__

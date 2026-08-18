@@ -42,7 +42,7 @@ class ParamAction(argparse.Action):
 
 class ConfigManager:
 
-    def __init__(self, Config, Logger, Error, Fatal = None, Description = None):
+    def __init__(self, Config, Logger, Error, Fatal = None, *args, **kargs):
         self.Config = Config
         self.Logger = Logger
         self.Error = Error
@@ -52,7 +52,7 @@ class ConfigManager:
         ParamAction.Logger = Logger
         ParamAction.Error = Error
         self.Params = []
-        self.Parser = argparse.ArgumentParser(description = Description)
+        self.Parser = argparse.ArgumentParser(*args, **kargs)
 
     def IncludeFile(self, fname):
         self.Logger.Debug(f"Including file '{fname}'.")
