@@ -49,9 +49,6 @@ class Config:
     SkipMain = False
     SkipFooter = False
     DontWaitForFooter = True
-    NonDestructivePrint = False
-
-    ProgressBar = True
 
     BreakKey = "\x1b"
     SeqKey = 's'
@@ -61,6 +58,12 @@ class Config:
     RawOutputKey = 'r'
     ProgressBarKey = 'p'
     PauseKey = ' '
+
+    class UI:
+        ProgressBar = True
+        NonDestructivePrint = False
+        Average = False
+        Sequence = False
 
 Logger = Logger("WarpxWrapper", Config)
 
@@ -129,8 +132,8 @@ def InitParams():
     CM.AddParam("MaxLogSize", "--max-log-size", metavar="size")
     CM.AddParam("MaxLogFileSize", "--max-log-file-size", metavar="size")
     CM.AddParam("StoragePath", "-o", "--storage", metavar="storage_path")
-    CM.AddParam("NonDestructivePrint", "-d", "--non-destructive-print", const = True)
-    CM.AddParam("ProgressBar", "-b", "--progress-bar", const = True)
+    #CM.AddParam("NonDestructivePrint", "-d", "--non-destructive-print", const = True)
+    #CM.AddParam("ProgressBar", "-b", "--progress-bar", const = True)
     CM.AddParam("UpdateInterval", "-u", "--upd-int", "--update-interval", metavar="seconds")
     CM.AddParam("StorageInterval", "--st--int", "--storage-interval", metavar="seconds")
     CM.AddParam("MaxStep", "-x", "--max-steps")

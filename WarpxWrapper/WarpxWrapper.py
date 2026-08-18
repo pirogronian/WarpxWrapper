@@ -737,7 +737,7 @@ class WarpxWrapper:
         self.UI.Message(f"Raw mode: {self.Raw}")
 
     def SwitchProgressBar(self):
-        self.Config.ProgressBar = not self.Config.ProgressBar
+        self.Config.UI.ProgressBar = not self.Config.UI.ProgressBar
 
     def DoUserBreak(self):
         self.UI.PrintLine("\n\n")
@@ -745,7 +745,6 @@ class WarpxWrapper:
         self.UserBreak = True
 
     def PrepareUI(self):
-        self.UI.NonDestructive = self.Config.NonDestructivePrint
         self.UI.MinLen = 79
         self.UI.CacheMaxLen()
         self.UI.Setup()

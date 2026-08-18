@@ -14,8 +14,6 @@ class UI:
 
     MinLen = 0
     MaxLen = 0
-    Avg = False
-    Seq = False
     CurrentSection = Section.WAIT
 
     SimStatusHeight = 15
@@ -59,7 +57,7 @@ class UI:
     def PrintStaticLine(self, Text):
         Begin = "\r"
         End = ''
-        if self.Config.NonDestructivePrint:
+        if self.Config.UI.NonDestructivePrint:
             Begin = ""
             End = "\n"
         self.PrintLine(Begin + Text, End = End)
@@ -95,24 +93,24 @@ class UI:
         self.PrintLine(self.Centered(Text))
 
     def GetSimStatus(self):
-        if self.Seq:
+        if self.Config.UI.Sequence:
             return self.SimSeq
         return self.SimSeq.Current
 
     def UpdateSimStatus(self):
-        if self.Seq:
+        if self.Config.UI.Sequence:
             self.SimStatus = self.SimSeq
         else:
             self.SimStatus = self.SimSeq.Current
 
     def GetSimSpeeds(self):
-        if self.Avg:
+        if self.Config.UI.Average:
             return self.SimStatus.AvgStepSpeed, self.SimStatus.AvgTimeSpeed
         return self.SimStatus.StepSpeed, self.SimStatus.TimeSpeed
 
     def GetEstSteps(self):
         ems = -1
-        if self.Avg:
+        if self.Config.UI.Average:
             ems = self.SimStatus.AvgEstMaxStep
         else:
             ems = self.SimStatus.EstMaxStep
@@ -121,7 +119,7 @@ class UI:
 
     def GetEstTime(self):
         emt = -1
-        if self.Avg:
+        if self.Config.UI.Average:
             emt = self.SimStatus.AvgEstMaxTime
         else:
             emt = self.SimStatus.EstMaxTime
@@ -129,27 +127,27 @@ class UI:
         return emt, elt
 
     def GetSimETAs(self):
-        if self.Avg:
+        if self.Config.UI.Average:
             return self.SimStatus.AvgStepETA, self.SimStatus.AvgTimeETA
         return self.SimStatus.StepETA, self.SimStatus.TimeETA
 
     def GetDataSpeeds(self):
-        if self.Avg:
+        if self.Config.UI.Average:
             return self.SimStatus.AccStats.AvgDataSpeedStep, self.SimStatus.AccStats.AvgDataSpeed
         return self.SimStatus.AccStats.DataSpeedStep, self.SimStatus.AccStats.DataSpeed
 
     def GetDataESAs(self):
-        if self.Avg:
+        if self.Config.UI.Average:
             return self.SimStatus.AccStats.AvgStepESA, self.SimStatus.AccStats.AvgTimeESA
         return self.SimStatus.AccStats.StepESA, self.SimStatus.AccStats.TimeESA
 
     def GetCPU(self):
-        if self.Avg:
+        if self.Config.UI.Average:
             return self.SimStatus.AccStats.AvgCPU
         return self.SimStatus.AccStats.CPU
 
     def GetStorageESA(self):
-        if self.Avg:
+        if self.Config.UI.Average:
             return self.SimStatus.StorageStats.AvgESA
         return self.SimStatus.StorageStats.ESA
 
@@ -162,7 +160,7 @@ class UI:
     def WriteHeader(self):
         lmin, lmax = self.GetLen()
 #        print(lmin, lmax, Length)
-        nd = self.Config.NonDestructivePrint
+        nd = self.Config.UI.NonDestructivePrint
         self.PrintSeparator()
         self.PrintCentered("Time statistics:")
         self.PrintSeparator()
@@ -210,13 +208,13 @@ class UI:
         SSSpeed, STSpeed = self.GetSimSpeeds()
         SETA, TETA = self.GetSimETAs()
 
-        if self.Config.ProgressBar:
+        if self.Config.UI.ProgressBar:
             pbcs = self.Terminal.reverse  #self.Config.PBColors
 
         s1 = f"Step:  {fn.Str(s.Step):^15} / {MaxSstr:^15} : {LeftSstr:^15} ({fn.Str(SProgPerc):>3}%)," +\
         f"x{fn.Str(SSSpeed):>9}, ETA: {ft.Str(SETA):>20}"
 
-        if self.Config.ProgressBar and s.StepsProgress >= 0:
+        if self.Config.UI.ProgressBar and s.StepsProgress >= 0:
             sl = len(s1)
             pbe = int(s.StepsProgress * sl)
             s1 = pbcs + s1[:pbe] + self.Terminal.normal + s1[pbe:]
@@ -224,7 +222,7 @@ class UI:
         s2 = f"Sim time: {ft.Str(s.Time):^12} / {MaxTstr:^15} : {LeftTstr:^15} ({fn.Str(TProgPerc):>3}%)," +\
         f"x{fn.Str(STSpeed):>9}, ETA: {ft.Str(TETA):>20}"
 
-        if self.Config.ProgressBar and s.TimeProgress >= 0:
+        if self.Config.UI.ProgressBar and s.TimeProgress >= 0:
             sl = len(s2)
             pbe = int(s.TimeProgress * sl)
             s2 = pbcs + s2[:pbe] + self.Terminal.normal + s2[pbe:]
@@ -298,7 +296,7 @@ class UI:
 
             MoveUp = self.SimStatusHeight
 #            print(f"MoveUp: {MoveUp}")
-            if MoveUp and not self.Config.NonDestructivePrint:
+            if MoveUp and not self.Config.UI.NonDestructivePrint:
                 print(self.Terminal.move_up(MoveUp + 1))
             self.WriteSimStatus()
             self.WriteAccStats()
@@ -310,20 +308,20 @@ class UI:
             self.First = False
 
     def SwitchDestrictive(self):
-        self.Config.NonDestructivePrint = not self.Config.NonDestructivePrint
-        if not self.Config.NonDestructivePrint:
+        self.Config.UI.NonDestructivePrint = not self.Config.UI.NonDestructivePrint
+        if not self.Config.UI.NonDestructivePrint:
             self.First = True
 
     def SwitchSeq(self):
-        self.Seq = not self.Seq
-        if self.Seq:
+        self.Config.UI.Sequence = not self.Config.UI.Sequence
+        if self.Config.UI.Sequence:
             self.Message("All sequence stats")
         else:
             self.Message("Current iteration stats")
 
     def SwitchAvg(self):
-        self.Avg = not self.Avg
-        self.Message(f"Avg: {self.Avg}")
+        self.Config.UI.Average = not self.Config.UI.Average
+        self.Message(f"Avg: {self.Config.UI.Average}")
 
     def SwitchFormat(self):
         msg = "Format: "
