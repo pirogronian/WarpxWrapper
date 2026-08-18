@@ -413,7 +413,6 @@ class WarpxWrapper:
         self.SystemStats = SystemStats()
         self.Control = ControlManager()
         self.EventQueue = SimpleQueue()
-        self.DataInput = InputStream(Lines = True, EventQueue = self.EventQueue, Event = 1)
         self.ControlInput = InputTerminal(EventQueue = self.EventQueue, Event = 2, Interval = 0, UseBlessed = False, force_styling=True)
         self.UI = UI(self.SimStatus, self.AccStats, self.StorageStats, self.SystemStats, self.ControlInput, self.Config)
         self.UpdateTimer = Timer(self.Config.UpdateInterval)
@@ -586,6 +585,7 @@ class WarpxWrapper:
             self.Logger.Debug(f"File '{self.Config.LogFile}' successfully opened.")
 
     def PrepareDataStream(self):
+        self.DataInput = InputStream(Lines = True, EventQueue = self.EventQueue, Event = 1)
         self.DataInput.QueueSizeThreshold = 100
 
     def ActivateDataStream(self):
@@ -608,7 +608,7 @@ class WarpxWrapper:
             self.Logger.Debug(1, f"Output Activity status: {self.LogOutput.IsActive()}.")
 
     def CloseDataStream(self):
-        self.DataInput.Close()
+        self.DataInput.Close(0)
         #if self.LogOutput != None:
         #    self.LogOutput.Close()
 
@@ -950,8 +950,8 @@ class WarpxWrapper:
             while True:
                 self.ResetState()
                 self.CallEventHandler("OnInit")
-                self.PrepareSource()
                 self.PrepareDataStream()
+                self.PrepareSource()
                 self.ActivateDataStream()
 
                 if self.WarpxProcess == None and Config.PID > 0:
