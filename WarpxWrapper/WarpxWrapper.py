@@ -405,7 +405,6 @@ class WarpxWrapper:
         self.Config = Config
         self.Logger = Logger
         self.State = State()
-        self.UpdateInterval = self.Config.UpdateInterval
         self.SimStatus = SimulationStatus()
         self.SimSeqStatus = SimSequenceStatus()
         self.AccStats = AccStats()
