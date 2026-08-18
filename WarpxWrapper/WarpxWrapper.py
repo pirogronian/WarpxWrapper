@@ -929,10 +929,15 @@ class WarpxWrapper:
         self.UI.CurrentSection = UI.Section.FOOTER
 
         self.Resume()
-        self.CloseDataStream()
 
-        if self.Config.AbortOnExit and self.WarpxProcess != None:
+        S = SourceNames[self.Config.Source]
+        if (self.Config.AbortOnExit or S == SourceType.COMMAND) and self.WarpxProcess != None:
+            self.Logger.Debug("Terminating WarpX.")
             self.WarpxProcess.terminate()
+            time.sleep(0.1)
+            self.WarpxProcess.kill()
+
+        self.CloseDataStream()
 
         if not self.Config.Quiet:
             self.UI.WriteSummary(self.SimSeqStatus.ElapsedRealTime)
