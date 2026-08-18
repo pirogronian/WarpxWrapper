@@ -21,11 +21,94 @@ from WarpxWrapper import WarpxDataParser
 from WarpxWrapper.LimitedBlockWriter import LimitedBlockWriter
 from WarpxWrapper import IterableToStr2D
 
+def ChooseETA(ETA1, ETA2):
+    if ETA1 > 0 and ETA2 > 0:
+        return min(ETA1, ETA2)
+
+    if ETA1 > 0:
+        return ETA1
+    return ETA2
+
+class AccStats:
+    def Reset(self):
+        self.UpdNr = 0
+        self.DataSize = 0
+        self.PrevDataSize = 0
+        self.PrevStepDataSize = 0
+
+        self.DataSpeed = 0
+        self.AvgDataSpeed = 0
+
+        self.DataSpeedStep = 0
+        self.AvgDataSpeedStep = 0
+
+        self.StepESA = 0
+        self.TimeESA = 0
+
+        self.AvgStepESA = 0
+        self.AvgTimeESA = 0
+
+        self.CPUStart = 0
+        self.CPUTime = 0
+        self.PrevCPUTime = 0
+        self.CPU = 0
+        self.AvgCPU = 0
+
+    def Recalculate(self, TimeDelta, ElapsedTime, PausedTime):
+        self.UpdNr += 1
+        #print(f"Upd # {self.UpdNr}. Loop: {self.Loop}.")
+        #print(f"CTime: {self.CurrentTime:.2f}, prev time: {self.PrevTime:.2f}")
+
+        self.DataDelta = self.DataSize - self.PrevDataSize
+        self.CPUDelta = self.CPUTime - self.PrevCPUTime
+
+        if TimeDelta > 0:
+            self.DataSpeed = self.DataDelta / TimeDelta
+            self.CPU = self.CPUDelta / TimeDelta
+
+        if ElapsedTime > 0:
+            self.AvgDataSpeed = self.DataSize / ElapsedTime
+
+        if self.CPUStart > 0:
+            self.AvgCPU = self.CPUTime / (time.time() - self.CPUStart - PausedTime)
+            #print(f"Set AvgCPU: {self.CPUTime} / {time.time()} - {self.CPUStart} = / {time.time() - self.CPUStart} = {self.AvgCPU}")
+
+        self.PrevDataSize = self.DataSize
+        self.PrevCPUTime = self.CPUTime
+        #print(f"DDelta: {self.DataDelta} / {self.Delta:.2f}, {self.DataSpeed:.2f}/s")
+
+    def RecalculateStep(self, Step, StepDelta):
+        self.DataStepDelta = self.DataSize - self.PrevStepDataSize
+        if StepDelta > 0:
+            self.DataSpeedStep = self.DataStepDelta / StepDelta
+        if Step > 0:
+            self.AvgDataSpeedStep = self.DataSize / Step
+
+
+class StorageStats:
+    def Reset(self):
+        self.RawSize = 0
+        self.Size = 0
+        self.StartSize = -1
+        self.Speed = 0
+        self.ESA = 0
+        self.AvgESA = 0
+
+    def Recalculate(self, Elapsed):
+        self.Size = self.RawSize - self.StartSize
+        if Elapsed > 0:
+            self.Speed = self.Size / Elapsed
+            #print(f"St Speed: {self.Speed:.2f}, {SizeStr(self.Size)} - {SizeStr(self.StartSize)} = {SizeStr(self.Size - self.StartSize)} / {self.Elapsed:.4f}")
+
+
 class SimulationStatus:
+    def __init__(self, AccStats, StorageStats):
+        self.AccStats = AccStats
+        self.StorageStats = StorageStats
+
     def Reset(self):
         self.Header = True
         self.Main = False
-        self.Updated = False
         self.StatsUpdated = False
         self.Footer = False
 
@@ -79,6 +162,9 @@ class SimulationStatus:
         self.StepsPerTime = -1
         self.AvgTimePerStep = -1
         self.AvgStepsPerTime = -1
+
+        self.AccStats.Reset()
+        self.StorageStats.Reset()
 
     def Pause(self):
         self.PausedAt = time.time()
@@ -143,6 +229,33 @@ class SimulationStatus:
         if self.AvgTimeSpeed > 0:
             self.AvgTimeETA = self.TimeLeft / self.AvgTimeSpeed
 
+    def CalculateESA(self):
+        ETA = 0
+        AvgETA = 0
+
+        ETA = ChooseETA(self.StepETA, self.TimeETA)
+        AvgETA = ChooseETA(self.AvgStepETA, self.AvgTimeETA)
+
+        #print(f"SimStatus.StepsLeft: {self.SimSeq.Current.StepsLeft}, AccStats.DataStepSpeed: {self.AccStats.DataStepSpeed}")
+        if self.StepsLeft >= 0 and self.AccStats.DataSpeedStep >= 0:
+            self.AccStats.StepESA = self.AccStats.DataSize + self.StepsLeft * self.AccStats.DataSpeedStep
+
+        #print(f"SimStatus.TimeETA: {self.SimSeq.Current.TimeETA}, AccStats.DataSpeed: {self.AccStats.DataSpeed}")
+        if ETA >= 0 and self.AccStats.DataSpeed >= 0:
+            self.AccStats.TimeESA = self.AccStats.DataSize + ETA * self.AccStats.DataSpeed
+
+        if self.StepsLeft >= 0 and self.AccStats.AvgDataSpeedStep >= 0:
+            self.AccStats.AvgStepESA = self.AccStats.DataSize + self.StepsLeft * self.AccStats.AvgDataSpeedStep
+
+        if AvgETA >= 0 and self.AccStats.AvgDataSpeed >= 0:
+            self.AccStats.AvgTimeESA = self.AccStats.DataSize + AvgETA * self.AccStats.AvgDataSpeed
+
+        if ETA >= 0:
+            self.StorageStats.ESA = self.StorageStats.Size + self.StorageStats.Speed * ETA
+
+        if AvgETA >= 0:
+            self.StorageStats.AvgESA = self.StorageStats.Size + self.StorageStats.Speed * AvgETA
+
     def Recalculate(self):
         #print(f"TimeDelta: {self.TimeDelta}, StepDelta: {self.StepDelta}")
 
@@ -166,19 +279,22 @@ class SimulationStatus:
         if self.ElapsedRealTime > 0:
             self.CalculateAvgETA()
 
+        self.AccStats.Recalculate(self.RealTimeDelta, self.ElapsedRealTime, self.PausedRealTime)
+        self.AccStats.RecalculateStep(self.Step, self.StepDelta)
+        self.CalculateESA()
+
         self.PrevStep = self.Step
         self.PrevTime = self.Time
         self.PrevRealTime = self.ElapsedRealTime
 
-        self.StatsUpdated = True
 
 class SimSequenceStatus:
-    def __init__(self, CurrentSim):
+    def __init__(self, CurrentSim, AccStats, StorageStats):
         self.Current = CurrentSim
+        self.AccStats = AccStats
+        self.StorageStats = StorageStats
 
     def Reset(self):
-        self.StatsUpdated = False
-
         self.Iteration = 0
         self.Step = 0
         self.Time = 0.0
@@ -226,6 +342,9 @@ class SimSequenceStatus:
         self.TimeDelta = -1
         self.RealTimeDelta = -1
 
+        self.AccStats.Reset()
+        self.StorageStats.Reset()
+
     def Next(self):
         self.Iteration += 1
         self.PrevStep = self.Step
@@ -239,7 +358,36 @@ class SimSequenceStatus:
     def CompPausedRealTime(self):
         return self.PrevPausedTime + self.Current.CompPausedRealTime()
 
+    def CalculateESA(self):
+        ETA = 0
+        AvgETA = 0
+
+        ETA = ChooseETA(self.StepETA, self.TimeETA)
+        AvgETA = ChooseETA(self.AvgStepETA, self.AvgTimeETA)
+
+        #print(f"SimStatus.StepsLeft: {self.SimSeq.Current.StepsLeft}, AccStats.DataStepSpeed: {self.AccStats.DataStepSpeed}")
+        if self.StepsLeft >= 0 and self.AccStats.DataSpeedStep >= 0:
+            self.AccStats.StepESA = self.AccStats.DataSize + self.StepsLeft * self.AccStats.DataSpeedStep
+
+        #print(f"SimStatus.TimeETA: {self.SimSeq.Current.TimeETA}, AccStats.DataSpeed: {self.AccStats.DataSpeed}")
+        if ETA >= 0 and self.AccStats.DataSpeed >= 0:
+            self.AccStats.TimeESA = self.AccStats.DataSize + ETA * self.AccStats.DataSpeed
+
+        if self.StepsLeft >= 0 and self.AccStats.AvgDataSpeedStep >= 0:
+            self.AccStats.AvgStepESA = self.AccStats.DataSize + self.StepsLeft * self.AccStats.AvgDataSpeedStep
+
+        if AvgETA >= 0 and self.AccStats.AvgDataSpeed >= 0:
+            self.AccStats.AvgTimeESA = self.AccStats.DataSize + AvgETA * self.AccStats.AvgDataSpeed
+
+        if ETA >= 0:
+            self.StorageStats.ESA = self.StorageStats.Size + self.StorageStats.Speed * ETA
+
+        if AvgETA >= 0:
+            self.StorageStats.AvgESA = self.StorageStats.Size + self.StorageStats.Speed * AvgETA
+
     def Recalculate(self, MaxStep = -1, MaxTime = -1):
+        self.Current.Recalculate()
+
         self.MaxStep = MaxStep
         self.MaxTime = MaxTime
 
@@ -298,77 +446,10 @@ class SimSequenceStatus:
                 if self.AvgStepPerTime:
                     self.AvgEstMaxStep = self.TimeLeft * self.AvgStepPerTime
 
-        self.StatsUpdated = True
+        self.AccStats.Recalculate(self.RealTimeDelta, self.ElapsedRealTime, self.PausedRealTime)
+        self.AccStats.RecalculateStep(self.Step, self.StepDelta)
+        self.CalculateESA()
 
-class AccStats:
-    def Reset(self):
-        self.UpdNr = 0
-        self.DataSize = 0
-        self.PrevDataSize = 0
-        self.PrevStepDataSize = 0
-
-        self.DataSpeed = 0
-        self.AvgDataSpeed = 0
-
-        self.DataSpeedStep = 0
-        self.AvgDataSpeedStep = 0
-
-        self.StepESA = 0
-        self.TimeESA = 0
-
-        self.AvgStepESA = 0
-        self.AvgTimeESA = 0
-
-        self.CPUStart = 0
-        self.CPUTime = 0
-        self.PrevCPUTime = 0
-        self.CPU = 0
-        self.AvgCPU = 0
-
-    def Recalculate(self, TimeDelta, ElapsedTime, PausedTime):
-        self.UpdNr += 1
-        #print(f"Upd # {self.UpdNr}. Loop: {self.Loop}.")
-        #print(f"CTime: {self.CurrentTime:.2f}, prev time: {self.PrevTime:.2f}")
-
-        self.DataDelta = self.DataSize - self.PrevDataSize
-        self.CPUDelta = self.CPUTime - self.PrevCPUTime
-
-        if TimeDelta > 0:
-            self.DataSpeed = self.DataDelta / TimeDelta
-            self.CPU = self.CPUDelta / TimeDelta
-
-        if ElapsedTime > 0:
-            self.AvgDataSpeed = self.DataSize / ElapsedTime
-
-        if self.CPUStart > 0:
-            self.AvgCPU = self.CPUTime / (time.time() - self.CPUStart - PausedTime)
-            #print(f"Set AvgCPU: {self.CPUTime} / {time.time()} - {self.CPUStart} = / {time.time() - self.CPUStart} = {self.AvgCPU}")
-
-        self.PrevDataSize = self.DataSize
-        self.PrevCPUTime = self.CPUTime
-        #print(f"DDelta: {self.DataDelta} / {self.Delta:.2f}, {self.DataSpeed:.2f}/s")
-
-    def RecalculateStep(self, Step, StepDelta):
-        self.DataStepDelta = self.DataSize - self.PrevStepDataSize
-        if StepDelta > 0:
-            self.DataSpeedStep = self.DataStepDelta / StepDelta
-        if Step > 0:
-            self.AvgDataSpeedStep = self.DataSize / Step
-
-class StorageStats:
-    def Reset(self):
-        self.RawSize = 0
-        self.Size = 0
-        self.StartSize = -1
-        self.Speed = 0
-        self.ESA = 0
-        self.AvgESA = 0
-
-    def Recalculate(self, Elapsed):
-        self.Size = self.RawSize - self.StartSize
-        if Elapsed > 0:
-            self.Speed = self.Size / Elapsed
-            #print(f"St Speed: {self.Speed:.2f}, {SizeStr(self.Size)} - {SizeStr(self.StartSize)} = {SizeStr(self.Size - self.StartSize)} / {self.Elapsed:.4f}")
 
 class SystemStats:
     FreeMemory = 0
@@ -408,14 +489,12 @@ class WarpxWrapper:
         self.Config = Config
         self.Logger = Logger
         self.State = State()
-        self.SimSeq = SimSequenceStatus(SimulationStatus())
-        self.AccStats = AccStats()
-        self.StorageStats = StorageStats()
+        self.SimSeq = SimSequenceStatus(SimulationStatus(AccStats(), StorageStats()), AccStats(), StorageStats())
         self.SystemStats = SystemStats()
         self.Control = ControlManager()
         self.EventQueue = SimpleQueue()
         self.ControlInput = InputTerminal(EventQueue = self.EventQueue, Event = 2, Interval = 0, UseBlessed = False, force_styling=True)
-        self.UI = UI(self.SimSeq.Current, self.AccStats, self.StorageStats, self.SystemStats, self.ControlInput, self.Config)
+        self.UI = UI(self.SimSeq.Current, self.SystemStats, self.ControlInput, self.Config)
         self.UpdateTimer = Timer(self.Config.UpdateInterval)
         self.StorageTimer = Timer(self.Config.StorageInterval)
         self.DataParser = WarpxDataParser(self.SimSeq.Current, self.Logger)
@@ -426,8 +505,6 @@ class WarpxWrapper:
         self.WarpxProcess = None
         self.State.Reset()
         self.SimSeq.Current.Reset()
-        self.AccStats.Reset()
-        self.StorageStats.Reset()
         self.SimSeq.Current.MaxStep = self.Config.MaxStep
         self.SimSeq.Current.MaxTime = self.Config.MaxTime
         self.UI.ResetState()
@@ -666,7 +743,6 @@ class WarpxWrapper:
             self.UI.SimStatus = self.SimSeq.Current
             self.UI.Message("Current iteration stats")
 
-        self.CalculateESA()
 
     def SwitchAvgStats(self):
         self.UI.Avg = not self.UI.Avg
@@ -705,51 +781,6 @@ class WarpxWrapper:
         self.UI.CacheMaxLen()
         self.UI.Setup()
 
-    def CalculateESA(self):
-        ETA = 0
-        AvgETA = 0
-
-        if self.SimSeq:
-            Sim = self.SimSeq
-        else:
-            Sim = self.SimSeq.Current
-
-        if Sim.StepETA > 0:
-            ETA = Sim.StepETA
-            if Sim.TimeETA > 0:
-                ETA += Sim.TimeETA
-                ETA /= 2
-        else:
-            ETA = Sim.TimeETA
-
-        if Sim.AvgStepETA > 0:
-            AvgETA = Sim.AvgStepETA
-            if Sim.AvgTimeETA > 0:
-                AvgETA += Sim.AvgTimeETA
-                AvgETA /= 2
-        else:
-            AvgETA = Sim.AvgTimeETA
-
-        #print(f"SimStatus.StepsLeft: {self.SimSeq.Current.StepsLeft}, AccStats.DataStepSpeed: {self.AccStats.DataStepSpeed}")
-        if Sim.StepsLeft >= 0 and self.AccStats.DataSpeedStep >= 0:
-            self.AccStats.StepESA = self.AccStats.DataSize + Sim.StepsLeft * self.AccStats.DataSpeedStep
-
-        #print(f"SimStatus.TimeETA: {self.SimSeq.Current.TimeETA}, AccStats.DataSpeed: {self.AccStats.DataSpeed}")
-        if ETA >= 0 and self.AccStats.DataSpeed >= 0:
-            self.AccStats.TimeESA = self.AccStats.DataSize + ETA * self.AccStats.DataSpeed
-
-        if Sim.StepsLeft >= 0 and self.AccStats.AvgDataSpeedStep >= 0:
-            self.AccStats.AvgStepESA = self.AccStats.DataSize + Sim.StepsLeft * self.AccStats.AvgDataSpeedStep
-
-        if AvgETA >= 0 and self.AccStats.AvgDataSpeed >= 0:
-            self.AccStats.AvgTimeESA = self.AccStats.DataSize + AvgETA * self.AccStats.AvgDataSpeed
-
-        if ETA >= 0:
-            self.StorageStats.ESA = self.StorageStats.Size + self.StorageStats.Speed * ETA
-
-        if AvgETA >= 0:
-            self.StorageStats.AvgESA = self.StorageStats.Size + self.StorageStats.Speed * AvgETA
-
     def UpdateSystemStats(self):
         mem = pypsutil.virtual_memory()
         self.SystemStats.FreeMemory = mem.available
@@ -759,38 +790,41 @@ class WarpxWrapper:
         except FileNotFoundError:
             pass
 
-    def Update(self, Force = False):
-        if self.StorageStats.StartSize < 0:
+    def InitStorageStats(self, StorageStats):
+        if StorageStats.StartSize < 0:
             try:
-                self.StorageStats.StartSize = System.DirSize(self.Config.StoragePath)
+                StorageStats.StartSize = System.DirSize(self.Config.StoragePath)
             except FileNotFoundError:
                 self.Logger.Warning(f"'{self.Config.StoragePath}' - file not found.")
 
+    def UpdateStorageStats(self, StorageStats, Elapsed):
+        try:
+            StorageStats.RawSize = System.DirSize(self.Config.StoragePath)
+            StorageStats.Recalculate(Elapsed)
+        except FileNotFoundError:
+            pass
+
+    def Update(self, Force = False):
+        self.InitStorageStats(self.SimSeq.StorageStats)
+        self.InitStorageStats(self.SimSeq.Current.StorageStats)
+
         if self.StorageTimer.Expired():
-            try:
-                self.StorageStats.RawSize = System.DirSize(self.Config.StoragePath)
-                self.StorageStats.Recalculate(self.SimSeq.Current.ElapsedRealTime)
-                self.StorageTimer.Reset()
-            except FileNotFoundError:
-                pass
+            self.UpdateStorageStats(self.SimSeq.StorageStats, self.SimSeq.ElapsedRealTime)
+            self.UpdateStorageStats(self.SimSeq.Current.StorageStats, self.SimSeq.Current.ElapsedRealTime)
+            self.StorageTimer.Reset()
 
         if self.UpdateTimer.Expired() or Force:
-            if self.SimSeq.Current.Updated:
-                self.SimSeq.Current.Updated = False
-            self.AccStats.Recalculate(
-                    self.SimSeq.Current.RealTimeDelta,
-                    self.SimSeq.Current.ElapsedRealTime,
-                    self.SimSeq.Current.PausedRealTime
-                )
-            self.CalculateESA()
+            self.SimSeq.Recalculate(self.Config.SeqMaxStep, self.Config.SeqMaxTime)
             if self.WarpxProcess != None:
                     #print("Update proc info.")
                 try:
                     self.ProcStats = System.GetProcTreeStats(self.WarpxProcess)
                 except pypsutil.NoSuchProcess as e:
                     self.WarpxProcess = None
-                self.AccStats.CPUStart = self.ProcStats.CrTime
-                self.AccStats.CPUTime = self.ProcStats.CPU
+                self.SimSeq.AccStats.CPUStart = self.ProcStats.CrTime
+                self.SimSeq.Current.AccStats.CPUStart = self.ProcStats.CrTime
+                self.SimSeq.AccStats.CPUTime = self.ProcStats.CPU
+                self.SimSeq.Current.AccStats.CPUTime = self.ProcStats.CPU
                 self.UI.ProcStats = self.ProcStats
                     #print(str(self.ProcStats))
             self.UpdateSystemStats()
@@ -845,7 +879,8 @@ class WarpxWrapper:
         if self.Raw:
             print(OutputLine, end = '')
 
-        self.AccStats.DataSize += len(OutputLine)
+        self.SimSeq.AccStats.DataSize += len(OutputLine)
+        self.SimSeq.Current.AccStats.DataSize += len(OutputLine)
 
         #print(f"Increasing data size: {AccStats.DataSize}.")
 
@@ -893,10 +928,8 @@ class WarpxWrapper:
             self.DataInput.Interval = 0 # Don't wait for data anymore.
 
         if self.SimSeq.Current.Step > self.SimSeq.Current.PrevStep:
-            self.SimSeq.Current.Recalculate()
+            #self.SimSeq.Recalculate(self.Config.SeqMaxStep, self.Config.SeqMaxTime)
             self.CallEventHandler("OnStep", self.SimSeq.Current.Step, self.SimSeq.Current.Time)
-            self.SimSeq.Recalculate(self.Config.SeqMaxStep, self.Config.SeqMaxTime)
-            self.AccStats.RecalculateStep(self.SimSeq.Current.Step, self.SimSeq.Current.StepDelta)
 
         if self.SimSeq.Current.Header or self.SimSeq.Current.Footer:
             print(OutputLine, end='')

@@ -42,7 +42,7 @@ class WarpxDataParser:
                     self.Logger.ExceptWarn(e)
 
     def ParseLine(self, Line):
-        if not self.SimStatus.Footer and not self.SimStatus.Updated and self.Re1.search(Line):
+        if not self.SimStatus.Footer and self.Re1.search(Line):
             self.SimStatus.Header = False # Just in case we missed something
             self.SimStatus.Main = True
 
@@ -51,8 +51,6 @@ class WarpxDataParser:
             self.SimStatus.Step = int(nums[0])
             self.SimStatus.Time = float(nums[1])
             self.SimStatus.TimeDelta = float(nums[2])
-
-            self.SimStatus.Updated = True
 
         elif self.SimStatus.Header == True and self.ReHead.match(Line):
             self.SimStatus.Header = False

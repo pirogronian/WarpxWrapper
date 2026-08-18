@@ -21,15 +21,13 @@ class UI:
     AccStatsHeight = 11
     MessageLineHeight = 3
 
-    def __init__(self, SimStatus, AccStats, StorageStats, SystemStats, Control, Config):
+    def __init__(self, SimStatus, SystemStats, Control, Config):
         self.Terminal = Control.Terminal
         self.FmtNmb = FormattedNumber()
         self.FmtTime = FormattedTime()
         self.FmtNmb.ForbidNegative = True
         print(self.Terminal.clear_bol)
         self.SimStatus = SimStatus
-        self.AccStats = AccStats
-        self.StorageStats = StorageStats
         self.SystemStats = SystemStats
         self.ControlInput = Control
         self.Config = Config
@@ -125,23 +123,23 @@ class UI:
 
     def GetDataSpeeds(self):
         if self.Avg:
-            return self.AccStats.AvgDataSpeedStep, self.AccStats.AvgDataSpeed
-        return self.AccStats.DataSpeedStep, self.AccStats.DataSpeed
+            return self.SimStatus.AccStats.AvgDataSpeedStep, self.SimStatus.AccStats.AvgDataSpeed
+        return self.SimStatus.AccStats.DataSpeedStep, self.SimStatus.AccStats.DataSpeed
 
     def GetDataESAs(self):
         if self.Avg:
-            return self.AccStats.AvgStepESA, self.AccStats.AvgTimeESA
-        return self.AccStats.StepESA, self.AccStats.TimeESA
+            return self.SimStatus.AccStats.AvgStepESA, self.SimStatus.AccStats.AvgTimeESA
+        return self.SimStatus.AccStats.StepESA, self.SimStatus.AccStats.TimeESA
 
     def GetCPU(self):
         if self.Avg:
-            return self.AccStats.AvgCPU
-        return self.AccStats.CPU
+            return self.SimStatus.AccStats.AvgCPU
+        return self.SimStatus.AccStats.CPU
 
     def GetStorageESA(self):
         if self.Avg:
-            return self.StorageStats.AvgESA
-        return self.StorageStats.ESA
+            return self.SimStatus.StorageStats.AvgESA
+        return self.SimStatus.StorageStats.ESA
 
     def Message(self, Msg, Timeout = None):
         self.Msg.SetTemporary(Msg, Timeout)
@@ -227,10 +225,9 @@ class UI:
         self.PrintLeftPadding(s2)
         self.PrintLeftPadding(s3)
         self.PrintLeftPadding()
-        s.StatsUpdated = False
 
     def WriteAccStats(self):
-        s = self.AccStats
+        s = self.SimStatus.AccStats
         minl, maxl = self.GetLen()
         SpeedStep, Speed = self.GetDataSpeeds()
         StepESA,TimeESA = self.GetDataESAs()
@@ -243,7 +240,7 @@ class UI:
         self.PrintLeftPadding(f"Procs: {s.ProcNum}: {s.ProcNames} | CPU: {self.GetCPU()*100:>5.1f}%, mem: {SizeStr(s.Memory):>5} ({s.MemoryRatio:>5.2f}%)")
 
     def WriteStorageStats(self):
-        s = self.StorageStats
+        s = self.SimStatus.StorageStats
         #print(S)
         ESA = self.GetStorageESA()
         self.PrintSeparator()
@@ -284,15 +281,12 @@ class UI:
             MoveUp = 0
             if self.First:
                 self.WriteHeader()
-            if self.SimStatus.StatsUpdated or Force or self.First:
-                MoveUp = self.SimStatusHeight
-            else:
-                MoveUp = self.AccStatsHeight
+
+            MoveUp = self.SimStatusHeight
 #            print(f"MoveUp: {MoveUp}")
             if MoveUp and not self.Config.NonDestructivePrint:
                 print(self.Terminal.move_up(MoveUp + 1))
-            if self.SimStatus.StatsUpdated or Force or self.First:
-                self.WriteSimStatus()
+            self.WriteSimStatus()
             self.WriteAccStats()
             self.WriteProcStats()
             #print(self.StorageStats.Speed)
