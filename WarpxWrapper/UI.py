@@ -15,19 +15,20 @@ class UI:
     MinLen = 0
     MaxLen = 0
     Avg = False
+    Seq = False
     CurrentSection = Section.WAIT
 
     SimStatusHeight = 15
     AccStatsHeight = 11
     MessageLineHeight = 3
 
-    def __init__(self, SimStatus, SystemStats, Control, Config):
+    def __init__(self, SimSeq, SystemStats, Control, Config):
         self.Terminal = Control.Terminal
         self.FmtNmb = FormattedNumber()
         self.FmtTime = FormattedTime()
         self.FmtNmb.ForbidNegative = True
         print(self.Terminal.clear_bol)
-        self.SimStatus = SimStatus
+        self.SimSeq = SimSeq
         self.SystemStats = SystemStats
         self.ControlInput = Control
         self.Config = Config
@@ -92,6 +93,17 @@ class UI:
 
     def PrintCentered(self, Text):
         self.PrintLine(self.Centered(Text))
+
+    def GetSimStatus(self):
+        if self.Seq:
+            return self.SimSeq
+        return self.SimSeq.Current
+
+    def UpdateSimStatus(self):
+        if self.Seq:
+            self.SimStatus = self.SimSeq
+        else:
+            self.SimStatus = self.SimSeq.Current
 
     def GetSimSpeeds(self):
         if self.Avg:
@@ -277,6 +289,8 @@ class UI:
         self.CacheMaxLen()
         if self.CurrentSection != self.Section.MAIN:
             return
+        self.UpdateSimStatus()
+
         with self.Terminal.no_line_wrap():
             MoveUp = 0
             if self.First:

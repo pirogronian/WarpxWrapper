@@ -494,7 +494,7 @@ class WarpxWrapper:
         self.Control = ControlManager()
         self.EventQueue = SimpleQueue()
         self.ControlInput = InputTerminal(EventQueue = self.EventQueue, Event = 2, Interval = 0, UseBlessed = False, force_styling=True)
-        self.UI = UI(self.SimSeq.Current, self.SystemStats, self.ControlInput, self.Config)
+        self.UI = UI(self.SimSeq, self.SystemStats, self.ControlInput, self.Config)
         self.UpdateTimer = Timer(self.Config.UpdateInterval)
         self.StorageTimer = Timer(self.Config.StorageInterval)
         self.DataParser = WarpxDataParser(self.SimSeq.Current, self.Logger)
@@ -736,11 +736,10 @@ class WarpxWrapper:
             self.UI.First = True
 
     def SwitchSeq(self):
-        if self.UI.SimStatus == self.SimSeq.Current:
-            self.UI.SimStatus = self.SimSeq
+        self.UI.Seq = not self.UI.Seq
+        if self.UI.Seq:
             self.UI.Message("All sequence stats")
         else:
-            self.UI.SimStatus = self.SimSeq.Current
             self.UI.Message("Current iteration stats")
 
 
