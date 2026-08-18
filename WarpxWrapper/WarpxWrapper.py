@@ -530,11 +530,11 @@ class WarpxWrapper:
 
     def RegisterActions(self):
         self.Control.Register(self.Config.BreakKey, self.DoUserBreak)
-        self.Control.Register(self.Config.SeqKey, self.SwitchSeq)
-        self.Control.Register(self.Config.ISOKey, self.SwitchISO)
-        self.Control.Register(self.Config.AvgKey, self.SwitchAvgStats)
-        self.Control.Register(self.Config.RawModeKey, self.SwitchRaw)
-        self.Control.Register(self.Config.NonDestructivePrintKey, self.SwitchDestrictive)
+        self.Control.Register(self.Config.SeqKey, self.UI.SwitchSeq)
+        self.Control.Register(self.Config.FormatKey, self.UI.SwitchFormat)
+        self.Control.Register(self.Config.AvgKey, self.UI.SwitchAvg)
+        self.Control.Register(self.Config.RawOutputKey, self.SwitchRawOutput)
+        self.Control.Register(self.Config.NonDestructivePrintKey, self.UI.SwitchDestrictive)
         self.Control.Register(self.Config.ProgressBarKey, self.SwitchProgressBar)
         self.Control.Register(self.Config.PauseKey, self.SwitchRunningState)
 
@@ -730,37 +730,7 @@ class WarpxWrapper:
         self.SimSeq.Current.Recalculate()
         self.SimSeq.Recalculate(self.Config.SeqMaxStep, self.Config.SeqMaxTime)
 
-    def SwitchDestrictive(self):
-        self.Config.NonDestructivePrint = not self.Config.NonDestructivePrint
-        if not self.Config.NonDestructivePrint:
-            self.UI.First = True
-
-    def SwitchSeq(self):
-        self.UI.Seq = not self.UI.Seq
-        if self.UI.Seq:
-            self.UI.Message("All sequence stats")
-        else:
-            self.UI.Message("Current iteration stats")
-
-
-    def SwitchAvgStats(self):
-        self.UI.Avg = not self.UI.Avg
-        self.UI.Message(f"Avg: {self.UI.Avg}")
-
-    def SwitchISO(self):
-        msg = "Format: "
-        if self.UI.FmtTime.CurrentFormat == FormattedTime.Format.NORMAL:
-            self.UI.FmtTime.CurrentFormat = FormattedTime.Format.ISO
-            msg += "ISO"
-        elif self.UI.FmtTime.CurrentFormat == FormattedTime.Format.ISO:
-            self.UI.FmtTime.CurrentFormat = FormattedTime.Format.RAW
-            msg += "Raw"
-        elif self.UI.FmtTime.CurrentFormat == FormattedTime.Format.RAW:
-            self.UI.FmtTime.CurrentFormat = FormattedTime.Format.NORMAL
-            msg += "Normal"
-        self.UI.Message(msg)
-
-    def SwitchRaw(self):
+    def SwitchRawOutput(self):
         self.Raw = not self.Raw
         if not self.Raw:
             self.UI.First = True

@@ -55,10 +55,10 @@ class Config:
 
     BreakKey = "\x1b"
     SeqKey = 's'
-    ISOKey = "f"
+    FormatKey = "f"
     NonDestructivePrintKey = "d"
     AvgKey = 'a'
-    RawModeKey = 'r'
+    RawOutputKey = 'r'
     ProgressBarKey = 'p'
     PauseKey = ' '
 

@@ -308,3 +308,32 @@ class UI:
             self.WriteSystemStats()
             self.WriteMessageLine()
             self.First = False
+
+    def SwitchDestrictive(self):
+        self.Config.NonDestructivePrint = not self.Config.NonDestructivePrint
+        if not self.Config.NonDestructivePrint:
+            self.First = True
+
+    def SwitchSeq(self):
+        self.Seq = not self.Seq
+        if self.Seq:
+            self.Message("All sequence stats")
+        else:
+            self.Message("Current iteration stats")
+
+    def SwitchAvg(self):
+        self.Avg = not self.Avg
+        self.Message(f"Avg: {self.Avg}")
+
+    def SwitchFormat(self):
+        msg = "Format: "
+        if self.FmtTime.CurrentFormat == FormattedTime.Format.NORMAL:
+            self.FmtTime.CurrentFormat = FormattedTime.Format.ISO
+            msg += "ISO"
+        elif self.FmtTime.CurrentFormat == FormattedTime.Format.ISO:
+            self.FmtTime.CurrentFormat = FormattedTime.Format.RAW
+            msg += "Raw"
+        elif self.FmtTime.CurrentFormat == FormattedTime.Format.RAW:
+            self.FmtTime.CurrentFormat = FormattedTime.Format.NORMAL
+            msg += "Normal"
+        self.Message(msg)
