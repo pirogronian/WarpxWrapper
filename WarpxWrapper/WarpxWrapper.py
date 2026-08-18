@@ -85,7 +85,7 @@ class SimulationStatus:
         self.Paused = True
 
     def Resume(self):
-        self.PausedRealTime += time.time() - self.PausedAt()
+        self.PausedRealTime += time.time() - self.PausedAt
         self.Paused = False
 
     def CompElapsedRealTime(self):
@@ -928,6 +928,7 @@ class WarpxWrapper:
     def Finish(self):
         self.UI.CurrentSection = UI.Section.FOOTER
 
+        self.Resume()
         self.CloseDataStream()
 
         if self.Config.AbortOnExit and self.WarpxProcess != None:
