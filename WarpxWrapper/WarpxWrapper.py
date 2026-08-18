@@ -117,6 +117,7 @@ class SimulationStatus:
         self.Paused = False
         self.PausedAt = 0
         self.PausedRealTime = 0
+        self._PausedRealTime = 0
 
         self.Step = -1 # These two are replenished externally
         self.Time = -1
@@ -167,22 +168,28 @@ class SimulationStatus:
         self.StorageStats.Reset()
 
     def Pause(self):
+        if self.Paused:
+            return
         self.PausedAt = time.time()
         self.Paused = True
 
     def Resume(self):
-        self.PausedRealTime += time.time() - self.PausedAt
+        if not self.Paused:
+            return
+        self._PausedRealTime += time.time() - self.PausedAt
         self.Paused = False
 
     def CompElapsedRealTime(self):
         if self.Paused:
-            return self.PausedAt - self.StartRealTime - self.PausedRealTime
-        return time.time() - self.StartRealTime - self.PausedRealTime
+            #print(f"{self.ElapsedRealTime} = {self.PausedAt} - {self.StartRealTime} - {self.PausedRealTime}")
+            return self.PausedAt - self.StartRealTime - self._PausedRealTime
+        #print(f"{self.ElapsedRealTime} = {time.time()} - {self.StartRealTime} - {self.PausedRealTime}")
+        return time.time() - self.StartRealTime - self._PausedRealTime
 
     def CompPausedRealTime(self):
         if self.Paused:
-            return time.time() - self.PausedAt + self.PausedRealTime
-        return self.PausedRealTime
+            return time.time() - self.PausedAt + self._PausedRealTime
+        return self._PausedRealTime
 
     def CalculateETA(self):
         self.StepDelta = self.Step - self.PrevStep
