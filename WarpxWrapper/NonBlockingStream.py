@@ -9,6 +9,8 @@ import queue
 import time
 import blessed
 
+from WarpxWrapper import Config
+
 class CommonStream:
     Interval = 0.0
     QueueSizeThreshold = 0
@@ -33,6 +35,15 @@ class CommonStream:
             self.Queue.get_nowait()
         while not self.EventQueue.empty():
             self.EventQueue.get_nowait()
+
+    def Sleep(self):
+        if self.Interval > 0:
+            time.sleep(self.Interval)
+            return True
+        if self.Interval < 0:
+            time.sleep(Config.DataInterval)
+            return True
+        return False
 
     def IsOpen(self):
         return isinstance(self.Stream, io.IOBase) and not self.Stream.closed
@@ -71,8 +82,7 @@ class CommonStream:
     def WaitForPaused(self):
         while not self._IsPaused:
             #print("Waiting...")
-            if self.Interval > 0:
-                time.sleep(self.Interval)
+            self.Sleep()
 
     def Daemon(self):
         self.Open()
@@ -80,16 +90,13 @@ class CommonStream:
         while not self.Stop:
             if self.Paused:
                 self._IsPaused = True
-                if self.Interval > 0:
-                    time.sleep(self.Interval)
+                self.Sleep()
                 continue
             else:
                 self._IsPaused = False
             ret = self.MainLoop()
             if ret == 0:
-                if self.Interval > 0:
-                    time.sleep(self.Interval)
-                else:
+                if not self.Sleep():
                     #print("Zero data, exiting.")
                     break
         if self.AutoClose:

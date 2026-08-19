@@ -598,7 +598,7 @@ class WarpxWrapper:
             self.DataInput.Stream = self.Config.InputFile
         else:
             self.Logger.Debug("Input fle is an ordinary file. Don't exit if read zero bytes.")
-            self.DataInput.Interval = self.Config.UpdateInterval
+            self.DataInput.Interval = -1 # Use value from Config
             try:
                 DataStream = open(self.Config.InputFile, "r")
             except Exception as e:

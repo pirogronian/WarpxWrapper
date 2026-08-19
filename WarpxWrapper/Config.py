@@ -4,6 +4,7 @@ class Config:
     LogLevel = "info"
     Quiet = False
     ErrorIsFatal = True
+    DataInterval = 0.1
     UpdateInterval = 0.5
     StorageInterval = 5.0
     DontRun = False
