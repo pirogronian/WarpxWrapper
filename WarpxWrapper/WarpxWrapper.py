@@ -397,6 +397,10 @@ class SimSequenceStatus:
     def Recalculate(self, MaxStep = -1, MaxTime = -1):
         self.Current.Recalculate()
 
+        if MaxStep < 0:
+            MaxStep = self.Current.MaxStep
+        if MaxTime < 0:
+            MaxTime = self.Current.MaxTime
         self.MaxStep = MaxStep
         self.MaxTime = MaxTime
 
