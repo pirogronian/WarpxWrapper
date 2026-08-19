@@ -1,4 +1,5 @@
 
+from .Config import Config
 from .ConfigManager import ConfigManager, IncludeAction
 from .ControlManager import ControlManager
 from .FormattedValue import FormattedNumber, FormattedTime, SizeStr, INF
