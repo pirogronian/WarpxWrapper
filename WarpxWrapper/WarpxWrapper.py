@@ -528,8 +528,8 @@ class WarpxWrapper:
         self.EventQueue = SimpleQueue()
         self.ControlInput = InputTerminal(EventQueue = self.EventQueue, Event = 2, Interval = 0, UseBlessed = False, force_styling=True)
         self.UI = UI(self.SimSeq, self.SystemStats, self.ControlInput, self.Config)
-        self.UpdateTimer = Timer(self.Config.UpdateInterval)
-        self.StorageTimer = Timer(self.Config.StorageInterval)
+        self.UpdateTimer = Timer("UpdateInterval")
+        self.StorageTimer = Timer("StorageInterval")
         self.DataParser = WarpxDataParser(self.SimSeq.Current, self.Logger)
         self.PausedTime = 0
 
@@ -598,7 +598,7 @@ class WarpxWrapper:
             self.DataInput.Stream = self.Config.InputFile
         else:
             self.Logger.Debug("Input fle is an ordinary file. Don't exit if read zero bytes.")
-            self.DataInput.Interval = -1 # Use value from Config
+            self.DataInput.Interval = "DataInterval" # Use value from Config
             try:
                 DataStream = open(self.Config.InputFile, "r")
             except Exception as e:
@@ -838,6 +838,8 @@ class WarpxWrapper:
                 self.SimSeq.Current.AccStats.CPUTime = self.ProcStats.CPU
                 self.UI.ProcStats = self.ProcStats
                     #print(str(self.ProcStats))
+            else:
+                self.UI.ProcStats = System.ProcTreeStats()
             self.UpdateSystemStats()
 
             self.UpdateTimer.Reset()
@@ -1004,7 +1006,7 @@ class WarpxWrapper:
                 self.PrepareSource()
                 self.ActivateDataStream()
 
-                if self.WarpxProcess == None and Config.PID > 0:
+                if self.WarpxProcess == None and self.Config.PID > 0:
                     try:
                         self.WarpxProcess = pypsutil.Process(Config.PID)
                     except Exception as e:

@@ -36,12 +36,16 @@ class CommonStream:
         while not self.EventQueue.empty():
             self.EventQueue.get_nowait()
 
+    def GetInterval(self):
+        t = type(self.Interval)
+        if t == float or t == int:
+            return self.Interval
+        return getattr(Config, self.Interval)
+
     def Sleep(self):
-        if self.Interval > 0:
-            time.sleep(self.Interval)
-            return True
-        if self.Interval < 0:
-            time.sleep(Config.DataInterval)
+        i = self.GetInterval()
+        if i > 0:
+            time.sleep(i)
             return True
         return False
 
