@@ -1,5 +1,21 @@
 
-class Config:
+class ConfigClass:
+    def ParseParam(self, Name):
+        obj = self
+        names = Name.split(".")
+        name = None
+        for vn in names:
+            if name:
+                obj = getattr(obj, name)
+            name = vn
+        return obj, name
+
+    def GetParam(self, Name):
+        return getattr(*self.ParseParam(Name))
+
+    def SetParam(self, Name, Value):
+        return setattr(*self.ParseParam(Name), Value)
+
     MaxParamLength = 0
     LogLevel = "info"
     Quiet = False
@@ -52,8 +68,13 @@ class Config:
     ShorterIntervalKey = '\x1b[5~'
     LongerIntervalKey = '\x1b[6~'
 
-    class UI:
+    class UIClass:
         ProgressBar = True
         NonDestructivePrint = False
         Average = False
         Sequence = False
+
+    def __init__(self):
+        self.UI = self.UIClass()
+
+Config = ConfigClass()

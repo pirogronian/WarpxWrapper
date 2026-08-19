@@ -29,7 +29,7 @@ class ParamAction(argparse.Action):
         else:
             value = values"""
         value = values
-        t = type(getattr(Config, self.Param))
+        t = type(Config.GetParam(self.Param))
         if self.UnpackList and type(value) == list:
             value = value[0]
         if type(value) != t:
@@ -38,7 +38,7 @@ class ParamAction(argparse.Action):
                 value = StrToType(value, t)
             except:
                 self.Error("Value of param {} must be convertable to {}!".format(option_string, t.__name__))
-        setattr(Config, self.Param, value)
+        Config.SetParam(self.Param, value)
         self.Logger.Debug("Command line: set {} to {}".format(self.Param, value))
 
 class ConfigManager:
@@ -72,7 +72,7 @@ class ConfigManager:
 
 
     def AddParam(self, VarName, *Args, **KArgs):
-        v = getattr(Config, VarName)
+        v = Config.GetParam(VarName)
         if v != None:
             if not "nargs" in KArgs:
                 KArgs["nargs"] = '?' if "const" in KArgs else 1

@@ -37,7 +37,7 @@ CM = ConfigManager(
     description = "Small script for showing realtime WarpX time and progress stats and (optionally) to help running it.")
 
 def PrintParam(name, MinLength = 0):
-    Value = getattr(Config, name)
+    Value = Config.GetParam(name)
     Type = type(Value)
     Extra = MinLength - len(name)
     if Extra < 0:
@@ -75,8 +75,8 @@ def InitParams():
     CM.AddParam("MaxLogSize", "--max-log-size", metavar="size")
     CM.AddParam("MaxLogFileSize", "--max-log-file-size", metavar="size")
     CM.AddParam("StoragePath", "-o", "--storage", metavar="storage_path")
-    #CM.AddParam("NonDestructivePrint", "-d", "--non-destructive-print", const = True)
-    #CM.AddParam("ProgressBar", "-b", "--progress-bar", const = True)
+    CM.AddParam("UI.NonDestructivePrint", "-d", "--non-destructive-print", const = True)
+    CM.AddParam("UI.ProgressBar", "-b", "--progress-bar", const = True)
     CM.AddParam("UpdateInterval", "-u", "--upd-int", "--update-interval", metavar="seconds")
     CM.AddParam("StorageInterval", "--st--int", "--storage-interval", metavar="seconds")
     CM.AddParam("MaxStep", "-x", "--max-steps")
