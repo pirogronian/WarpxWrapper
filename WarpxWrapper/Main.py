@@ -31,7 +31,6 @@ def getLogLevel():
     return Logger.Level
 
 CM = ConfigManager(
-    Config,
     Logger,
     Error = Error,
     prog = f"WarpxWrapper {__version__}",

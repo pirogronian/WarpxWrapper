@@ -1,6 +1,7 @@
 
 import argparse
 from .Various import StrToType, TypeDescription, StrToInt
+from WarpxWrapper import Config
 
 class IncludeAction(argparse.Action):
     Used = False
@@ -28,7 +29,7 @@ class ParamAction(argparse.Action):
         else:
             value = values"""
         value = values
-        t = type(getattr(self.Config, self.Param))
+        t = type(getattr(Config, self.Param))
         if self.UnpackList and type(value) == list:
             value = value[0]
         if type(value) != t:
@@ -37,18 +38,16 @@ class ParamAction(argparse.Action):
                 value = StrToType(value, t)
             except:
                 self.Error("Value of param {} must be convertable to {}!".format(option_string, t.__name__))
-        setattr(self.Config, self.Param, value)
+        setattr(Config, self.Param, value)
         self.Logger.Debug("Command line: set {} to {}".format(self.Param, value))
 
 class ConfigManager:
 
-    def __init__(self, Config, Logger, Error, Fatal = None, *args, **kargs):
-        self.Config = Config
+    def __init__(self, Logger, Error, Fatal = None, *args, **kargs):
         self.Logger = Logger
         self.Error = Error
         self.Fatal = Fatal
         IncludeAction.IncludeFile = self.IncludeFile
-        ParamAction.Config = Config
         ParamAction.Logger = Logger
         ParamAction.Error = Error
         self.Params = []
@@ -65,7 +64,7 @@ class ConfigManager:
         prog = f.read()
 
         try:
-            exec(prog, {"Config": self.Config, "StrToInt": StrToInt})
+            exec(prog, {"Config": Config, "StrToInt": StrToInt})
         except Exception as e:
             self.Logger.Error(f"Error while executing include file: '{fname}'")
             self.Logger.ExceptError(1, e)
@@ -73,7 +72,7 @@ class ConfigManager:
 
 
     def AddParam(self, VarName, *Args, **KArgs):
-        v = getattr(self.Config, VarName)
+        v = getattr(Config, VarName)
         if v != None:
             if not "nargs" in KArgs:
                 KArgs["nargs"] = '?' if "const" in KArgs else 1
@@ -87,7 +86,7 @@ class ConfigManager:
             self.Parser.add_argument(*Args, VarName = VarName, **KArgs)
             self.Params.append(VarName)
 
-            self.Config.MaxParamLength = max(self.Config.MaxParamLength, len(VarName))
+            Config.MaxParamLength = max(Config.MaxParamLength, len(VarName))
         else:
             raise NameError("Variable {VarName} not found.")
 
