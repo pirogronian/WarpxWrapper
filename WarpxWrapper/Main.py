@@ -58,6 +58,8 @@ class Config:
     RawOutputKey = 'r'
     ProgressBarKey = 'p'
     PauseKey = ' '
+    ShorterIntervalKey = '\x1b[5~'
+    LongerIntervalKey = '\x1b[6~'
 
     class UI:
         ProgressBar = True

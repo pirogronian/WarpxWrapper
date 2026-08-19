@@ -335,3 +335,6 @@ class UI:
             self.FmtTime.CurrentFormat = FormattedTime.Format.NORMAL
             msg += "Normal"
         self.Message(msg)
+
+    def MsgCurrentUpdateInterval(self):
+        self.Message(f"Update interval: {self.FmtTime.Str(self.Config.UpdateInterval)}")

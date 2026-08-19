@@ -570,6 +570,8 @@ class WarpxWrapper:
         self.Control.Register(self.Config.NonDestructivePrintKey, self.UI.SwitchDestrictive)
         self.Control.Register(self.Config.ProgressBarKey, self.SwitchProgressBar)
         self.Control.Register(self.Config.PauseKey, self.SwitchRunningState)
+        self.Control.Register(self.Config.ShorterIntervalKey, self.ShorterInterval)
+        self.Control.Register(self.Config.LongerIntervalKey, self.LongerInterval)
 
     def PrepareStdin(self):
         self.DataInput.Input = sys.stdin
@@ -762,6 +764,14 @@ class WarpxWrapper:
             self.Pause()
         self.SimSeq.Current.Recalculate()
         self.SimSeq.Recalculate(self.Config.SeqMaxStep, self.Config.SeqMaxTime)
+
+    def ShorterInterval(self):
+        self.Config.UpdateInterval = self.Config.UpdateInterval / 1.5
+        self.UI.MsgCurrentUpdateInterval()
+
+    def LongerInterval(self):
+        self.Config.UpdateInterval = self.Config.UpdateInterval * 1.5
+        self.UI.MsgCurrentUpdateInterval()
 
     def SwitchRawOutput(self):
         self.Raw = not self.Raw
