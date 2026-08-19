@@ -898,6 +898,12 @@ class WarpxWrapper:
         #print(f"Increasing data size: {AccStats.DataSize}.")
 
         #print(f"{not self.State.ProcessWasFinding} and {self.WarpxProcess == None} and {self.Config.Source == SourceType.FILE} and {self.Config.PID}")
+
+        if self.StartTime < 0:
+            self.StartTime = time.time()
+            self.UI.CurrentSection = UI.Section.HEADER
+            self.UI.PrintLine("\nGot data, starting processing.\n")
+
         if OutputLine \
             and not self.State.ProcessWasFinding \
                 and self.WarpxProcess == None \
@@ -914,12 +920,6 @@ class WarpxWrapper:
             if self.WarpxProcess == None:
                 self.Logger.Warning("Warpx process not detected!")
             self.State.ProcessWasFinding = True
-
-
-        if self.StartTime < 0:
-            self.StartTime = time.time()
-            self.UI.CurrentSection = UI.Section.HEADER
-            self.UI.PrintLine("\nGot data, starting processing.\n")
 
         if self.LogOutput != None:
             self.LogOutput.Write(OutputLine)
