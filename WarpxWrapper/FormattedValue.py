@@ -2,17 +2,13 @@
 import math
 import datetime
 import enum
-import math
+
+from .Various import NaNN
 
 SecInMinute = 60
 SecInHour = 3600
 SecInDay = 3600 * 24
 SecInYear = 3600 * 24 * 365
-
-INF = float("inf")
-
-def NaNN(Num):
-    return Num == INF or Num == -INF or math.isnan(Num)
 
 class FormattedNumber:
     ForbidNegative = False

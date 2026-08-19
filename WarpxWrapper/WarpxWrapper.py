@@ -13,13 +13,13 @@ import shlex
 
 from WarpxWrapper import InputStream, InputTerminal, OutputStream
 from WarpxWrapper import Timer
-from WarpxWrapper import FormattedTime, INF
+from WarpxWrapper import FormattedTime
 from WarpxWrapper import System
 from WarpxWrapper import ControlManager
 from WarpxWrapper import UI
 from WarpxWrapper import WarpxDataParser
 from WarpxWrapper.LimitedBlockWriter import LimitedBlockWriter
-from WarpxWrapper import IterableToStr2D
+from .Various import IterableToStr2D, INF, NaNN
 
 def ChooseETA(ETA1, ETA2):
     if ETA1 > 0 and ETA2 > 0:

@@ -1,4 +1,11 @@
 
+import math
+
+INF = float("inf")
+
+def NaNN(Num):
+    return Num == INF or Num == -INF or math.isnan(Num)
+
 def CompareKeys(c1, c2):
     #print(f"{c1} ({type(c1)}) || {c2} ({type(c2)})")
     if type(c1) == type(c2):
