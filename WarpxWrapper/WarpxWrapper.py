@@ -897,15 +897,20 @@ class WarpxWrapper:
 
         #print(f"Increasing data size: {AccStats.DataSize}.")
 
-        if not self.State.ProcessWasFinding and self.WarpxProcess == None and self.Config.Source == SourceType.FILE and self.Config.PID == 0:
+        #print(f"{not self.State.ProcessWasFinding} and {self.WarpxProcess == None} and {self.Config.Source == SourceType.FILE} and {self.Config.PID}")
+        if OutputLine \
+            and not self.State.ProcessWasFinding \
+                and self.WarpxProcess == None \
+                    and SourceNames[self.Config.Source] == SourceType.FILE \
+                        and self.Config.PID == 0:
             Ps = System.FileUsers(self.Config.InputFile, ["w", "a"])
 #            print("")
 #            print(Ps)
             Me = pypsutil.Process()
             for P in Ps:
                 if P != Me:
-                    WarpxProcess = P
-                    self.Logger.Debug(f"Detected Warpx process: {self.WarpxProcess.name()} ({WarpxProcess.pid}).")
+                    self.WarpxProcess = P
+                    self.Logger.Debug(f"Detected Warpx process: {self.WarpxProcess.name()} ({self.WarpxProcess.pid}).")
             if self.WarpxProcess == None:
                 self.Logger.Warning("Warpx process not detected!")
             self.State.ProcessWasFinding = True
