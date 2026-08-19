@@ -2,11 +2,17 @@
 import math
 import datetime
 import enum
+import math
 
 SecInMinute = 60
 SecInHour = 3600
 SecInDay = 3600 * 24
 SecInYear = 3600 * 24 * 365
+
+INF = float("inf")
+
+def NaNN(Num):
+    return Num == INF or Num == -INF or math.isnan(Num)
 
 class FormattedNumber:
     ForbidNegative = False
@@ -49,7 +55,7 @@ class FormattedNumber:
         R1, R2 = self.GetFixedPointRange(FixedPointRange)
 
         #print(f"Str({Value}, {Precision}, {R1}, {R2})")
-        if Value < 0 and ForbidNegative:
+        if (Value < 0 and ForbidNegative) or NaNN(Value):
             return "-/-"
         Style = ""
         if Value == 0:
@@ -94,7 +100,7 @@ def TimeToSeconds(Years = 0, Days = 0, Hours = 0, Minutes = 0, Seconds = 0):
     return Ret
 
 def DateTimeStr(Seconds, ISOFormat = False, Precision = 0.02, FixedPointPrecision = 2, FixedPointRange = [9999, 0.001]):
-    if Seconds < 0:
+    if Seconds < 0 or NaNN(Seconds):
         return "-/-"
     if Seconds == 0:
         return "0s"
@@ -201,8 +207,8 @@ class FormattedTime:
         return self.Str()
 
 def SizeStr(num, suffix="B"):
-    #if num < 0:
-    #    return "-/-"  # Actually, negative size have lots of sense.
+    if NaNN(num):
+        return "-/-"
     for unit in ("", "Ki", "Mi", "Gi", "Ti", "Pi", "Ei", "Zi"):
         if abs(num) < 1024.0:
             return f"{num:3.1f}{unit}{suffix}"

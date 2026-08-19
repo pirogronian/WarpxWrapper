@@ -13,7 +13,7 @@ import shlex
 
 from WarpxWrapper import InputStream, InputTerminal, OutputStream
 from WarpxWrapper import Timer
-from WarpxWrapper import FormattedTime
+from WarpxWrapper import FormattedTime, INF
 from WarpxWrapper import System
 from WarpxWrapper import ControlManager
 from WarpxWrapper import UI
@@ -225,20 +225,24 @@ class SimulationStatus:
         if self.StepSpeed > 0:
             self.StepETA = self.StepsLeft / self.StepSpeed
         else:
-            self.StepETA = -1
+            self.StepETA = INF
         if self.TimeSpeed > 0:
             self.TimeETA = self.TimeLeft / self.TimeSpeed
         else:
-            self.TimeETA = -1
+            self.TimeETA = INF
 
     def CalculateAvgETA(self):
         self.AvgStepSpeed = self.Step / self.ElapsedRealTime
         if self.AvgStepSpeed > 0:
             self.AvgStepETA = self.StepsLeft / self.AvgStepSpeed
+        else:
+            self.AvgStepETA = INF
 
         self.AvgTimeSpeed = self.Time / self.ElapsedRealTime
         if self.AvgTimeSpeed > 0:
             self.AvgTimeETA = self.TimeLeft / self.AvgTimeSpeed
+        else:
+            self.AvgTimeETA = INF
 
     def CalculateESA(self):
         ETA = 0
@@ -252,31 +256,16 @@ class SimulationStatus:
             self.AccStats.StepESA = self.AccStats.DataSize + self.StepsLeft * self.AccStats.DataSpeedStep
 
         #print(f"SimStatus.TimeETA: {self.SimSeq.Current.TimeETA}, AccStats.DataSpeed: {self.AccStats.DataSpeed}")
-        if ETA >= 0:
-            if self.AccStats.DataSpeed >= 0:
-                self.AccStats.TimeESA = self.AccStats.DataSize + ETA * self.AccStats.DataSpeed
-        else:
-            self.AccStats.TimeESA = -1
 
-        if self.StepsLeft >= 0 and self.AccStats.AvgDataSpeedStep >= 0:
-            self.AccStats.AvgStepESA = self.AccStats.DataSize + self.StepsLeft * self.AccStats.AvgDataSpeedStep
-        else:
-            self.AccStats.AvgStepESA = -1
+        self.AccStats.TimeESA = self.AccStats.DataSize + ETA * self.AccStats.DataSpeed
 
-        if AvgETA >= 0 and self.AccStats.AvgDataSpeed >= 0:
-            self.AccStats.AvgTimeESA = self.AccStats.DataSize + AvgETA * self.AccStats.AvgDataSpeed
-        else:
-            self.AccStats.AvgTimeESA = -1
+        self.AccStats.AvgStepESA = self.AccStats.DataSize + self.StepsLeft * self.AccStats.AvgDataSpeedStep
 
-        if ETA >= 0:
-            self.StorageStats.ESA = self.StorageStats.Size + self.StorageStats.Speed * ETA
-        else:
-            self.StorageStats.ESA = -1
+        self.AccStats.AvgTimeESA = self.AccStats.DataSize + AvgETA * self.AccStats.AvgDataSpeed
 
-        if AvgETA >= 0:
-            self.StorageStats.AvgESA = self.StorageStats.Size + self.StorageStats.Speed * AvgETA
-        else:
-            self.StorageStats.AvgESA = -1
+        self.StorageStats.ESA = self.StorageStats.Size + self.StorageStats.Speed * ETA
+
+        self.StorageStats.AvgESA = self.StorageStats.Size + self.StorageStats.Speed * AvgETA
 
     def Recalculate(self):
         #print(f"TimeDelta: {self.TimeDelta}, StepDelta: {self.StepDelta}")
@@ -392,34 +381,18 @@ class SimSequenceStatus:
         AvgETA = ChooseETA(self.AvgStepETA, self.AvgTimeETA)
 
         #print(f"SimStatus.StepsLeft: {self.SimSeq.Current.StepsLeft}, AccStats.DataStepSpeed: {self.AccStats.DataStepSpeed}")
-        if self.StepsLeft >= 0 and self.AccStats.DataSpeedStep >= 0:
-            self.AccStats.StepESA = self.AccStats.DataSize + self.StepsLeft * self.AccStats.DataSpeedStep
+        self.AccStats.StepESA = self.AccStats.DataSize + self.StepsLeft * self.AccStats.DataSpeedStep
 
         #print(f"SimStatus.TimeETA: {self.SimSeq.Current.TimeETA}, AccStats.DataSpeed: {self.AccStats.DataSpeed}")
-        if ETA >= 0 and self.AccStats.DataSpeed >= 0:
-            self.AccStats.TimeESA = self.AccStats.DataSize + ETA * self.AccStats.DataSpeed
-        else:
-            self.AccStats.TimeESA = -1
+        self.AccStats.TimeESA = self.AccStats.DataSize + ETA * self.AccStats.DataSpeed
 
-        if self.StepsLeft >= 0 and self.AccStats.AvgDataSpeedStep >= 0:
-            self.AccStats.AvgStepESA = self.AccStats.DataSize + self.StepsLeft * self.AccStats.AvgDataSpeedStep
-        else:
-            self.AccStats.AvgStepESA = -1
+        self.AccStats.AvgStepESA = self.AccStats.DataSize + self.StepsLeft * self.AccStats.AvgDataSpeedStep
 
-        if AvgETA >= 0 and self.AccStats.AvgDataSpeed >= 0:
-            self.AccStats.AvgTimeESA = self.AccStats.DataSize + AvgETA * self.AccStats.AvgDataSpeed
-        else:
-            self.AccStats.AvgTimeESA = -1
+        self.AccStats.AvgTimeESA = self.AccStats.DataSize + AvgETA * self.AccStats.AvgDataSpeed
 
-        if ETA >= 0:
-            self.StorageStats.ESA = self.StorageStats.Size + self.StorageStats.Speed * ETA
-        else:
-            self.StorageStats.ESA = -1
+        self.StorageStats.ESA = self.StorageStats.Size + self.StorageStats.Speed * ETA
 
-        if AvgETA >= 0:
-            self.StorageStats.AvgESA = self.StorageStats.Size + self.StorageStats.Speed * AvgETA
-        else:
-            self.StorageStats.AvgESA = -1
+        self.StorageStats.AvgESA = self.StorageStats.Size + self.StorageStats.Speed * AvgETA
 
     def Recalculate(self, MaxStep = -1, MaxTime = -1):
         self.Current.Recalculate()
@@ -461,23 +434,23 @@ class SimSequenceStatus:
             if self.Current.StepSpeed > 0:
                 self.StepETA = self.StepsLeft / self.Current.StepSpeed
             else:
-                self.StepETA = -1
+                self.StepETA = INF
 
             if self.Current.AvgStepSpeed > 0:
                 self.AvgStepETA = self.StepsLeft / self.AvgStepSpeed
             else:
-                self.AvgStepETA = -1
+                self.AvgStepETA = INF
 
             if MaxTime < 0:
                 if self.Current.TimePerStep > 0:
                     self.EstMaxTime = self.StepsLeft * self.Current.TimePerStep
                 else:
-                    self.EstMaxTime = -1
+                    self.EstMaxTime = INF
 
                 if self.AvgTimePerStep > 0:
                     self.AvgEstMaxTime = self.StepsLeft * self.AvgTimePerStep
                 else:
-                    self.AvgEstMaxTime = -1
+                    self.AvgEstMaxTime = INF
 
         if MaxTime > 0:
             self.TimeLeft = MaxTime - self.Time
@@ -486,18 +459,18 @@ class SimSequenceStatus:
             if self.TimeSpeed > 0:
                 self.TimeETA = self.TimeLeft / self.TimeSpeed
             else:
-                self.TimeETA = -1
+                self.TimeETA = INF
 
             if self.AvgTimeSpeed > 0:
                 self.AvgTimeETA = self.TimeLeft / self.AvgTimeSpeed
             else:
-                self.AvgTimeETA = -1
+                self.AvgTimeETA = INF
 
             if MaxStep < 0:
                 if self.StepsPerTime >= 0:
                     self.EstMaxStep = self.TimeLeft * self.StepsPerTime
                 else:
-                    self.EstMaxStep = -1
+                    self.EstMaxStep = INF
 
                 if self.AvgStepsPerTime:
                     self.AvgEstMaxStep = self.TimeLeft * self.AvgStepsPerTime
