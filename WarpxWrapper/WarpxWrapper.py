@@ -737,7 +737,7 @@ class WarpxWrapper:
         if not self.Control.Dispatch(k):
             self.UI.Message(f"Key: {k}")
             #self.UI.Message(f"Key: {Key.encode()}")
-        if not (self.UserBreak or self.Config.Quiet or self.Raw):
+        if not (self.UserBreak or self.Raw):
             self.UI.Update(Force = True)
 
     def ProcessControlInput(self):
@@ -825,7 +825,7 @@ class WarpxWrapper:
 
     def UpdateProgressUI(self):
         self.RecalculateSimStats()
-        if not (self.Config.Quiet or self.Raw):
+        if not self.Raw:
             self.UI.Update()
 
     def Update(self, Force = False):
@@ -857,7 +857,7 @@ class WarpxWrapper:
 
             self.UpdateTimer.Reset()
 
-            if not (self.Config.Quiet or self.Raw):
+            if not self.Raw:
                 self.UI.Update()
 
     def MainLoop(self):
@@ -1008,8 +1008,7 @@ class WarpxWrapper:
 
         self.CloseDataStream()
 
-        if not self.Config.Quiet:
-            self.UI.WriteSummary(self.SimSeq.ElapsedRealTime)
+        self.UI.WriteSummary(self.SimSeq.ElapsedRealTime)
 
         return self.CallEventHandler("OnFinish", self.ExitCode)
 
