@@ -783,8 +783,8 @@ class WarpxWrapper:
         self.Config.UI.ProgressBar = not self.Config.UI.ProgressBar
 
     def DoUserBreak(self):
-        self.UI.PrintLine("\n\n")
-        self.Logger.Info(f"Breaking on user demand.")
+        #self.UI.PrintLine("\n\n")
+        #self.Logger.Info(f"Breaking on user demand.")
         self.UserBreak = True
 
     def PrepareUI(self):
@@ -815,6 +815,14 @@ class WarpxWrapper:
         except FileNotFoundError:
             pass
 
+    def RecalculateSimStats(self):
+        self.SimSeq.Recalculate(self.Config.SeqMaxStep, self.Config.SeqMaxTime)
+
+    def UpdateProgressUI(self):
+        self.RecalculateSimStats()
+        if not (self.Config.Quiet or self.Raw):
+            self.UI.Update()
+
     def Update(self, Force = False):
         self.InitStorageStats(self.SimSeq.StorageStats)
         self.InitStorageStats(self.SimSeq.Current.StorageStats)
@@ -825,7 +833,7 @@ class WarpxWrapper:
             self.StorageTimer.Reset()
 
         if self.UpdateTimer.Expired() or Force:
-            self.SimSeq.Recalculate(self.Config.SeqMaxStep, self.Config.SeqMaxTime)
+            self.RecalculateSimStats()
             if self.WarpxProcess != None:
                     #print("Update proc info.")
                 try:
@@ -858,6 +866,7 @@ class WarpxWrapper:
         if self.UserBreak:
             if self.StartTime < 0:
                 self.StartTime = time.time()
+            self.UpdateProgressUI()
             self.Logger.Debug("User break.")
             return 3
 
@@ -887,6 +896,7 @@ class WarpxWrapper:
 #                    print("Time delay:", time.time() - Event)
                 return 0 # So all interactivity must take place earlier
             else:
+                self.UpdateProgressUI()
                 self.Logger.Debug("DataInput inactive, finishing.")
                 return 1
         if self.Raw:
@@ -925,6 +935,8 @@ class WarpxWrapper:
             self.LogOutput.Write(OutputLine)
 
         if self.DataParser.ParseLine(OutputLine) == 2:
+            self.UpdateProgressUI()
+            self.Logger.Warning("Warpx aborted.")
             return 2
 
         if self.SimSeq.Current.MaxStep > 0:
@@ -937,6 +949,7 @@ class WarpxWrapper:
             self.State.Header = False
             self.UI.CurrentSection = UI.Section.MAIN
         if self.SimSeq.Current.Footer and not self.State.Footer:
+            self.UpdateProgressUI()
             self.State.Footer = True
             self.UI.CurrentSection = UI.Section.FOOTER
             self.Logger.Debug("Footer detected.")
