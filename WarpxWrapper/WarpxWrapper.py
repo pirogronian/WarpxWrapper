@@ -730,11 +730,11 @@ class WarpxWrapper:
             self.LogOutput.Close()
 
     def OnKey(self, Key):
-        if not self.Control.Dispatch(Key):
-            BK = CreateKeystroke(Key, self.ControlInput.Terminal)
-            k = Key
-            if BK:
-                k = KeyName(BK)
+        BK = CreateKeystroke(Key, self.ControlInput.Terminal)
+        k = Key
+        if BK:
+            k = KeyName(BK)
+        if not self.Control.Dispatch(k):
             self.UI.Message(f"Key: {k}")
             #self.UI.Message(f"Key: {Key.encode()}")
         if not (self.UserBreak or self.Config.Quiet or self.Raw):

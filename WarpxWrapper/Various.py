@@ -96,11 +96,22 @@ def KeyName(Keystroke):
 
     return k
 
+NKeyMap = {
+    "esc": "escape",
+    "pgdn": "pgdown",
+    "pagedn": "pgdown",
+    "pagedown": "pgdown",
+    "pageup": "pgup"
+    }
+
 def NormalizeKeyName(Key):
     if len(Key) == 1:
         return Key
     Key = Key.replace(" ", "")
     Key = Key.replace("_", "+")
+    Key = Key.lower()
+    if Key in NKeyMap:
+        Key = NKeyMap[Key]
     Key = Key.upper()
 
     return Key

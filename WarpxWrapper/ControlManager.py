@@ -1,10 +1,13 @@
 
+from .Various import NormalizeKeyName
+
 class ControlManager:
     Keys = {}
 
     def Register(self, Key, Action, *args, **kargs):
         if type(Key) != str:
             raise ValueError("Key must be type of str.")
+        Key = NormalizeKeyName(Key)
         Args = (args, kargs)
         if Key in self.Keys:
             self.Keys[Key][Action] = Args

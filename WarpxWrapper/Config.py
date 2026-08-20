@@ -57,7 +57,7 @@ class ConfigClass:
     SkipFooter = False
     DontWaitForFooter = True
 
-    BreakKey = "\x1b"
+    BreakKey = "Esc"
     SeqKey = 's'
     FormatKey = "f"
     NonDestructivePrintKey = "d"
@@ -65,8 +65,8 @@ class ConfigClass:
     RawOutputKey = 'r'
     ProgressBarKey = 'p'
     PauseKey = ' '
-    ShorterIntervalKey = '\x1b[5~'
-    LongerIntervalKey = '\x1b[6~'
+    ShorterIntervalKey = 'PgUp'
+    LongerIntervalKey = 'PgDn'
 
     class UIClass:
         ProgressBar = True
