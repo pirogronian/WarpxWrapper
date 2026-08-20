@@ -69,6 +69,7 @@ class ConfigClass:
     LongerIntervalKey = 'PgDn'
 
     class UIClass:
+        Enabled = True
         ProgressBar = True
         NonDestructivePrint = False
         Average = False

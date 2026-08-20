@@ -7,6 +7,19 @@ INF = float("inf")
 def NaNN(Num):
     return Num == INF or Num == -INF or math.isnan(Num)
 
+def Is(Var1, Var2):
+    return type(Var1) == type(Var2) and Var1 == Var2
+
+def Action(Action, Value):
+    if Is(Action, False):
+        return not Value
+    t = type(Action)
+    if t == float or t == int:
+        return Action * Value
+    if callable(Action):
+        return Action(Value)
+    return Value
+
 def CompareKeys(c1, c2):
     #print(f"{c1} ({type(c1)}) || {c2} ({type(c2)})")
     if type(c1) == type(c2):

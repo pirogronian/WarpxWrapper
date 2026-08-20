@@ -9,7 +9,7 @@ from .NonBlockingStream import InputStream, OutputStream, AppendStream, InputTer
 #import .System
 from .Timer import Timer
 from .UI import UI
-from .Various import INF, NaNN, StrToBool, StrToInt, StrToType, TypeDescription, IterableToStr2D, CreateKeystroke, KeyName, NormalizeKeyName
+from .Various import INF, NaNN, StrToBool, StrToInt, StrToType, TypeDescription, IterableToStr2D, CreateKeystroke, KeyName, NormalizeKeyName, Is, Action
 from .WarpxDataParser import WarpxDataParser
 from .WarpxWrapper import WarpxWrapper, SourceType, SourceNames
 from .LimitedBlockWriter import LimitedBlockWriter

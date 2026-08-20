@@ -50,6 +50,8 @@ class UI:
         return min(Min, Max), Max
 
     def PrintLine(self, Text = "", End = "\n", Times = 1):
+        if not self.Config.UI.Enabled:
+            return
         while Times:
             print(Text + self.Terminal.clear_eol, end = End)
             Times -= 1
@@ -158,6 +160,8 @@ class UI:
         self.Msg.SetPersistent(Msg)
 
     def WriteHeader(self):
+        if not self.Config.UI.Enabled:
+            return
         lmin, lmax = self.GetLen()
 #        print(lmin, lmax, Length)
         nd = self.Config.UI.NonDestructivePrint
@@ -168,6 +172,8 @@ class UI:
         self.PrintLine(Times=self.SimStatusHeight)
 
     def WriteSimStatus(self):
+        if not self.Config.UI.Enabled:
+            return
         s = self.SimStatus # Less to write
         fn = self.FmtNmb
         ft = self.FmtTime
@@ -237,6 +243,8 @@ class UI:
         self.PrintLeftPadding()
 
     def WriteAccStats(self):
+        if not self.Config.UI.Enabled:
+            return
         s = self.SimStatus.AccStats
         minl, maxl = self.GetLen()
         SpeedStep, Speed = self.GetDataSpeeds()
@@ -245,11 +253,15 @@ class UI:
         self.PrintLeftPadding(f"Data: {SizeStr(s.DataSize):>9}, {SizeStr(Speed):>8}/s |{SizeStr(SpeedStep):>8}/st | ESA:{SizeStr(TimeESA):>8}/{SizeStr(StepESA):>8}.")
 
     def WriteProcStats(self):
+        if not self.Config.UI.Enabled:
+            return
         s = self.ProcStats
         self.PrintSeparator()
         self.PrintLeftPadding(f"Procs: {s.ProcNum}: {s.ProcNames} | CPU: {self.GetCPU()*100:>5.1f}%, mem: {SizeStr(s.Memory):>5} ({s.MemoryRatio:>5.2f}%)")
 
     def WriteStorageStats(self):
+        if not self.Config.UI.Enabled:
+            return
         s = self.SimStatus.StorageStats
         #print(S)
         ESA = self.GetStorageESA()
@@ -257,17 +269,23 @@ class UI:
         self.PrintLeftPadding(f"Storage: {SizeStr(s.Size):>9}, {SizeStr(s.Speed):>8}/s, ESA: {SizeStr(ESA):>8}")
 
     def WriteSystemStats(self):
+        if not self.Config.UI.Enabled:
+            return
         s = self.SystemStats
         self.PrintSeparator()
         self.PrintLeftPadding(f"Avail. res:   mem: {SizeStr(s.FreeMemory):>9}, storage: {SizeStr(s.FreeStorage):>9}")
 
     def WriteMessageLine(self):
+        if not self.Config.UI.Enabled:
+            return
         minl, maxl = self.GetLen()
         self.PrintSeparator()
         self.PrintCentered(self.Msg.GetMsg())
         self.PrintSeparator()
 
     def WriteSummary(self, Elapsed):
+        if not self.Config.UI.Enabled:
+            return
         self.PrintLine()
         self.PrintSeparator()
         self.PrintPadding()
@@ -285,6 +303,8 @@ class UI:
 
     def Update(self, Force = False):
         self.CacheMaxLen()
+        if not self.Config.UI.Enabled:
+            return
         if self.CurrentSection != self.Section.MAIN:
             return
         self.UpdateSimStatus()

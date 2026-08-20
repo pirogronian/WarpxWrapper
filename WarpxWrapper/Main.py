@@ -68,13 +68,13 @@ def InitParams():
     CM.AddParam("LogLevel", "-v", "--verbosity",
                 const='debug', choices=Verbosity.keys(),
                 help = "Verbosity level. In include files don't use associated variable directly, use getLogLevel() and setLogLevel() instead.")
-    CM.AddParam("Quiet", "-q", "--quiet", const = True, help = "Quiet mode. Turns off UI printing.")
     CM.AddParam("DontRun", "-r", "--dont-run", const = True, help = "Stops just before main loop. Useful for debugging.")
     CM.AddParam("ErrorIsFatal", "--error-fatal", const = True, help = "Whether to exit on errors.")
     CM.AddParam("LogFile", "-l", "--log-file", metavar="log_file_path")
     CM.AddParam("MaxLogSize", "--max-log-size", metavar="size")
     CM.AddParam("MaxLogFileSize", "--max-log-file-size", metavar="size")
     CM.AddParam("StoragePath", "-o", "--storage", metavar="storage_path")
+    CM.AddParam("UI.Enabled", "-q", "--quiet", const=True, Action=False, help = "Quiet mode. Turns off UI printing.")
     CM.AddParam("UI.NonDestructivePrint", "-d", "--non-destructive-print", const = True)
     CM.AddParam("UI.ProgressBar", "-b", "--progress-bar", const = True)
     CM.AddParam("UpdateInterval", "-u", "--upd-int", "--update-interval", metavar="seconds")

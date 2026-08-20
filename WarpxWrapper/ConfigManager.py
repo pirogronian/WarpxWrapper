@@ -1,6 +1,6 @@
 
 import argparse
-from .Various import StrToType, TypeDescription, StrToInt
+from .Various import StrToType, TypeDescription, StrToInt, Is, Action
 from WarpxWrapper import Config
 
 class IncludeAction(argparse.Action):
@@ -19,6 +19,10 @@ class ParamAction(argparse.Action):
     def __init__(self, option_strings, dest, **kwargs):
 #        print("{}.__init__({}, {}, {}, {})".format(self.__class__.__name__, option_strings, dest, nargs, kwargs))
         self.Param = kwargs.pop("VarName")
+        if "Action" in kwargs:
+            self.Action = kwargs.pop("Action")
+        else:
+            self.Action = None
         if kwargs["nargs"] == 1:
             self.UnpackList = True
         super().__init__(option_strings, dest, **kwargs)
@@ -38,6 +42,7 @@ class ParamAction(argparse.Action):
                 value = StrToType(value, t)
             except:
                 self.Error("Value of param {} must be convertable to {}!".format(option_string, t.__name__))
+        value = Action(self.Action, value)
         Config.SetParam(self.Param, value)
         self.Logger.Debug("Command line: set {} to {}".format(self.Param, value))
 
