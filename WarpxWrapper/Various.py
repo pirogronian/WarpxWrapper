@@ -1,5 +1,6 @@
 
 import math
+from blessed.keyboard import resolve_sequence, get_keyboard_sequences, get_keyboard_codes
 
 INF = float("inf")
 
@@ -79,6 +80,30 @@ def IterableToStr2D(Iterable, Padding = 2):
         ret += " " * Padding + str(item) + "\n"
 
     return ret
+
+def CreateKeystroke(Data, Terminal):
+    return resolve_sequence(Data, get_keyboard_sequences(Terminal), get_keyboard_codes())
+
+def KeyName(Keystroke):
+    name = Keystroke.key_name
+    value = Keystroke.key_value
+    k = None
+    if name == None:
+        k = value
+    else:
+        k = name[4:]
+        k = k.replace("_", "+")
+
+    return k
+
+def NormalizeKeyName(Key):
+    if len(Key) == 1:
+        return Key
+    Key = Key.replace(" ", "")
+    Key = Key.replace("_", "+")
+    Key = Key.upper()
+
+    return Key
 
 """"
 

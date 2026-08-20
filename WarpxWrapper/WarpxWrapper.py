@@ -19,7 +19,7 @@ from WarpxWrapper import ControlManager
 from WarpxWrapper import UI
 from WarpxWrapper import WarpxDataParser
 from WarpxWrapper.LimitedBlockWriter import LimitedBlockWriter
-from .Various import IterableToStr2D, INF, NaNN
+from .Various import IterableToStr2D, INF, NaNN, CreateKeystroke, KeyName
 
 def ChooseETA(ETA1, ETA2):
     if ETA1 > 0 and ETA2 > 0:
@@ -731,7 +731,12 @@ class WarpxWrapper:
 
     def OnKey(self, Key):
         if not self.Control.Dispatch(Key):
-            self.UI.Message(f"Key: {Key.encode()}")
+            BK = CreateKeystroke(Key, self.ControlInput.Terminal)
+            k = Key
+            if BK:
+                k = KeyName(BK)
+            self.UI.Message(f"Key: {k}")
+            #self.UI.Message(f"Key: {Key.encode()}")
         if not (self.UserBreak or self.Config.Quiet or self.Raw):
             self.UI.Update(Force = True)
 
