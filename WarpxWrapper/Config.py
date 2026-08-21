@@ -1,4 +1,11 @@
 
+from .Various import INF, NaN
+
+WAITINGFORDATA = 0
+HEADER = 1
+MAIN = 2
+FOOTER = 3
+
 class ConfigClass:
     def ParseParam(self, Name):
         obj = self
@@ -30,11 +37,11 @@ class ConfigClass:
     MaxLogFileSize = 0
     StoragePath = "diags"
 
-    MaxStep = -1
-    MaxTime = -1.0
+    MaxStep = INF
+    MaxTime = INF
 
-    SeqMaxStep = -1
-    SeqMaxTime = -1.0
+    SeqMaxStep = INF
+    SeqMaxTime = INF
 
     Source = "command"
 
@@ -68,6 +75,18 @@ class ConfigClass:
     ShorterIntervalKey = 'PgUp'
     LongerIntervalKey = 'PgDn'
 
+    class SimulationStateClass:
+        def Reset(self):
+            self.Step = 0
+            self.Time = 0
+            self.Section = WAITINGFORDATA
+            self.ProgressChanged = False
+            self.SectionChanged = False
+            self.ProcessFinding = True
+
+        def __init(self):
+            self.Reset()
+
     class UIClass:
         Enabled = True
         ProgressBar = True
@@ -76,6 +95,7 @@ class ConfigClass:
         Sequence = False
 
     def __init__(self):
+        self.State = self.SimulationStateClass()
         self.UI = self.UIClass()
 
 Config = ConfigClass()

@@ -11,6 +11,7 @@ import pypsutil
 from queue import SimpleQueue
 import shlex
 
+from .Config import Config, WAITINGFORDATA, HEADER, MAIN, FOOTER
 from WarpxWrapper import InputStream, InputTerminal, OutputStream
 from WarpxWrapper import Timer
 from WarpxWrapper import FormattedTime
@@ -19,7 +20,7 @@ from WarpxWrapper import ControlManager
 from WarpxWrapper import UI
 from WarpxWrapper import WarpxDataParser
 from WarpxWrapper.LimitedBlockWriter import LimitedBlockWriter
-from .Various import IterableToStr2D, INF, NaNN, CreateKeystroke, KeyName
+from .Various import IterableToStr2D, INF, NaNN, NaN, CreateKeystroke, KeyName
 
 def ChooseETA(ETA1, ETA2):
     if ETA1 > 0 and ETA2 > 0:
@@ -107,11 +108,6 @@ class SimulationStatus:
         self.StorageStats = StorageStats
 
     def Reset(self):
-        self.Header = True
-        self.Main = False
-        self.StatsUpdated = False
-        self.Footer = False
-
         self.StartRealTime = time.time()
         self.ElapsedRealTime = 0
         self.Paused = False
@@ -119,23 +115,23 @@ class SimulationStatus:
         self.PausedRealTime = 0
         self._PausedRealTime = 0
 
-        self.Step = -1 # These two are replenished externally
-        self.Time = -1
+        self.Step = NaN # These two are replenished externally
+        self.Time = NaN
 
-        self.MaxStep = -1 # These two are set once at the beginning
-        self.EstMaxStep = -1
-        self.AvgEstMaxStep = -1
-        self.MaxTime = -1
-        self.EstMaxTime = -1
-        self.AvgEstMaxTime = -1
+        self.MaxStep = INF # These two are set once at the beginning
+        self.EstMaxStep = INF
+        self.AvgEstMaxStep = INF
+        self.MaxTime = INF
+        self.EstMaxTime = INF
+        self.AvgEstMaxTime = INF
 
-        self.StepsLeft = -1
-        self.EstStepsLeft = -1
-        self.TimeLeft = -1
-        self.EstTimeLeft = -1
+        self.StepsLeft = INF
+        self.EstStepsLeft = INF
+        self.TimeLeft = INF
+        self.EstTimeLeft = INF
 
-        self.StepsProgress = -1
-        self.TimeProgress = -1
+        self.StepsProgress = NaN
+        self.TimeProgress = NaN
 
         self.CurrentRealTime = 0 # This is replenished automatically
 
@@ -143,26 +139,26 @@ class SimulationStatus:
         self.PrevTime = 0
         self.PrevRealTime = 0
 
-        self.StepDelta = -1
-        self.TimeDelta = -1 # This also is replenished externally
-        self.RealTimeDelta = -1
+        self.StepDelta = NaN
+        self.TimeDelta = NaN # This also is replenished externally
+        self.RealTimeDelta = NaN
 
-        self.StepSpeed = 0
-        self.TimeSpeed = 0
+        self.StepSpeed = NaN
+        self.TimeSpeed = NaN
 
-        self.AvgStepSpeed = 0
-        self.AvgTimeSpeed = 0
+        self.AvgStepSpeed = NaN
+        self.AvgTimeSpeed = NaN
 
-        self.StepETA = -1
-        self.TimeETA = -1
+        self.StepETA = INF
+        self.TimeETA = INF
 
-        self.AvgStepETA = -1
-        self.AvgTimeETA = -1
+        self.AvgStepETA = INF
+        self.AvgTimeETA = INF
 
-        self.TimePerStep = -1
-        self.StepsPerTime = -1
-        self.AvgTimePerStep = -1
-        self.AvgStepsPerTime = -1
+        self.TimePerStep = NaN
+        self.StepsPerTime = NaN
+        self.AvgTimePerStep = NaN
+        self.AvgStepsPerTime = NaN
 
         self.AccStats.Reset()
         self.StorageStats.Reset()
@@ -269,6 +265,11 @@ class SimulationStatus:
 
     def Recalculate(self):
         #print(f"TimeDelta: {self.TimeDelta}, StepDelta: {self.StepDelta}")
+        self.Step = Config.State.Step
+        self.Time = Config.State.Time
+
+        self.MaxStep = Config.MaxStep
+        self.MaxTime = Config.MaxTime
 
         self.ElapsedRealTime = self.CompElapsedRealTime()
         self.PausedRealTime = self.CompPausedRealTime()
@@ -311,26 +312,26 @@ class SimSequenceStatus:
 
     def Reset(self):
         self.Iteration = 0
-        self.Step = 0
-        self.Time = 0.0
+        self.Step = NaN
+        self.Time = NaN
 
-        self.MaxStep = -1
-        self.MaxTime = -1
-        self.StepsLeft = -1
-        self.TimeLeft = -1
-        self.EstMaxStep = -1
-        self.AvgEstMaxStep = -1
-        self.MaxTime = -1
-        self.EstMaxTime = -1
-        self.AvgEstMaxTime = -1
+        self.MaxStep = INF
+        self.MaxTime = INF
+        self.StepsLeft = INF
+        self.TimeLeft = INF
+        self.EstMaxStep = INF
+        self.AvgEstMaxStep = INF
+        self.MaxTime = INF
+        self.EstMaxTime = INF
+        self.AvgEstMaxTime = INF
 
-        self.StepsLeft = -1
-        self.EstStepsLeft = -1
-        self.TimeLeft = -1
-        self.EstTimeLeft = -1
+        self.StepsLeft = INF
+        self.EstStepsLeft = INF
+        self.TimeLeft = INF
+        self.EstTimeLeft = INF
 
-        self.StepsProgress = -1
-        self.TimeProgress = -1
+        self.StepsProgress = NaN
+        self.TimeProgress = NaN
 
         self.ElapsedRealTime = 0
         self.PausedRealTime = 0
@@ -340,22 +341,22 @@ class SimSequenceStatus:
         self.AvgStepsPerTime = 0
         self.AvgTimePerStep = 0
 
-        self.StepETA = -1
-        self.TimeETA = -1
+        self.StepETA = INF
+        self.TimeETA = INF
 
-        self.AvgStepETA = -1
-        self.AvgTimeETA = -1
+        self.AvgStepETA = INF
+        self.AvgTimeETA = INF
 
         self.PrevStep = 0
         self.PrevTime = 0
         self.PrevRealTime = 0
 
-        self.StepSpeed = -1
-        self.TimeSpeed = -1
+        self.StepSpeed = NaN
+        self.TimeSpeed = NaN
 
-        self.StepDelta = -1
-        self.TimeDelta = -1
-        self.RealTimeDelta = -1
+        self.StepDelta = NaN
+        self.TimeDelta = NaN
+        self.RealTimeDelta = NaN
 
         self.AccStats.Reset()
         self.StorageStats.Reset()
@@ -394,15 +395,16 @@ class SimSequenceStatus:
 
         self.StorageStats.AvgESA = self.StorageStats.Size + self.StorageStats.Speed * AvgETA
 
-    def Recalculate(self, MaxStep = -1, MaxTime = -1):
+    def Recalculate(self):
         self.Current.Recalculate()
 
-        if MaxStep < 0:
-            MaxStep = self.Current.MaxStep
-        if MaxTime < 0:
-            MaxTime = self.Current.MaxTime
-        self.MaxStep = MaxStep
-        self.MaxTime = MaxTime
+        self.MaxStep = Config.SeqMaxStep
+        self.MaxTime = Config.SeqMaxTime
+
+        if NaNN(self.MaxStep):
+            self.MaxStep = Config.MaxStep
+        if NaNN(self.MaxTime):
+            self.MaxTime = Config.MaxTime
 
         self.StepSpeed = self.Current.StepSpeed
         self.TimeSpeed = self.Current.TimeSpeed
@@ -431,21 +433,21 @@ class SimSequenceStatus:
         if self.Step > 0:
             self.AvgTimePerStep = self.Time / self.Step
 
-        if MaxStep > 0:
-            self.StepsLeft = MaxStep - self.Step
-            self.StepsProgress = self.Step / MaxStep
+        if self.MaxStep > 0:
+            self.StepsLeft = self.MaxStep - self.Step
+            self.StepsProgress = self.Step / self.MaxStep
 
             if self.Current.StepSpeed > 0:
                 self.StepETA = self.StepsLeft / self.Current.StepSpeed
             else:
                 self.StepETA = INF
 
-            if self.Current.AvgStepSpeed > 0:
+            if self.AvgStepSpeed > 0:
                 self.AvgStepETA = self.StepsLeft / self.AvgStepSpeed
             else:
                 self.AvgStepETA = INF
 
-            if MaxTime < 0:
+            if self.MaxTime < 0:
                 if self.Current.TimePerStep > 0:
                     self.EstMaxTime = self.StepsLeft * self.Current.TimePerStep
                 else:
@@ -456,9 +458,9 @@ class SimSequenceStatus:
                 else:
                     self.AvgEstMaxTime = INF
 
-        if MaxTime > 0:
-            self.TimeLeft = MaxTime - self.Time
-            self.TimeProgress = self.Time / MaxTime
+        if self.MaxTime > 0:
+            self.TimeLeft = self.MaxTime - self.Time
+            self.TimeProgress = self.Time / self.MaxTime
 
             if self.TimeSpeed > 0:
                 self.TimeETA = self.TimeLeft / self.TimeSpeed
@@ -470,7 +472,7 @@ class SimSequenceStatus:
             else:
                 self.AvgTimeETA = INF
 
-            if MaxStep < 0:
+            if self.MaxStep < 0:
                 if self.StepsPerTime >= 0:
                     self.EstMaxStep = self.TimeLeft * self.StepsPerTime
                 else:
@@ -487,13 +489,6 @@ class SimSequenceStatus:
 class SystemStats:
     FreeMemory = 0
     FreeStorage = 0
-
-
-class State:
-    def Reset(self):
-        self.SkipMain = False
-        self.ProcessWasFinding = False
-        self.Footer = False
 
 class SourceType(enum.Enum):
     DEFAULT = 0 # It means the COMMAND
@@ -521,7 +516,6 @@ class WarpxWrapper:
     def __init__(self, Config, Logger):
         self.Config = Config
         self.Logger = Logger
-        self.State = State()
         self.SimSeq = SimSequenceStatus(SimulationStatus(AccStats(), StorageStats()), AccStats(), StorageStats())
         self.SystemStats = SystemStats()
         self.Control = ControlManager()
@@ -530,16 +524,14 @@ class WarpxWrapper:
         self.UI = UI(self.SimSeq, self.SystemStats, self.ControlInput, self.Config)
         self.UpdateTimer = Timer("UpdateInterval")
         self.StorageTimer = Timer("StorageInterval")
-        self.DataParser = WarpxDataParser(self.SimSeq.Current, self.Logger)
+        self.DataParser = WarpxDataParser(self.Logger)
         self.PausedTime = 0
 
     def ResetState(self):
         self.UserBreak = False
         self.WarpxProcess = None
-        self.State.Reset()
+        Config.State.Reset()
         self.SimSeq.Current.Reset()
-        self.SimSeq.Current.MaxStep = self.Config.MaxStep
-        self.SimSeq.Current.MaxTime = self.Config.MaxTime
         self.UI.ResetState()
 
 
@@ -767,8 +759,7 @@ class WarpxWrapper:
             self.Resume()
         else:
             self.Pause()
-        self.SimSeq.Current.Recalculate()
-        self.SimSeq.Recalculate(self.Config.SeqMaxStep, self.Config.SeqMaxTime)
+        self.SimSeq.Recalculate()
 
     def ShorterInterval(self):
         self.Config.UpdateInterval = self.Config.UpdateInterval / 1.5
@@ -820,11 +811,8 @@ class WarpxWrapper:
         except FileNotFoundError:
             pass
 
-    def RecalculateSimStats(self):
-        self.SimSeq.Recalculate(self.Config.SeqMaxStep, self.Config.SeqMaxTime)
-
     def UpdateProgressUI(self):
-        self.RecalculateSimStats()
+        self.SimSeq.Recalculate()
         if not self.Raw:
             self.UI.Update()
 
@@ -838,7 +826,7 @@ class WarpxWrapper:
             self.StorageTimer.Reset()
 
         if self.UpdateTimer.Expired() or Force:
-            self.RecalculateSimStats()
+            self.SimSeq.Recalculate()
             if self.WarpxProcess != None:
                     #print("Update proc info.")
                 try:
@@ -857,7 +845,7 @@ class WarpxWrapper:
 
             self.UpdateTimer.Reset()
 
-            if not self.Raw:
+            if Config.State.Section == MAIN and not self.Raw:
                 self.UI.Update()
 
     def MainLoop(self):
@@ -904,6 +892,10 @@ class WarpxWrapper:
                 self.UpdateProgressUI()
                 self.Logger.Debug("DataInput inactive, finishing.")
                 return 1
+
+        if Config.State.Section == WAITINGFORDATA:
+            Config.State.Section = HEADER
+
         if self.Raw:
             print(OutputLine, end = '')
 
@@ -916,11 +908,10 @@ class WarpxWrapper:
 
         if self.StartTime < 0:
             self.StartTime = time.time()
-            self.UI.CurrentSection = UI.Section.HEADER
             self.UI.PrintLine("\nGot data, starting processing.\n")
 
         if OutputLine \
-            and not self.State.ProcessWasFinding \
+            and Config.State.ProcessFinding \
                 and self.WarpxProcess == None \
                     and SourceNames[self.Config.Source] == SourceType.FILE \
                         and self.Config.PID == 0:
@@ -934,7 +925,7 @@ class WarpxWrapper:
                     self.Logger.Debug(f"Detected Warpx process: {self.WarpxProcess.name()} ({self.WarpxProcess.pid}).")
             if self.WarpxProcess == None:
                 self.Logger.Warning("Warpx process not detected!")
-            self.State.ProcessWasFinding = True
+            Config.State.ProcessFinding = False
 
         if self.LogOutput != None:
             self.LogOutput.Write(OutputLine)
@@ -944,30 +935,19 @@ class WarpxWrapper:
             self.Logger.Warning("Warpx aborted.")
             return 2
 
-        if self.SimSeq.Current.MaxStep > 0:
-            self.Config.MaxStep = self.SimSeq.Current.MaxStep
-        if self.SimSeq.Current.MaxTime > 0:
-            self.Config.MaxTime = self.SimSeq.Current.MaxTime
-
-        if self.SimSeq.Current.Main == True:
-            self.State.Main = True
-            self.State.Header = False
-            self.UI.CurrentSection = UI.Section.MAIN
-        if self.SimSeq.Current.Footer and not self.State.Footer:
+        if Config.State.Section == FOOTER and Config.State.SectionChanged:
             self.UpdateProgressUI()
-            self.State.Footer = True
-            self.UI.CurrentSection = UI.Section.FOOTER
             self.Logger.Debug("Footer detected.")
-            if self.Config.SkipFooter:
+            if Config.SkipFooter:
                 return 1
             time.sleep(self.Config.UpdateInterval) # Let some time to the pipe to read last of data.
             self.DataInput.Interval = 0 # Don't wait for data anymore.
 
-        if self.SimSeq.Current.Step > self.SimSeq.Current.PrevStep:
+        if Config.State.ProgressChanged:
             #self.SimSeq.Recalculate(self.Config.SeqMaxStep, self.Config.SeqMaxTime)
             self.CallEventHandler("OnStep", self.SimSeq.Current.Step, self.SimSeq.Current.Time)
 
-        if self.SimSeq.Current.Header or self.SimSeq.Current.Footer:
+        if Config.State.Section == HEADER or Config.State.Section == FOOTER:
             print(OutputLine, end='')
 
         return 0
@@ -986,6 +966,8 @@ class WarpxWrapper:
                 if self.ExitCode > 0:
                     self.Logger.Debug(f"Exiting with code: {self.ExitCode}")
                     break
+                Config.State.ProgressChanged = False
+                Config.State.SectionChanged = False
 
         except Exception as e:
             self.Logger.Critical("Unhandled exception, breaking main loop.")
@@ -995,8 +977,6 @@ class WarpxWrapper:
         return self.ExitCode
 
     def Finish(self):
-        self.UI.CurrentSection = UI.Section.FOOTER
-
         self.Resume()
 
         S = SourceNames[self.Config.Source]

@@ -3,6 +3,7 @@ import math
 from blessed.keyboard import resolve_sequence, get_keyboard_sequences, get_keyboard_codes
 
 INF = float("inf")
+NaN = float("nan")
 
 def NaNN(Num):
     return Num == INF or Num == -INF or math.isnan(Num)

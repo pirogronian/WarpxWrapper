@@ -1,6 +1,8 @@
 
 import regex
 
+from .Config import Config, WAITINGFORDATA, HEADER, MAIN, FOOTER
+
 class WarpxDataParser:
     ReHeadStr = "For full input parameters, see the file\\:"
     Re1     = regex.compile("TIME")
@@ -10,8 +12,7 @@ class WarpxDataParser:
     ReAbort = regex.compile("MPI_ABORT")
     ReNum   = regex.compile("[+-]?(?:[0-9]+(?:\\.[0-9]+)?|\\.[0-9]+)(?:[eE][+-]?[0-9]+)?")
 
-    def __init__(self, SimStatus, Logger):
-        self.SimStatus = SimStatus
+    def __init__(self, Logger):
         self.Logger = Logger
 
     def ParseUsedInput(self, fname):
@@ -31,36 +32,38 @@ class WarpxDataParser:
             if ReMaxStep.search(line):
                 nums = self.ReNum.findall(line)
                 try:
-                    self.SimStatus.MaxStep = int(nums[len(nums) - 1])
+                    Config.MaxStep = int(nums[len(nums) - 1])
                 except Exception as e:
                     self.Logger.ExceptWarn(e)
             if ReStopTime.search(line):
                 nums = self.ReNum.findall(line)
                 try:
-                    self.SimStatus.MaxTime = float(nums[len(nums) - 1])
+                    Config.MaxTime = float(nums[len(nums) - 1])
                 except Exception as e:
                     self.Logger.ExceptWarn(e)
 
     def ParseLine(self, Line):
-        if not self.SimStatus.Footer and self.Re1.search(Line):
-            self.SimStatus.Header = False # Just in case we missed something
-            self.SimStatus.Main = True
+        if not Config.State.Section == FOOTER and self.Re1.search(Line):
+            if Config.State.Section == HEADER:
+                Config.State.Section = MAIN
+                Config.State.SectionChanged = True
 
             nums = self.ReNum.findall(Line)
 
-            self.SimStatus.Step = int(nums[0])
-            self.SimStatus.Time = float(nums[1])
-            self.SimStatus.TimeDelta = float(nums[2])
+            Config.State.Step = int(nums[0])
+            Config.State.Time = float(nums[1])
+            Config.State.TimeDelta = float(nums[2])
+            Config.State.ProgressChanged = True
 
-        elif self.SimStatus.Header == True and self.ReHead.match(Line):
-            self.SimStatus.Header = False
-            self.SimStatus.Main = True
+        elif Config.State.Section == HEADER and self.ReHead.match(Line):
+            Config.State.Section = MAIN
+            Config.State.SectionChanged = True
             PrefixLen = len(self.ReHeadStr)
             self.ParseUsedInput(Line[PrefixLen:len(Line) - 1])
 
-        elif self.SimStatus.Footer == False and self.ReFoot.match(Line):
-            self.SimStatus.Main = False
-            self.SimStatus.Footer = True
+        elif Config.State.Section == MAIN and self.ReFoot.match(Line):
+            Config.State.Section = FOOTER
+            Config.State.SectionChanged = True
         elif self.ReAbort.match(Line):
             return 2
 

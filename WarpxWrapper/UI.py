@@ -1,20 +1,14 @@
 
 #import math
 import enum
+from .Various import NaNN
 from blessed import Terminal
 from .FormattedValue import FormattedNumber, FormattedTime, SizeStr
 from .Message import Message
 
 class UI:
-    class Section(enum.Enum):
-        WAIT = 0
-        HEADER = 1
-        MAIN = 2
-        FOOTER = 3
-
     MinLen = 0
     MaxLen = 0
-    CurrentSection = Section.WAIT
 
     SimStatusHeight = 15
     AccStatsHeight = 11
@@ -33,7 +27,6 @@ class UI:
         self.Msg = Message(Timeout = 2)
 
     def ResetState(self):
-        self.CurrentSection = self.Section.WAIT
         self.First = True
 
     def CacheMaxLen(self, MaxLen = None):
@@ -197,19 +190,20 @@ class UI:
             MaxTstr = "~" + ft.Str(EMT)
             LeftTstr = "~" + ft.Str(ELT)
 
-        SProgPerc = int(s.StepsProgress * 100)
-        TProgPerc = int(s.TimeProgress * 100)
+        SProgPerc = s.StepsProgress if NaNN(s.StepsProgress) else int(s.StepsProgress * 100)
+        TProgPerc = s.TimeProgress if NaNN(s.TimeProgress) else int(s.TimeProgress * 100)
 
         TermProgress = SProgPerc
-        if TermProgress < 0:
+        if NaNN(TermProgress):
             TermProgress = TProgPerc
         else:
             if TProgPerc > 0 and TProgPerc < TermProgress:
                 TermProgress = TProgPerc
-        TermProgress = max(TermProgress, 0)
-        TermProgress = min(TermProgress, 100)
-        #print("Terminal progress:", TermProgress)
-        self.Terminal.progress_bar("normal", TermProgress)
+        if not NaNN(TermProgress):
+            TermProgress = max(TermProgress, 0)
+            TermProgress = min(TermProgress, 100)
+            #print("Terminal progress:", TermProgress)
+            self.Terminal.progress_bar("normal", TermProgress)
 
         SSSpeed, STSpeed = self.GetSimSpeeds()
         SETA, TETA = self.GetSimETAs()
@@ -305,8 +299,7 @@ class UI:
         self.CacheMaxLen()
         if not self.Config.UI.Enabled:
             return
-        if self.CurrentSection != self.Section.MAIN:
-            return
+
         self.UpdateSimStatus()
 
         with self.Terminal.no_line_wrap():
