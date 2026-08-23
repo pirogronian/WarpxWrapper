@@ -11,7 +11,7 @@ class UI:
     MinLen = 0
     MaxLen = 0
 
-    SimStatusHeight = 15
+    SimStatsHeight = 15
     AccStatsHeight = 11
     MessageLineHeight = 3
 
@@ -88,64 +88,64 @@ class UI:
     def PrintCentered(self, Text):
         self.PrintLine(self.Centered(Text))
 
-    def GetSimStatus(self):
+    def GetSimStats(self):
         if self.Config.UI.Sequence:
             return self.SimSeq
         return self.SimSeq.Current
 
-    def UpdateSimStatus(self):
+    def UpdateSimStats(self):
         if self.Config.UI.Sequence:
-            self.SimStatus = self.SimSeq
+            self.SimStats = self.SimSeq
         else:
-            self.SimStatus = self.SimSeq.Current
+            self.SimStats = self.SimSeq.Current
 
     def GetSimSpeeds(self):
         if self.Config.UI.Average:
-            return self.SimStatus.AvgRTSteps.Speed, self.SimStatus.AvgRTTime.Speed
-        return self.SimStatus.RTSteps.Speed, self.SimStatus.RTTime.Speed
+            return self.SimStats.AvgRTSteps.Speed, self.SimStats.AvgRTTime.Speed
+        return self.SimStats.RTSteps.Speed, self.SimStats.RTTime.Speed
 
     def GetEstSteps(self):
         ems = NaN
         if self.Config.UI.Average:
-            ems = self.SimStatus.AvgStepsTime.MaxValue
+            ems = self.SimStats.AvgStepsTime.MaxValue
         else:
-            ems = self.SimStatus.StepsTime.MaxValue
+            ems = self.SimStats.StepsTime.MaxValue
         els = ems - Config.State.Step
         return ems, els
 
     def GetEstTime(self):
         emt = NaN
         if self.Config.UI.Average:
-            emt = self.SimStatus.AvgTimeSteps.MaxValue
+            emt = self.SimStats.AvgTimeSteps.MaxValue
         else:
-            emt = self.SimStatus.TimeSteps.MaxValue
+            emt = self.SimStats.TimeSteps.MaxValue
         elt = emt - Config.State.Time
         return emt, elt
 
     def GetSimETAs(self):
         if self.Config.UI.Average:
-            return self.SimStatus.AvgRTSteps.ValueLeft, self.SimStatus.AvgRTTime.ValueLeft
-        return self.SimStatus.RTSteps.ValueLeft, self.SimStatus.RTTime.ValueLeft
+            return self.SimStats.AvgRTSteps.ValueLeft, self.SimStats.AvgRTTime.ValueLeft
+        return self.SimStats.RTSteps.ValueLeft, self.SimStats.RTTime.ValueLeft
 
     def GetDataSpeeds(self):
         if self.Config.UI.Average:
-            return self.SimStatus.AccStats.AvgDataStep.Speed, self.SimStatus.AccStats.AvgDataRTime.Speed
-        return self.SimStatus.AccStats.DataStep.Speed, self.SimStatus.AccStats.DataRTime.Speed
+            return self.SimStats.AccStats.AvgDataStep.Speed, self.SimStats.AccStats.AvgDataRTime.Speed
+        return self.SimStats.AccStats.DataStep.Speed, self.SimStats.AccStats.DataRTime.Speed
 
     def GetDataESAs(self):
         if self.Config.UI.Average:
-            return self.SimStatus.AccStats.AvgDataStep.MaxValue, self.SimStatus.AccStats.AvgDataRTime.MaxValue
-        return self.SimStatus.AccStats.DataStep.MaxValue, self.SimStatus.AccStats.DataRTime.MaxValue
+            return self.SimStats.AccStats.AvgDataStep.MaxValue, self.SimStats.AccStats.AvgDataRTime.MaxValue
+        return self.SimStats.AccStats.DataStep.MaxValue, self.SimStats.AccStats.DataRTime.MaxValue
 
     def GetCPU(self):
         if self.Config.UI.Average:
-            return self.SimStatus.AccStats.AvgCPU
-        return self.SimStatus.AccStats.CPU
+            return self.SimStats.AccStats.AvgCPU
+        return self.SimStats.AccStats.CPU
 
     def GetStorage(self):
         if self.Config.UI.Average:
-            return self.SimStatus.AvgStorageSize
-        return self.SimStatus.StorageSize
+            return self.SimStats.AvgStorageSize
+        return self.SimStats.StorageSize
 
     def Message(self, Msg, Timeout = None):
         self.Msg.SetTemporary(Msg, Timeout)
@@ -163,12 +163,12 @@ class UI:
         self.PrintCentered("Time statistics:")
         self.PrintSeparator()
         self.PrintLeftPadding()
-        self.PrintLine(Times=self.SimStatusHeight)
+        self.PrintLine(Times=self.SimStatsHeight)
 
-    def WriteSimStatus(self):
+    def WriteSimStats(self):
         if not self.Config.UI.Enabled:
             return
-        s = self.SimStatus # Less to write
+        s = self.SimStats # Less to write
         fn = self.FmtNmb
         ft = self.FmtTime
         minl, maxl = self.GetLen()
@@ -245,7 +245,7 @@ class UI:
     def WriteAccStats(self):
         if not self.Config.UI.Enabled:
             return
-        s = self.SimStatus.AccStats
+        s = self.SimStats.AccStats
         minl, maxl = self.GetLen()
         SpeedStep, Speed = self.GetDataSpeeds()
         StepESA,TimeESA = self.GetDataESAs()
@@ -305,18 +305,18 @@ class UI:
         if not self.Config.UI.Enabled:
             return
 
-        self.UpdateSimStatus()
+        self.UpdateSimStats()
 
         with self.Terminal.no_line_wrap():
             MoveUp = 0
             if self.First:
                 self.WriteHeader()
 
-            MoveUp = self.SimStatusHeight
+            MoveUp = self.SimStatsHeight
 #            print(f"MoveUp: {MoveUp}")
             if MoveUp and not self.Config.UI.NonDestructivePrint:
                 print(self.Terminal.move_up(MoveUp + 1))
-            self.WriteSimStatus()
+            self.WriteSimStats()
             self.WriteAccStats()
             self.WriteProcStats()
             #print(self.StorageStats.Speed)

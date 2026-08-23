@@ -88,7 +88,7 @@ class AccStats:
         #print(f"DDelta: {self.DataDelta} / {self.Delta:.2f}, {self.DataSpeed:.2f}/s")
 
 
-class SimulationStatus:
+class SimulationStats:
     def __init__(self):
         self.RTSteps = LinearExtrapolator()
         self.RTTime = LinearExtrapolator()
@@ -227,9 +227,9 @@ class SimulationStatus:
         self.CalculateESA()
 
 
-class SimSequenceStatus(SimulationStatus):
+class SimSequenceStats(SimulationStats):
     def __init__(self):
-        self.Current = SimulationStatus()
+        self.Current = SimulationStats()
         super().__init__()
 
     def Reset(self):
@@ -298,7 +298,7 @@ class WarpxWrapper:
     def __init__(self, Config, Logger):
         self.Config = Config
         self.Logger = Logger
-        self.SimSeq = SimSequenceStatus()
+        self.SimSeq = SimSequenceStats()
         self.SystemStats = SystemStats()
         self.Control = ControlManager()
         self.EventQueue = SimpleQueue()
