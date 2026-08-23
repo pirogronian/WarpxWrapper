@@ -11,6 +11,16 @@ def NaNN(Num):
 def Is(Var1, Var2):
     return type(Var1) == type(Var2) and Var1 == Var2
 
+def Div(a, b):
+    if b == 0:
+        if a < 0:
+            return -INF
+        if a > 0:
+            return INF
+        if a == 0:
+            return 0
+    return a / b
+
 def Action(Action, Value):
     if Is(Action, False):
         return not Value

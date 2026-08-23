@@ -21,6 +21,7 @@ from WarpxWrapper import UI
 from WarpxWrapper import WarpxDataParser
 from WarpxWrapper.LimitedBlockWriter import LimitedBlockWriter
 from .Various import IterableToStr2D, INF, NaNN, NaN, CreateKeystroke, KeyName
+from .LinearExtrapolator import LinearExtrapolator
 
 def ChooseETA(ETA1, ETA2):
     if ETA1 > 0 and ETA2 > 0:
@@ -31,23 +32,18 @@ def ChooseETA(ETA1, ETA2):
     return ETA2
 
 class AccStats:
+    def __init__(self):
+        self.DataRTime = LinearExtrapolator()
+        self.AvgDataRTime = LinearExtrapolator()
+        self.DataStep = LinearExtrapolator()
+        self.AvgDataStep = LinearExtrapolator()
+
     def Reset(self):
         self.UpdNr = 0
-        self.DataSize = 0
-        self.PrevDataSize = 0
-        self.PrevStepDataSize = 0
-
-        self.DataSpeed = 0
-        self.AvgDataSpeed = 0
-
-        self.DataSpeedStep = 0
-        self.AvgDataSpeedStep = 0
-
-        self.StepESA = 0
-        self.TimeESA = 0
-
-        self.AvgStepESA = 0
-        self.AvgTimeESA = 0
+        self.DataRTime.Reset()
+        self.AvgDataRTime.Reset()
+        self.DataStep.Reset()
+        self.AvgDataStep.Reset()
 
         self.CPUStart = 0
         self.CPUTime = 0
@@ -55,35 +51,39 @@ class AccStats:
         self.CPU = 0
         self.AvgCPU = 0
 
-    def Recalculate(self, TimeDelta, ElapsedTime, PausedTime):
+    def Recalculate(self, TimeDelta, ElapsedTime, PausedTime, ETA, AvgETA):
         self.UpdNr += 1
         #print(f"Upd # {self.UpdNr}. Loop: {self.Loop}.")
         #print(f"CTime: {self.CurrentTime:.2f}, prev time: {self.PrevTime:.2f}")
 
-        self.DataDelta = self.DataSize - self.PrevDataSize
+        CurrentTime = time.time()
+
+        self.DataRTime.MaxDomain = CurrentTime + ETA
+        self.AvgDataRTime.MaxDomain = ElapsedTime + AvgETA
+
+        self.DataRTime.SetValues(None, CurrentTime)
+        self.AvgDataRTime.SetValues(self.DataRTime.Value, ElapsedTime, 0, 0)
+
+        self.DataStep.MaxDomain = Config.MaxStep
+        self.AvgDataStep.MaxDomain = Config.MaxStep
+
+        self.DataStep.SetValues(self.DataRTime.Value, Config.State.Step)
+        self.AvgDataStep.SetValues(self.DataRTime.Value, Config.State.Step, 0, 0)
+
         self.CPUDelta = self.CPUTime - self.PrevCPUTime
 
         if TimeDelta > 0:
-            self.DataSpeed = self.DataDelta / TimeDelta
             self.CPU = self.CPUDelta / TimeDelta
-
-        if ElapsedTime > 0:
-            self.AvgDataSpeed = self.DataSize / ElapsedTime
 
         if self.CPUStart > 0:
             self.AvgCPU = self.CPUTime / (time.time() - self.CPUStart - PausedTime)
             #print(f"Set AvgCPU: {self.CPUTime} / {time.time()} - {self.CPUStart} = / {time.time() - self.CPUStart} = {self.AvgCPU}")
 
-        self.PrevDataSize = self.DataSize
         self.PrevCPUTime = self.CPUTime
         #print(f"DDelta: {self.DataDelta} / {self.Delta:.2f}, {self.DataSpeed:.2f}/s")
 
     def RecalculateStep(self, Step, StepDelta):
-        self.DataStepDelta = self.DataSize - self.PrevStepDataSize
-        if StepDelta > 0:
-            self.DataSpeedStep = self.DataStepDelta / StepDelta
-        if Step > 0:
-            self.AvgDataSpeedStep = self.DataSize / Step
+        pass
 
 
 class StorageStats:
@@ -104,61 +104,41 @@ class StorageStats:
 
 class SimulationStatus:
     def __init__(self, AccStats, StorageStats):
+        self.RTSteps = LinearExtrapolator()
+        self.RTTime = LinearExtrapolator()
+        self.StepsTime = LinearExtrapolator()
+        self.TimeSteps = LinearExtrapolator()
+
+        self.AvgRTSteps = LinearExtrapolator()
+        self.AvgRTTime = LinearExtrapolator()
+        self.AvgStepsTime = LinearExtrapolator()
+        self.AvgTimeSteps = LinearExtrapolator()
+
         self.AccStats = AccStats
         self.StorageStats = StorageStats
 
     def Reset(self):
         self.StartRealTime = time.time()
+
+        self.RTSteps.Reset()
+        self.RTTime.Reset()
+        self.StepsTime.Reset()
+        self.TimeSteps.Reset()
+
+        self.AvgRTSteps.Reset()
+        self.AvgRTTime.Reset()
+        self.AvgStepsTime.Reset()
+        self.AvgTimeSteps.Reset()
+
         self.ElapsedRealTime = 0
         self.Paused = False
         self.PausedAt = 0
         self.PausedRealTime = 0
         self._PausedRealTime = 0
 
-        self.Step = NaN # These two are replenished externally
-        self.Time = NaN
-
-        self.MaxStep = INF # These two are set once at the beginning
-        self.EstMaxStep = INF
-        self.AvgEstMaxStep = INF
-        self.MaxTime = INF
-        self.EstMaxTime = INF
-        self.AvgEstMaxTime = INF
-
-        self.StepsLeft = INF
-        self.EstStepsLeft = INF
-        self.TimeLeft = INF
-        self.EstTimeLeft = INF
-
-        self.StepsProgress = NaN
-        self.TimeProgress = NaN
-
         self.CurrentRealTime = 0 # This is replenished automatically
 
-        self.PrevStep = 0
-        self.PrevTime = 0
-        self.PrevRealTime = 0
-
-        self.StepDelta = NaN
-        self.TimeDelta = NaN # This also is replenished externally
         self.RealTimeDelta = NaN
-
-        self.StepSpeed = NaN
-        self.TimeSpeed = NaN
-
-        self.AvgStepSpeed = NaN
-        self.AvgTimeSpeed = NaN
-
-        self.StepETA = INF
-        self.TimeETA = INF
-
-        self.AvgStepETA = INF
-        self.AvgTimeETA = INF
-
-        self.TimePerStep = NaN
-        self.StepsPerTime = NaN
-        self.AvgTimePerStep = NaN
-        self.AvgStepsPerTime = NaN
 
         self.AccStats.Reset()
         self.StorageStats.Reset()
@@ -187,77 +167,15 @@ class SimulationStatus:
             return time.time() - self.PausedAt + self._PausedRealTime
         return self._PausedRealTime
 
-    def CalculateETA(self):
-        self.StepDelta = self.Step - self.PrevStep
-        # TimeDelta was provided externally, but is no longer
-        self.TimeDelta = self.Time - self.PrevTime
-
-        #print(f"Step: {self.Step}, Time: {self.Time}")
-        #print(f"PrevStep: {self.PrevStep}, PrevTime: {self.PrevTime}")
-        #print(f"Deltas: step {self.StepDelta}, time {self.TimeDelta}")
-
-        self.RealTimeDelta = self.ElapsedRealTime - self.PrevRealTime
-
-        if self.MaxStep > 0 and self.StepDelta > 0:
-            self.TimePerStep = self.TimeDelta / self.StepDelta
-            self.EstMaxTime = self.Time + self.TimePerStep * self.StepsLeft
-
-            self.AvgTimePerStep = self.Time / self.Step
-            self.AvgEstMaxTime = self.Time + self.AvgTimePerStep * self.StepsLeft
-
-        if self.MaxTime > 0 and self.TimeDelta > 0:
-            self.StepsPerTime = self.StepDelta / self.TimeDelta
-            self.EstMaxStep = self.Step + self.StepsPerTime * self.TimeLeft
-
-            self.AvgStepsPerTime = self.Step / self.Time
-            self.AvgEstMaxStep = self.Step + self.AvgStepsPerTime * self.TimeLeft
-
-        if self.RealTimeDelta > 0:
-            self.StepSpeed = self.StepDelta / self.RealTimeDelta
-            self.TimeSpeed = self.TimeDelta / self.RealTimeDelta
-            #print(f"Set StepSpeed: {self.StepSpeed}, ({self.StepDelta} / {self.RealTimeDelta})")
-            #print(f"Set TimeSpeed: {self.TimeSpeed}, ({self.TimeDelta} / {self.RealTimeDelta})")
-
-        if self.StepSpeed > 0:
-            self.StepETA = self.StepsLeft / self.StepSpeed
-        else:
-            self.StepETA = INF
-        if self.TimeSpeed > 0:
-            self.TimeETA = self.TimeLeft / self.TimeSpeed
-        else:
-            self.TimeETA = INF
-
-    def CalculateAvgETA(self):
-        self.AvgStepSpeed = self.Step / self.ElapsedRealTime
-        if self.AvgStepSpeed > 0:
-            self.AvgStepETA = self.StepsLeft / self.AvgStepSpeed
-        else:
-            self.AvgStepETA = INF
-
-        self.AvgTimeSpeed = self.Time / self.ElapsedRealTime
-        if self.AvgTimeSpeed > 0:
-            self.AvgTimeETA = self.TimeLeft / self.AvgTimeSpeed
-        else:
-            self.AvgTimeETA = INF
-
     def CalculateESA(self):
         ETA = 0
         AvgETA = 0
 
-        ETA = ChooseETA(self.StepETA, self.TimeETA)
-        AvgETA = ChooseETA(self.AvgStepETA, self.AvgTimeETA)
+        ETA = ChooseETA(self.RTSteps.MaxValue, self.RTTime.MaxValue)
+        AvgETA = ChooseETA(self.AvgRTSteps.MaxValue, self.AvgRTTime.MaxValue)
 
         #print(f"SimStatus.StepsLeft: {self.SimSeq.Current.StepsLeft}, AccStats.DataStepSpeed: {self.AccStats.DataStepSpeed}")
-        if self.StepsLeft >= 0 and self.AccStats.DataSpeedStep >= 0:
-            self.AccStats.StepESA = self.AccStats.DataSize + self.StepsLeft * self.AccStats.DataSpeedStep
-
-        #print(f"SimStatus.TimeETA: {self.SimSeq.Current.TimeETA}, AccStats.DataSpeed: {self.AccStats.DataSpeed}")
-
-        self.AccStats.TimeESA = self.AccStats.DataSize + ETA * self.AccStats.DataSpeed
-
-        self.AccStats.AvgStepESA = self.AccStats.DataSize + self.StepsLeft * self.AccStats.AvgDataSpeedStep
-
-        self.AccStats.AvgTimeESA = self.AccStats.DataSize + AvgETA * self.AccStats.AvgDataSpeed
+        self.AccStats.Recalculate(self.RTSteps.ValueDelta, self.ElapsedRealTime, self.PausedRealTime, ETA, AvgETA)
 
         self.StorageStats.ESA = self.StorageStats.Size + self.StorageStats.Speed * ETA
 
@@ -265,42 +183,44 @@ class SimulationStatus:
 
     def Recalculate(self):
         #print(f"TimeDelta: {self.TimeDelta}, StepDelta: {self.StepDelta}")
-        self.Step = Config.State.Step
-        self.Time = Config.State.Time
-
-        self.MaxStep = Config.MaxStep
-        self.MaxTime = Config.MaxTime
 
         self.ElapsedRealTime = self.CompElapsedRealTime()
         self.PausedRealTime = self.CompPausedRealTime()
 
-        self.RealTimeDelta = self.ElapsedRealTime - self.PrevRealTime
+        self.RTSteps.MaxDomain = Config.MaxStep
+        self.RTTime.MaxDomain = Config.MaxTime
 
-        if self.Step >= 0 and self.MaxStep > 0:
-            self.StepsLeft = self.MaxStep - self.Step
+        self.StepsTime.MaxDomain = Config.MaxTime
+        self.TimeSteps.MaxDomain = Config.MaxStep
 
-        if self.Time >= 0 and self.MaxTime > 0:
-            self.TimeLeft = self.MaxTime - self.Time
+        self.RTSteps.SetValues(self.ElapsedRealTime, Config.State.Step)
+        self.RTTime.SetValues(self.ElapsedRealTime, Config.State.Time)
 
-        if self.MaxStep > 0:
-            self.StepsProgress = self.Step / self.MaxStep
-        else:
-            self.StepsProgress = -1
-        if self.MaxTime > 0:
-            self.TimeProgress = self.Time / self.MaxTime
-        else:
-            self.TimeProgress = -1
+        self.StepsTime.SetValues(Config.State.Step, Config.State.Time)
+        self.TimeSteps.SetValues(Config.State.Time, Config.State.Step)
 
-        self.CalculateETA()
-        if self.ElapsedRealTime > 0:
-            self.CalculateAvgETA()
+        self.AvgRTSteps.MaxDomain = Config.MaxStep
+        self.AvgRTTime.MaxDomain = Config.MaxTime
 
-        self.AccStats.Recalculate(self.RealTimeDelta, self.ElapsedRealTime, self.PausedRealTime)
-        self.AccStats.RecalculateStep(self.Step, self.StepDelta)
+        self.AvgStepsTime.MaxDomain = Config.MaxTime
+        self.AvgTimeSteps.MaxDomain = Config.MaxStep
+
+        self.AvgRTSteps.SetValues(self.ElapsedRealTime, Config.State.Step, Evaluate=False)
+        self.AvgRTTime.SetValues(self.ElapsedRealTime, Config.State.Time, Evaluate=False)
+
+        self.AvgRTSteps.SetDeltas(self.ElapsedRealTime, Config.State.Step)
+        self.AvgRTTime.SetDeltas(self.ElapsedRealTime, Config.State.Time)
+
+        self.AvgStepsTime.SetValues(Config.State.Step, Config.State.Time, Evaluate=False)
+        self.AvgTimeSteps.SetValues(Config.State.Time, Config.State.Step, Evaluate=False)
+
+        self.AvgStepsTime.SetDeltas(Config.State.Step, Config.State.Time)
+        self.AvgTimeSteps.SetDeltas(Config.State.Time, Config.State.Step)
+
+        #self.AccStats.Recalculate(self.RTSteps.ValueDelta, self.ElapsedRealTime, self.PausedRealTime, ChooseETA(self.RTSteps.ValueLeft, self.RTTime.ValueLeft))
+        #self.AccStats.RecalculateStep(self.RTSteps.Value, self.RTSteps.DomainDelta)
         self.CalculateESA()
 
-        self.PrevStep = self.Step
-        self.PrevTime = self.Time
         self.PrevRealTime = self.ElapsedRealTime
 
 
@@ -382,14 +302,6 @@ class SimSequenceStatus:
         AvgETA = ChooseETA(self.AvgStepETA, self.AvgTimeETA)
 
         #print(f"SimStatus.StepsLeft: {self.SimSeq.Current.StepsLeft}, AccStats.DataStepSpeed: {self.AccStats.DataStepSpeed}")
-        self.AccStats.StepESA = self.AccStats.DataSize + self.StepsLeft * self.AccStats.DataSpeedStep
-
-        #print(f"SimStatus.TimeETA: {self.SimSeq.Current.TimeETA}, AccStats.DataSpeed: {self.AccStats.DataSpeed}")
-        self.AccStats.TimeESA = self.AccStats.DataSize + ETA * self.AccStats.DataSpeed
-
-        self.AccStats.AvgStepESA = self.AccStats.DataSize + self.StepsLeft * self.AccStats.AvgDataSpeedStep
-
-        self.AccStats.AvgTimeESA = self.AccStats.DataSize + AvgETA * self.AccStats.AvgDataSpeed
 
         self.StorageStats.ESA = self.StorageStats.Size + self.StorageStats.Speed * ETA
 
@@ -406,21 +318,21 @@ class SimSequenceStatus:
         if NaNN(self.MaxTime):
             self.MaxTime = Config.MaxTime
 
-        self.StepSpeed = self.Current.StepSpeed
-        self.TimeSpeed = self.Current.TimeSpeed
+        self.StepSpeed = self.Current.RTSteps.Speed
+        self.TimeSpeed = self.Current.RTTime.Speed
 
-        self.StepDelta = self.Current.StepDelta
-        self.TimeDelta = self.Current.TimeDelta
+        self.StepDelta = self.Current.RTSteps.DomainDelta
+        self.TimeDelta = self.Current.RTTime.DomainDelta
         self.RealTimeDelta = self.Current.RealTimeDelta
 
-        self.StepsPerTime = self.Current.StepsPerTime
-        self.TimePerStep = self.Current.TimePerStep
+        self.StepsPerTime = self.Current.StepsTime.Speed
+        self.TimePerStep = self.Current.TimeSteps.Speed
 
-        self.AvgStepsPerTime = self.Current.AvgStepsPerTime
-        self.AvgTimePerStep = self.Current.AvgTimePerStep
+        self.AvgStepsPerTime = self.Current.AvgStepsTime.Speed
+        self.AvgTimePerStep = self.Current.AvgTimeSteps.Speed
 
-        self.Step = self.PrevStep + self.Current.Step
-        self.Time = self.PrevTime + self.Current.Time
+        self.Step = self.PrevStep + Config.State.Step
+        self.Time = self.PrevTime + Config.State.Time
         self.ElapsedRealTime = self.CompElapsedRealTime()
 
         if self.ElapsedRealTime > 0:
@@ -437,8 +349,8 @@ class SimSequenceStatus:
             self.StepsLeft = self.MaxStep - self.Step
             self.StepsProgress = self.Step / self.MaxStep
 
-            if self.Current.StepSpeed > 0:
-                self.StepETA = self.StepsLeft / self.Current.StepSpeed
+            if self.Current.RTSteps.Speed > 0:
+                self.StepETA = self.StepsLeft / self.Current.RTSteps.Speed
             else:
                 self.StepETA = INF
 
@@ -448,8 +360,8 @@ class SimSequenceStatus:
                 self.AvgStepETA = INF
 
             if self.MaxTime < 0:
-                if self.Current.TimePerStep > 0:
-                    self.EstMaxTime = self.StepsLeft * self.Current.TimePerStep
+                if self.Current.TimeSteps.Speed > 0:
+                    self.EstMaxTime = self.StepsLeft * self.Current.TimeSteps.Speed
                 else:
                     self.EstMaxTime = INF
 
@@ -481,8 +393,8 @@ class SimSequenceStatus:
                 if self.AvgStepsPerTime:
                     self.AvgEstMaxStep = self.TimeLeft * self.AvgStepsPerTime
 
-        self.AccStats.Recalculate(self.RealTimeDelta, self.ElapsedRealTime, self.PausedRealTime)
-        self.AccStats.RecalculateStep(self.Step, self.StepDelta)
+        #self.AccStats.Recalculate(self.RealTimeDelta, self.ElapsedRealTime, self.PausedRealTime)
+        #self.AccStats.RecalculateStep(self.Step, self.StepDelta)
         self.CalculateESA()
 
 
@@ -899,8 +811,8 @@ class WarpxWrapper:
         if self.Raw:
             print(OutputLine, end = '')
 
-        self.SimSeq.AccStats.DataSize += len(OutputLine)
-        self.SimSeq.Current.AccStats.DataSize += len(OutputLine)
+        #self.SimSeq.AccStats.DataSize += len(OutputLine)
+        self.SimSeq.Current.AccStats.DataRTime.AddValue(len(OutputLine))
 
         #print(f"Increasing data size: {AccStats.DataSize}.")
 
@@ -945,7 +857,7 @@ class WarpxWrapper:
 
         if Config.State.ProgressChanged:
             #self.SimSeq.Recalculate(self.Config.SeqMaxStep, self.Config.SeqMaxTime)
-            self.CallEventHandler("OnStep", self.SimSeq.Current.Step, self.SimSeq.Current.Time)
+            self.CallEventHandler("OnStep", Config.State.Step, Config.State.Time)
 
         if Config.State.Section == HEADER or Config.State.Section == FOOTER:
             print(OutputLine, end='')

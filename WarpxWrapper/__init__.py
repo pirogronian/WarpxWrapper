@@ -3,6 +3,7 @@ from .Config import Config
 from .ConfigManager import ConfigManager, IncludeAction
 from .ControlManager import ControlManager
 from .FormattedValue import FormattedNumber, FormattedTime, SizeStr
+from .LinearExtrapolator import LinearExtrapolator
 from .Logger import Logger, Verbosity
 from .Message import Message
 from .NonBlockingStream import InputStream, OutputStream, AppendStream, InputTerminal
