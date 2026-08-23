@@ -142,10 +142,10 @@ class UI:
             return self.SimStatus.AccStats.AvgCPU
         return self.SimStatus.AccStats.CPU
 
-    def GetStorageESA(self):
+    def GetStorage(self):
         if self.Config.UI.Average:
-            return self.SimStatus.StorageStats.AvgESA
-        return self.SimStatus.StorageStats.ESA
+            return self.SimStatus.AvgStorageSize
+        return self.SimStatus.StorageSize
 
     def Message(self, Msg, Timeout = None):
         self.Msg.SetTemporary(Msg, Timeout)
@@ -262,11 +262,10 @@ class UI:
     def WriteStorageStats(self):
         if not self.Config.UI.Enabled:
             return
-        s = self.SimStatus.StorageStats
         #print(S)
-        ESA = self.GetStorageESA()
+        s = self.GetStorage()
         self.PrintSeparator()
-        self.PrintLeftPadding(f"Storage: {SizeStr(s.Size):>9}, {SizeStr(s.Speed):>8}/s, ESA: {SizeStr(ESA):>8}")
+        self.PrintLeftPadding(f"Storage: {SizeStr(s.Value):>9}, {SizeStr(s.Speed):>8}/s, ESA: {SizeStr(s.MaxValue):>8}")
 
     def WriteSystemStats(self):
         if not self.Config.UI.Enabled:

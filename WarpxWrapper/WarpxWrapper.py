@@ -88,24 +88,8 @@ class AccStats:
         #print(f"DDelta: {self.DataDelta} / {self.Delta:.2f}, {self.DataSpeed:.2f}/s")
 
 
-class StorageStats:
-    def Reset(self):
-        self.RawSize = 0
-        self.Size = 0
-        self.StartSize = -1
-        self.Speed = 0
-        self.ESA = 0
-        self.AvgESA = 0
-
-    def Recalculate(self, Elapsed):
-        self.Size = self.RawSize - self.StartSize
-        if Elapsed > 0:
-            self.Speed = self.Size / Elapsed
-            #print(f"St Speed: {self.Speed:.2f}, {SizeStr(self.Size)} - {SizeStr(self.StartSize)} = {SizeStr(self.Size - self.StartSize)} / {self.Elapsed:.4f}")
-
-
 class SimulationStatus:
-    def __init__(self, AccStats, StorageStats):
+    def __init__(self, AccStats):
         self.RTSteps = LinearExtrapolator()
         self.RTTime = LinearExtrapolator()
         self.StepsTime = LinearExtrapolator()
@@ -117,7 +101,8 @@ class SimulationStatus:
         self.AvgTimeSteps = LinearExtrapolator()
 
         self.AccStats = AccStats
-        self.StorageStats = StorageStats
+        self.StorageSize = LinearExtrapolator()
+        self.AvgStorageSize = LinearExtrapolator()
 
     def Reset(self):
         self.StartRealTime = time.time()
@@ -132,6 +117,13 @@ class SimulationStatus:
         self.AvgStepsTime.Reset()
         self.AvgTimeSteps.Reset()
 
+        self.AccStats.Reset()
+
+        self.StorageSize.Reset()
+        self.AvgStorageSize.Reset()
+
+        self.StorageSize.BaseValue = NaN
+
         self.ElapsedRealTime = 0
         self.Paused = False
         self.PausedAt = 0
@@ -141,9 +133,6 @@ class SimulationStatus:
         self.CurrentRealTime = 0 # This is replenished automatically
 
         self.RealTimeDelta = NaN
-
-        self.AccStats.Reset()
-        self.StorageStats.Reset()
 
     def Pause(self):
         if self.Paused:
@@ -183,9 +172,11 @@ class SimulationStatus:
         self.AccStats.Step = Config.State.Step
         self.AccStats.Recalculate(self.RTSteps.ValueDelta, self.ElapsedRealTime, self.PausedRealTime)
 
-        self.StorageStats.ESA = self.StorageStats.Size + self.StorageStats.Speed * ETA
+        self.StorageSize.MaxDomain = ETA
+        self.AvgStorageSize.MaxDomain = AvgETA
 
-        self.StorageStats.AvgESA = self.StorageStats.Size + self.StorageStats.Speed * AvgETA
+        self.StorageSize.SetValues(None, self.ElapsedRealTime, None, 0)
+        self.AvgStorageSize.SetValues(None, self.ElapsedRealTime, None, 0)
 
     def Recalculate(self):
         #print(f"TimeDelta: {self.TimeDelta}, StepDelta: {self.StepDelta}")
@@ -231,10 +222,9 @@ class SimulationStatus:
 
 
 class SimSequenceStatus:
-    def __init__(self, CurrentSim, AccStats, StorageStats):
+    def __init__(self, CurrentSim, AccStats):
         self.Current = CurrentSim
         self.AccStats = AccStats
-        self.StorageStats = StorageStats
 
     def Reset(self):
         self.Iteration = 0
@@ -285,7 +275,6 @@ class SimSequenceStatus:
         self.RealTimeDelta = NaN
 
         self.AccStats.Reset()
-        self.StorageStats.Reset()
 
     def Next(self):
         self.Iteration += 1
@@ -308,10 +297,6 @@ class SimSequenceStatus:
         AvgETA = ChooseETA(self.AvgStepETA, self.AvgTimeETA)
 
         #print(f"SimStatus.StepsLeft: {self.SimSeq.Current.StepsLeft}, AccStats.DataStepSpeed: {self.AccStats.DataStepSpeed}")
-
-        self.StorageStats.ESA = self.StorageStats.Size + self.StorageStats.Speed * ETA
-
-        self.StorageStats.AvgESA = self.StorageStats.Size + self.StorageStats.Speed * AvgETA
 
     def Recalculate(self):
         self.Current.Recalculate()
@@ -434,7 +419,7 @@ class WarpxWrapper:
     def __init__(self, Config, Logger):
         self.Config = Config
         self.Logger = Logger
-        self.SimSeq = SimSequenceStatus(SimulationStatus(AccStats(), StorageStats()), AccStats(), StorageStats())
+        self.SimSeq = SimSequenceStatus(SimulationStatus(AccStats()), AccStats())
         self.SystemStats = SystemStats()
         self.Control = ControlManager()
         self.EventQueue = SimpleQueue()
@@ -715,17 +700,19 @@ class WarpxWrapper:
         except FileNotFoundError:
             pass
 
-    def InitStorageStats(self, StorageStats):
-        if StorageStats.StartSize < 0:
+    def InitStorageStats(self, Sim):
+        if NaNN(Sim.StorageSize.BaseValue):
             try:
-                StorageStats.StartSize = System.DirSize(self.Config.StoragePath)
+                Sim.StorageSize.BaseValue = System.DirSize(self.Config.StoragePath)
+                Sim.AvgStorageSize.BaseValue = Sim.StorageSize.BaseValue
             except FileNotFoundError:
                 self.Logger.Warning(f"'{self.Config.StoragePath}' - file not found.")
 
-    def UpdateStorageStats(self, StorageStats, Elapsed):
+    def UpdateStorageStats(self, Sim):
         try:
-            StorageStats.RawSize = System.DirSize(self.Config.StoragePath)
-            StorageStats.Recalculate(Elapsed)
+            size = System.DirSize(self.Config.StoragePath)
+            Sim.StorageSize.SetValue(size, 0)
+            Sim.AvgStorageSize.SetValue(size, 0)
         except FileNotFoundError:
             pass
 
@@ -735,12 +722,12 @@ class WarpxWrapper:
             self.UI.Update()
 
     def Update(self, Force = False):
-        self.InitStorageStats(self.SimSeq.StorageStats)
-        self.InitStorageStats(self.SimSeq.Current.StorageStats)
+        #self.InitStorageStats(self.SimSeq.StorageStats)
+        self.InitStorageStats(self.SimSeq.Current)
 
         if self.StorageTimer.Expired():
-            self.UpdateStorageStats(self.SimSeq.StorageStats, self.SimSeq.ElapsedRealTime)
-            self.UpdateStorageStats(self.SimSeq.Current.StorageStats, self.SimSeq.Current.ElapsedRealTime)
+            #self.UpdateStorageStats(self.SimSeq.StorageStats, self.SimSeq.ElapsedRealTime)
+            self.UpdateStorageStats(self.SimSeq.Current)
             self.StorageTimer.Reset()
 
         if self.UpdateTimer.Expired() or Force:
