@@ -51,15 +51,20 @@ class AccStats:
         self.CPU = 0
         self.AvgCPU = 0
 
-    def Recalculate(self, TimeDelta, ElapsedTime, PausedTime, ETA, AvgETA):
+        self.ETA = INF
+        self.AvgETA = INF
+        self.MaxStep = INF
+        self.Step = 0
+
+    def Recalculate(self, TimeDelta, ElapsedTime, PausedTime):
         self.UpdNr += 1
         #print(f"Upd # {self.UpdNr}. Loop: {self.Loop}.")
         #print(f"CTime: {self.CurrentTime:.2f}, prev time: {self.PrevTime:.2f}")
 
         CurrentTime = time.time()
 
-        self.DataRTime.MaxDomain = CurrentTime + ETA
-        self.AvgDataRTime.MaxDomain = ElapsedTime + AvgETA
+        self.DataRTime.MaxDomain = CurrentTime + self.ETA
+        self.AvgDataRTime.MaxDomain = ElapsedTime + self.AvgETA
 
         self.DataRTime.SetValues(None, CurrentTime)
         self.AvgDataRTime.SetValues(self.DataRTime.Value, ElapsedTime, 0, 0)
@@ -67,8 +72,8 @@ class AccStats:
         self.DataStep.MaxDomain = Config.MaxStep
         self.AvgDataStep.MaxDomain = Config.MaxStep
 
-        self.DataStep.SetValues(self.DataRTime.Value, Config.State.Step)
-        self.AvgDataStep.SetValues(self.DataRTime.Value, Config.State.Step, 0, 0)
+        self.DataStep.SetValues(self.DataRTime.Value, self.Step)
+        self.AvgDataStep.SetValues(self.DataRTime.Value, self.Step, 0, 0)
 
         self.CPUDelta = self.CPUTime - self.PrevCPUTime
 
@@ -81,9 +86,6 @@ class AccStats:
 
         self.PrevCPUTime = self.CPUTime
         #print(f"DDelta: {self.DataDelta} / {self.Delta:.2f}, {self.DataSpeed:.2f}/s")
-
-    def RecalculateStep(self, Step, StepDelta):
-        pass
 
 
 class StorageStats:
@@ -175,7 +177,11 @@ class SimulationStatus:
         AvgETA = ChooseETA(self.AvgRTSteps.MaxValue, self.AvgRTTime.MaxValue)
 
         #print(f"SimStatus.StepsLeft: {self.SimSeq.Current.StepsLeft}, AccStats.DataStepSpeed: {self.AccStats.DataStepSpeed}")
-        self.AccStats.Recalculate(self.RTSteps.ValueDelta, self.ElapsedRealTime, self.PausedRealTime, ETA, AvgETA)
+        self.AccStats.ETA = ETA
+        self.AccStats.AvgETA = AvgETA
+        self.AccStats.MaxStep = Config.MaxStep
+        self.AccStats.Step = Config.State.Step
+        self.AccStats.Recalculate(self.RTSteps.ValueDelta, self.ElapsedRealTime, self.PausedRealTime)
 
         self.StorageStats.ESA = self.StorageStats.Size + self.StorageStats.Speed * ETA
 
