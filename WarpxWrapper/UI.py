@@ -175,8 +175,8 @@ class UI:
 
         MaxSstr = ""
         LeftSstr = ""
-        if not NaNN(Config.MaxStep):
-            MaxSstr = fn.Str(Config.MaxStep)
+        if not NaNN(s.MaxStep):
+            MaxSstr = fn.Str(s.MaxStep)
             LeftSstr = fn.Str(s.RTSteps.DomainLeft)
         else:
             EMS, ELS = self.GetEstSteps()
@@ -184,7 +184,7 @@ class UI:
             LeftSstr = "~" + fn.Str(ELS)
 
         if not NaNN(Config.MaxTime):
-            MaxTstr = ft.Str(Config.MaxTime)
+            MaxTstr = ft.Str(s.MaxTime)
             LeftTstr = ft.Str(s.RTTime.DomainLeft)
         else:
             EMT, ELT = self.GetEstTime()
