@@ -105,3 +105,14 @@ def DirSize(Path):
                 Ret += os.path.getsize(FP)
 
     return Ret
+
+def ClearDir(Path):
+    for (root, dirs, files) in os.walk(Path):
+        for f in files:
+            os.unlink(root + "/" + f)
+
+def PrepareEmptyDir(Path):
+    try:
+        os.mkdir(Path)
+    except FileExistsError:
+        ClearDir(Path)

@@ -1,6 +1,7 @@
 
 import argparse
 from .Various import StrToType, TypeDescription, StrToInt, Is, Action, kB, MB, GB, TB, kiB, MiB, GiB, TiB
+from .System import PrepareEmptyDir
 from WarpxWrapper import Config
 
 class IncludeAction(argparse.Action):
@@ -57,7 +58,8 @@ class ConfigManager:
         "kiB": kiB,
         "MiB": MiB,
         "GiB": GiB,
-        "TiB": TiB
+        "TiB": TiB,
+        "PrepareEmptyDir": PrepareEmptyDir
         }
 
     def __init__(self, Logger, Error, Fatal = None, *args, **kargs):

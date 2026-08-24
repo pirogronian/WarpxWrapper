@@ -35,6 +35,7 @@ class ConfigClass:
     LogFile = "Log"
     MaxLogSize = 0
     MaxLogFileSize = 0
+
     StoragePath = "diags"
 
     MaxStep = INF
