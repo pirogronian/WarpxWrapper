@@ -1,6 +1,6 @@
 
 import argparse
-from .Various import StrToType, TypeDescription, StrToInt, Is, Action
+from .Various import StrToType, TypeDescription, StrToInt, Is, Action, kB, MB, GB, TB, kiB, MiB, GiB, TiB
 from WarpxWrapper import Config
 
 class IncludeAction(argparse.Action):
@@ -47,6 +47,18 @@ class ParamAction(argparse.Action):
         self.Logger.Debug("Command line: set {} to {}".format(self.Param, value))
 
 class ConfigManager:
+    RunEnv = {
+        "Config": Config,
+        "StrToInt": StrToInt,
+        "kB": kB,
+        "MB": MB,
+        "GB": GB,
+        "TB": TB,
+        "kiB": kiB,
+        "MiB": MiB,
+        "GiB": GiB,
+        "TiB": TiB
+        }
 
     def __init__(self, Logger, Error, Fatal = None, *args, **kargs):
         self.Logger = Logger
@@ -69,7 +81,7 @@ class ConfigManager:
         prog = f.read()
 
         try:
-            exec(prog, {"Config": Config, "StrToInt": StrToInt})
+            exec(prog, self.RunEnv)
         except Exception as e:
             self.Logger.Error(f"Error while executing include file: '{fname}'")
             self.Logger.ExceptError(1, e)

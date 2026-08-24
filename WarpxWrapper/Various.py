@@ -5,6 +5,16 @@ from blessed.keyboard import resolve_sequence, get_keyboard_sequences, get_keybo
 INF = float("inf")
 NaN = float("nan")
 
+kB = 1000
+MB = kB * kB
+GB = kB * MB
+TB = kB * GB
+
+kiB = 1024
+MiB = kiB * kiB
+GiB = kiB * MiB
+TiB = kiB * GiB
+
 def NaNN(Num):
     return Num == INF or Num == -INF or math.isnan(Num)
 
