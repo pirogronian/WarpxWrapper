@@ -11,6 +11,7 @@ class UI:
     MinLen = 0
     MaxLen = 0
 
+    TotalHeight = 19
     SimStatsHeight = 15
     AccStatsHeight = 11
     MessageLineHeight = 3
@@ -158,12 +159,28 @@ class UI:
             return
         lmin, lmax = self.GetLen()
 #        print(lmin, lmax, Length)
-        nd = self.Config.UI.NonDestructivePrint
+
+        SeqStr = "sequence"
+        if self.SimStats == self.SimSeq.Current:
+            SeqStr = "current sim."
+
+        AvgStr = "tmp"
+        if Config.UI.Average:
+            AvgStr = "avg"
+
+        FmtStr = "normal"
+        if self.FmtTime.CurrentFormat == FormattedTime.Format.ISO:
+            FmtStr = "ISO"
+        elif self.FmtTime.CurrentFormat == FormattedTime.Format.RAW:
+            FmtStr = "raw"
+
+        StatusStr = f" {SeqStr:^12} | {AvgStr} | Format: {FmtStr:^6} "
+
         self.PrintSeparator()
-        self.PrintCentered("Time statistics:")
+        self.PrintCentered(StatusStr)
         self.PrintSeparator()
         self.PrintLeftPadding()
-        self.PrintLine(Times=self.SimStatsHeight)
+        #self.PrintLine(Times=self.SimStatsHeight)
 
     def WriteSimStats(self):
         if not self.Config.UI.Enabled:
@@ -309,13 +326,12 @@ class UI:
 
         with self.Terminal.no_line_wrap():
             MoveUp = 0
-            if self.First:
-                self.WriteHeader()
-
-            MoveUp = self.SimStatsHeight
+            if not self.First:
+                MoveUp = self.TotalHeight
 #            print(f"MoveUp: {MoveUp}")
             if MoveUp and not self.Config.UI.NonDestructivePrint:
                 print(self.Terminal.move_up(MoveUp + 1))
+            self.WriteHeader()
             self.WriteSimStats()
             self.WriteAccStats()
             self.WriteProcStats()
