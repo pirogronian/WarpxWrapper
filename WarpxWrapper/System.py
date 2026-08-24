@@ -46,7 +46,7 @@ def FileUsers(Path, Modes = None):
                         if Modes == None:
                             Ret.append(P)
                         else:
-                            if Modes == str:
+                            if type(Modes) == str:
                                 if OF.open_mode == Modes:
                                     Ret.append(P)
                             elif OF.open_mode in Modes:
