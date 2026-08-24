@@ -739,7 +739,7 @@ class WarpxWrapper:
     def RunMainLoop(self):
         try:
             if self.Config.DontRun:
-                Logger.Debug("Don't run. Exiting...")
+                self.Logger.Debug("Don't run. Exiting...")
                 return 0
             while 1:
                 if self.Config.SkipMain:
@@ -777,6 +777,7 @@ class WarpxWrapper:
         return self.CallEventHandler("OnFinish", self.ExitCode)
 
     def Run(self):
+        self.ExitCode = 0
         self.SimSeq.Reset()
         self.PrepareUI()
         self.RegisterActions()

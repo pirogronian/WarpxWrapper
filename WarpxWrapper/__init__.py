@@ -1,6 +1,6 @@
 
 from .Config import Config
-from .ConfigManager import ConfigManager, IncludeAction
+from .ConfigManager import ConfigManager, IncludeAction, ExpressionAction
 from .ControlManager import ControlManager
 from .FormattedValue import FormattedNumber, FormattedTime, SizeStr
 from .LinearExtrapolator import LinearExtrapolator

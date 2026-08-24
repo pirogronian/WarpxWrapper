@@ -5,7 +5,7 @@ import argparse
 import os
 import sys
 import time
-from WarpxWrapper import Config, ConfigManager, IncludeAction, Logger, Verbosity, WarpxWrapper, SourceNames, System, __version__
+from WarpxWrapper import Config, ConfigManager, IncludeAction, ExpressionAction, Logger, Verbosity, WarpxWrapper, SourceNames, System, __version__
 
 DefaultWarpxInputFileName = "input"
 
@@ -53,6 +53,9 @@ def PrintParams():
         PrintParam(name, Config.MaxParamLength)
 
 CM.Parser.add_argument("-I", "--include", nargs='+', action=IncludeAction, metavar="python_file")
+CM.Parser.add_argument("-C", "--compute", nargs='+',
+                       action=ExpressionAction, metavar="python_expression",
+                       help="Assign value to config param with python expression.")
 
 class CommandAction(argparse.Action):
     def __init__(self, option_strings, dest, **kwargs):

@@ -14,6 +14,14 @@ class IncludeAction(argparse.Action):
                 self.IncludeFile(name)
         self.__class__.Used = True
 
+class ExpressionAction(argparse.Action):
+    def __call__(self, parser, namespace, value, option_string):
+        if type(value) == str:
+            self.ParamExpression(value)
+        else:
+            for expr in value:
+                self.ParamExpression(expr)
+
 class ParamAction(argparse.Action):
     Param = ""
     UnpackList = False
@@ -62,6 +70,7 @@ class ConfigManager:
         self.Error = Error
         self.Fatal = Fatal
         IncludeAction.IncludeFile = self.IncludeFile
+        ExpressionAction.ParamExpression = self.ParamExpression
         ParamAction.Logger = Logger
         ParamAction.Error = Error
         self.Params = []
@@ -85,6 +94,14 @@ class ConfigManager:
             self.Logger.ExceptError(1, e)
             self.Error()
 
+    def ParamExpression(self, Expression):
+        prog = Expression
+        try:
+            exec(prog, self.RunEnv)
+        except Exception as e:
+            self.Logger.Error(f"Error while executing expression: '{prog}'")
+            self.Logger.ExceptError(1, e)
+            self.Error()
 
     def AddParam(self, VarName, *Args, **KArgs):
         v = Config.GetParam(VarName)
