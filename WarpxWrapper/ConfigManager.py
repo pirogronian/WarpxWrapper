@@ -18,7 +18,6 @@ class ParamAction(argparse.Action):
     Param = ""
     UnpackList = False
     def __init__(self, option_strings, dest, **kwargs):
-#        print("{}.__init__({}, {}, {}, {})".format(self.__class__.__name__, option_strings, dest, nargs, kwargs))
         self.Param = kwargs.pop("VarName")
         if "Action" in kwargs:
             self.Action = kwargs.pop("Action")
@@ -27,12 +26,8 @@ class ParamAction(argparse.Action):
         if kwargs["nargs"] == 1:
             self.UnpackList = True
         super().__init__(option_strings, dest, **kwargs)
+
     def __call__(self, parser, namespace, values, option_string):
-        """if type(values) == list:
-            print("List?", values)
-            value = values[0]
-        else:
-            value = values"""
         value = values
         t = type(Config.GetParam(self.Param))
         if self.UnpackList and type(value) == list:
@@ -42,10 +37,10 @@ class ParamAction(argparse.Action):
                 #print(f"Param value for {self.Param}: {value} ({type(value)})")
                 value = StrToType(value, t)
             except:
-                self.Error("Value of param {} must be convertable to {}!".format(option_string, t.__name__))
+                self.Error(f"Value of param {option_string} must be convertable to {t.__name__}!")
         value = Action(self.Action, value)
         Config.SetParam(self.Param, value)
-        self.Logger.Debug("Command line: set {} to {}".format(self.Param, value))
+        self.Logger.Debug(f"Command line: set {self.Param} to {value}")
 
 class ConfigManager:
     RunEnv = {
@@ -108,7 +103,7 @@ class ConfigManager:
 
             Config.MaxParamLength = max(Config.MaxParamLength, len(VarName))
         else:
-            raise NameError("Variable {VarName} not found.")
+            raise NameError(f"Variable {VarName} not found.")
 
     def Parse(self, Args):
         return self.Parser.parse_args(Args)
