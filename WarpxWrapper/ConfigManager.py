@@ -1,7 +1,7 @@
 
 import argparse
 from .Various import StrToType, TypeDescription, StrToInt, Is, Action, kB, MB, GB, TB, kiB, MiB, GiB, TiB
-from .System import PrepareEmptyDir
+from .System import PrepareEmptyDir, IncludeCurrentPath
 from WarpxWrapper import Config
 
 class IncludeAction(argparse.Action):
@@ -82,6 +82,7 @@ class ConfigManager:
             return
         prog = f.read()
 
+        IncludeCurrentPath()
         try:
             exec(prog, self.RunEnv)
         except Exception as e:

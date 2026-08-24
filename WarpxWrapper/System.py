@@ -1,6 +1,7 @@
 
 import pypsutil
 import os
+import sys
 
 def IsReadable(fname):
     return os.access(fname, os.R_OK)
@@ -116,3 +117,8 @@ def PrepareEmptyDir(Path):
         os.mkdir(Path)
     except FileExistsError:
         ClearDir(Path)
+
+def IncludeCurrentPath():
+    cwd = os.getcwd()
+    if cwd not in sys.path:
+        sys.path.insert(0, cwd)
