@@ -234,7 +234,7 @@ class UI:
         if self.Config.UI.ProgressBar:
             pbcs = self.Terminal.reverse  #self.Config.PBColors
 
-        s1 = f"Step:  {fn.Str(Config.State.Step):^15} / {MaxSstr:^15} : {LeftSstr:^15} ({fn.Str(SProgPerc):>3}%)," +\
+        s1 = f"Step:  {fn.Str(s.Step):^15} / {MaxSstr:^15} : {LeftSstr:^15} ({fn.Str(SProgPerc):>3}%)," +\
         f"x{fn.Str(SSSpeed):>9}, ETA: {ft.Str(SETA):>20}"
 
         if self.Config.UI.ProgressBar and Sp >= 0:
@@ -242,7 +242,7 @@ class UI:
             pbe = int(Sp * sl)
             s1 = pbcs + s1[:pbe] + self.Terminal.normal + s1[pbe:]
 
-        s2 = f"Sim time: {ft.Str(Config.State.Time):^12} / {MaxTstr:^15} : {LeftTstr:^15} ({fn.Str(TProgPerc):>3}%)," +\
+        s2 = f"Sim time: {ft.Str(s.Time):^12} / {MaxTstr:^15} : {LeftTstr:^15} ({fn.Str(TProgPerc):>3}%)," +\
         f"x{fn.Str(STSpeed):>9}, ETA: {ft.Str(TETA):>20}"
 
         if self.Config.UI.ProgressBar and Tp >= 0:
