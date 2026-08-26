@@ -2,12 +2,13 @@
 import time
 
 from WarpxWrapper import Config
+from .Various import INF
 
 class Timer:
     Timeout = 0.0
 
     def __init__(self, Timeout = 0.0):
-        self.Start = time.time()
+        self.Start = -INF
         self.Timeout = Timeout
 
     def GetTimeout(self):
