@@ -160,7 +160,7 @@ class SimulationStats:
 
         self.Stats.Recalculate(self.Step, self.MaxStep, self.Time, self.MaxTime, self.DataSize, self.CPUTime, self.StorageSize, self.CurrentRealTime)
         self.AvgStats.Recalculate(self.Step, self.MaxStep, self.Time, self.MaxTime, self.DataSize, self.CPUTime, self.StorageSize, self.ElapsedRealTime,
-                                  0, 0, 0, 0, 0, 0, self.CPUStart - self.StartRealTime)
+                                  0, 0, 0, 0, 0, 0, self.StartRealTime - self.CPUStart)
 
 
 class SimSequenceStats(SimulationStats):
