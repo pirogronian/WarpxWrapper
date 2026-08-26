@@ -16,6 +16,8 @@ class UI:
     AccStatsHeight = 11
     MessageLineHeight = 3
 
+    Delta = Config.UI.DeltaClass.Arbitrary
+
     def __init__(self, SimSeq, SystemStats, Control, Config):
         self.Terminal = Control.Terminal
         self.FmtNmb = FormattedNumber()
@@ -99,10 +101,20 @@ class UI:
             self.Sim = self.SimSeq
         else:
             self.Sim = self.SimSeq.Current
-        if Config.UI.Average:
+
+        if Config.UI.Delta == Config.UI.DeltaClass.Arbitrary:
+            self.Stats = self.Sim.Stats
+        elif Config.UI.Delta == Config.UI.DeltaClass.Total:
             self.Stats = self.Sim.AvgStats
         else:
-            self.Stats = self.Sim.Stats
+            self.Stats = self.Sim.AutoStats
+
+    def GetDeltaName(self):
+        if Config.UI.Delta == Config.UI.DeltaClass.Arbitrary:
+            return "arbit."
+        if Config.UI.Delta == Config.UI.DeltaClass.Total:
+            return "total "
+        return " auto "
 
     def GetSimSpeeds(self):
         return self.Stats.RTSteps.Speed, self.Stats.RTTime.Speed
@@ -148,9 +160,7 @@ class UI:
         if self.Sim == self.SimSeq.Current:
             SeqStr = "current sim."
 
-        AvgStr = "tmp"
-        if Config.UI.Average:
-            AvgStr = "avg"
+        DeltaStr = self.GetDeltaName()
 
         FmtStr = "normal"
         if self.FmtTime.CurrentFormat == FormattedTime.Format.ISO:
@@ -158,7 +168,7 @@ class UI:
         elif self.FmtTime.CurrentFormat == FormattedTime.Format.RAW:
             FmtStr = "raw"
 
-        StatusStr = f" {SeqStr:^12} | {AvgStr} | Format: {FmtStr:^6} "
+        StatusStr = f" {SeqStr:^12} | Delta: {DeltaStr} | Format: {FmtStr:^6} "
 
         self.PrintSeparator()
         self.PrintCentered(StatusStr)
@@ -339,9 +349,16 @@ class UI:
         else:
             self.Message("Current iteration stats")
 
-    def SwitchAvg(self):
-        self.Config.UI.Average = not self.Config.UI.Average
-        self.Message(f"Avg: {self.Config.UI.Average}")
+    def SwitchDelta(self):
+        if Config.UI.Delta == Config.UI.DeltaClass.Arbitrary:
+            Config.UI.Delta = Config.UI.DeltaClass.Total
+        elif Config.UI.Delta == Config.UI.DeltaClass.Total:
+            Config.UI.Delta = Config.UI.DeltaClass.Auto
+        else:
+            Config.UI.Delta = Config.UI.DeltaClass.Arbitrary
+
+        name = self.GetDeltaName()
+        self.Message(f"Delta: {name}")
 
     def SwitchFormat(self):
         msg = "Format: "

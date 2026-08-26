@@ -1,4 +1,6 @@
 
+import enum
+
 from .Various import INF, NaN
 
 WAITINGFORDATA = 0
@@ -69,7 +71,7 @@ class ConfigClass:
     SeqKey = 's'
     FormatKey = "f"
     NonDestructivePrintKey = "d"
-    AvgKey = 'a'
+    DeltaKey = 'a'
     RawOutputKey = 'r'
     ProgressBarKey = 'p'
     PauseKey = ' '
@@ -89,11 +91,16 @@ class ConfigClass:
             self.Reset()
 
     class UIClass:
+        class DeltaClass(enum.Enum):
+            Arbitrary = 1
+            Total = 2
+            Auto = 3
+
         Enabled = True
         ProgressBar = True
         NonDestructivePrint = False
-        Average = False
         Sequence = False
+        Delta = DeltaClass.Arbitrary
 
     def __init__(self):
         self.State = self.SimulationStateClass()

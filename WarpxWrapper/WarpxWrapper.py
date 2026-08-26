@@ -92,6 +92,7 @@ class Stats:
 class SimulationStats:
     def __init__(self):
         self.Stats = Stats()
+        self.AutoStats = Stats()
         self.AvgStats = Stats()
 
     def Reset(self):
@@ -102,6 +103,7 @@ class SimulationStats:
         self.StartRealTime = -INF
 
         self.Stats.Reset()
+        self.AutoStats.Reset()
         self.AvgStats.Reset()
 
         self.ElapsedRealTime = 0
@@ -159,6 +161,8 @@ class SimulationStats:
         self.CurrentRealTime = time.time()
 
         self.Stats.Recalculate(self.Step, self.MaxStep, self.Time, self.MaxTime, self.DataSize, self.CPUTime, self.StorageSize, self.CurrentRealTime)
+        if self.Step > self.AutoStats.RTSteps.Domain:
+            self.AutoStats.Recalculate(self.Step, self.MaxStep, self.Time, self.MaxTime, self.DataSize, self.CPUTime, self.StorageSize, self.CurrentRealTime)
         self.AvgStats.Recalculate(self.Step, self.MaxStep, self.Time, self.MaxTime, self.DataSize, self.CPUTime, self.StorageSize, self.ElapsedRealTime,
                                   0, 0, 0, 0, 0, 0, self.StartRealTime - self.CPUStart)
 
@@ -275,7 +279,7 @@ class WarpxWrapper:
         self.Control.Register(self.Config.BreakKey, self.DoUserBreak)
         self.Control.Register(self.Config.SeqKey, self.UI.SwitchSeq)
         self.Control.Register(self.Config.FormatKey, self.UI.SwitchFormat)
-        self.Control.Register(self.Config.AvgKey, self.UI.SwitchAvg)
+        self.Control.Register(self.Config.DeltaKey, self.UI.SwitchDelta)
         self.Control.Register(self.Config.RawOutputKey, self.SwitchRawOutput)
         self.Control.Register(self.Config.NonDestructivePrintKey, self.UI.SwitchDestrictive)
         self.Control.Register(self.Config.ProgressBarKey, self.SwitchProgressBar)
