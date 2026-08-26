@@ -140,8 +140,8 @@ class UI:
 
     def GetCPU(self):
         if self.Config.UI.Average:
-            return self.SimStats.AccStats.AvgCPU
-        return self.SimStats.AccStats.CPU
+            return self.SimStats.AccStats.AvgCPU.Speed
+        return self.SimStats.AccStats.CPU.Speed
 
     def GetStorage(self):
         if self.Config.UI.Average:

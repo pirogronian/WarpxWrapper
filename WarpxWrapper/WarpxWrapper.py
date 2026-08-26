@@ -37,6 +37,8 @@ class AccStats:
         self.AvgDataRTime = LinearExtrapolator()
         self.DataStep = LinearExtrapolator()
         self.AvgDataStep = LinearExtrapolator()
+        self.CPU = LinearExtrapolator()
+        self.AvgCPU = LinearExtrapolator()
 
     def Reset(self):
         self.UpdNr = 0
@@ -44,17 +46,11 @@ class AccStats:
         self.AvgDataRTime.Reset()
         self.DataStep.Reset()
         self.AvgDataStep.Reset()
+        self.CPU.Reset()
+        self.AvgCPU.Reset()
 
         self.CPUStart = 0
         self.CPUTime = 0
-        self.PrevCPUTime = 0
-        self.CPU = 0
-        self.AvgCPU = 0
-
-        self.ETA = INF
-        self.AvgETA = INF
-        self.MaxStep = INF
-        self.Step = 0
 
     def Recalculate(self, TimeDelta, ElapsedTime, PausedTime):
         self.UpdNr += 1
@@ -75,16 +71,11 @@ class AccStats:
         self.DataStep.SetValues(self.DataRTime.Value, self.Step)
         self.AvgDataStep.SetValues(self.DataRTime.Value, self.Step, 0, 0)
 
-        self.CPUDelta = self.CPUTime - self.PrevCPUTime
+        self.CPU.SetValues(self.CPUTime, CurrentTime)
 
-        if TimeDelta > 0:
-            self.CPU = self.CPUDelta / TimeDelta
+        self.AvgCPU.BaseDomain = self.CPUStart
+        self.AvgCPU.SetValues(self.CPUTime, CurrentTime - PausedTime, 0, 0)
 
-        if self.CPUStart > 0:
-            self.AvgCPU = self.CPUTime / (time.time() - self.CPUStart - PausedTime)
-            #print(f"Set AvgCPU: {self.CPUTime} / {time.time()} - {self.CPUStart} = / {time.time() - self.CPUStart} = {self.AvgCPU}")
-
-        self.PrevCPUTime = self.CPUTime
         #print(f"DDelta: {self.DataDelta} / {self.Delta:.2f}, {self.DataSpeed:.2f}/s")
 
 
