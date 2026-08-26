@@ -29,6 +29,7 @@ def Div(a, b):
             return INF
         if a == 0:
             return 0
+        return NaN
     return a / b
 
 def Action(Action, Value):
