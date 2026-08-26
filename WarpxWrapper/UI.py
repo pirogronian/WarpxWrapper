@@ -96,57 +96,41 @@ class UI:
 
     def UpdateSimStats(self):
         if self.Config.UI.Sequence:
-            self.SimStats = self.SimSeq
+            self.Sim = self.SimSeq
         else:
-            self.SimStats = self.SimSeq.Current
+            self.Sim = self.SimSeq.Current
+        if Config.UI.Average:
+            self.Stats = self.Sim.AvgStats
+        else:
+            self.Stats = self.Sim.Stats
 
     def GetSimSpeeds(self):
-        if self.Config.UI.Average:
-            return self.SimStats.AvgRTSteps.Speed, self.SimStats.AvgRTTime.Speed
-        return self.SimStats.RTSteps.Speed, self.SimStats.RTTime.Speed
+        return self.Stats.RTSteps.Speed, self.Stats.RTTime.Speed
 
     def GetEstSteps(self):
-        ems = NaN
-        if self.Config.UI.Average:
-            ems = self.SimStats.AvgStepsTime.MaxValue
-        else:
-            ems = self.SimStats.StepsTime.MaxValue
-        els = ems - Config.State.Step
+        ems = self.Stats.StepsTime.MaxValue
+        els = ems - self.Sim.Step
         return ems, els
 
     def GetEstTime(self):
-        emt = NaN
-        if self.Config.UI.Average:
-            emt = self.SimStats.AvgTimeSteps.MaxValue
-        else:
-            emt = self.SimStats.TimeSteps.MaxValue
-        elt = emt - Config.State.Time
+        emt = self.Stats.TimeSteps.MaxValue
+        elt = emt - self.Sim.Time
         return emt, elt
 
     def GetSimETAs(self):
-        if self.Config.UI.Average:
-            return self.SimStats.AvgRTSteps.ValueLeft, self.SimStats.AvgRTTime.ValueLeft
-        return self.SimStats.RTSteps.ValueLeft, self.SimStats.RTTime.ValueLeft
+        return self.Stats.RTSteps.ValueLeft, self.Stats.RTTime.ValueLeft
 
     def GetDataSpeeds(self):
-        if self.Config.UI.Average:
-            return self.SimStats.AccStats.AvgDataStep.Speed, self.SimStats.AccStats.AvgDataRTime.Speed
-        return self.SimStats.AccStats.DataStep.Speed, self.SimStats.AccStats.DataRTime.Speed
+        return self.Stats.DataStep.Speed, self.Stats.DataRTime.Speed
 
     def GetDataESAs(self):
-        if self.Config.UI.Average:
-            return self.SimStats.AccStats.AvgDataStep.MaxValue, self.SimStats.AccStats.AvgDataRTime.MaxValue
-        return self.SimStats.AccStats.DataStep.MaxValue, self.SimStats.AccStats.DataRTime.MaxValue
+        return self.Stats.DataStep.MaxValue, self.Stats.DataRTime.MaxValue
 
     def GetCPU(self):
-        if self.Config.UI.Average:
-            return self.SimStats.AccStats.AvgCPU.Speed
-        return self.SimStats.AccStats.CPU.Speed
+        return self.Stats.CPU.Speed
 
     def GetStorage(self):
-        if self.Config.UI.Average:
-            return self.SimStats.AvgStorageSize
-        return self.SimStats.StorageSize
+        return self.Stats.StorageSize
 
     def Message(self, Msg, Timeout = None):
         self.Msg.SetTemporary(Msg, Timeout)
@@ -161,7 +145,7 @@ class UI:
 #        print(lmin, lmax, Length)
 
         SeqStr = "sequence"
-        if self.SimStats == self.SimSeq.Current:
+        if self.Sim == self.SimSeq.Current:
             SeqStr = "current sim."
 
         AvgStr = "tmp"
@@ -185,7 +169,8 @@ class UI:
     def WriteSimStats(self):
         if not self.Config.UI.Enabled:
             return
-        s = self.SimStats # Less to write
+        s = self.Sim # Less to write
+        st = self.Stats
         fn = self.FmtNmb
         ft = self.FmtTime
         minl, maxl = self.GetLen()
@@ -194,7 +179,7 @@ class UI:
         LeftSstr = ""
         if not NaNN(s.MaxStep):
             MaxSstr = fn.Str(s.MaxStep)
-            LeftSstr = fn.Str(s.RTSteps.DomainLeft)
+            LeftSstr = fn.Str(s.MaxStep - s.Step)
         else:
             EMS, ELS = self.GetEstSteps()
             MaxSstr = "~" + fn.Str(EMS)
@@ -202,14 +187,14 @@ class UI:
 
         if not NaNN(Config.MaxTime):
             MaxTstr = ft.Str(s.MaxTime)
-            LeftTstr = ft.Str(s.RTTime.DomainLeft)
+            LeftTstr = ft.Str(s.MaxTime - s.Time)
         else:
             EMT, ELT = self.GetEstTime()
             MaxTstr = "~" + ft.Str(EMT)
             LeftTstr = "~" + ft.Str(ELT)
 
-        Sp = s.RTSteps.GetProgress()
-        Tp = s.RTTime.GetProgress()
+        Sp = s.Step / s.MaxStep
+        Tp = s.Time / s.MaxTime
         SProgPerc = Sp if NaNN(Sp) else int(Sp * 100)
         TProgPerc = Tp if NaNN(Tp) else int(Tp * 100)
 
@@ -250,7 +235,7 @@ class UI:
             pbe = int(Tp * sl)
             s2 = pbcs + s2[:pbe] + self.Terminal.normal + s2[pbe:]
 
-        s3 = f"Elapsed: {ft.Str(s.ElapsedRealTime):^13}, delta: {ft.Str(s.RTSteps.ValueDelta):>10} (Sim: {ft.Str(STSpeed * s.RTSteps.ValueDelta):>10}, {ft.Str(s.RTTime.DomainDelta):>10}/st)"
+        s3 = f"Elapsed: {ft.Str(s.ElapsedRealTime):^13}, delta: {ft.Str(st.RTSteps.ValueDelta):>10} (Sim: {ft.Str(STSpeed * st.RTSteps.ValueDelta):>10}, {ft.Str(st.RTTime.DomainDelta):>10}/st)"
 
 #        if not self.Config.NonDestructivePrint:
 #            print('\r\033[A\033[A\033[A\033[A\033[A', end='')
@@ -262,7 +247,8 @@ class UI:
     def WriteAccStats(self):
         if not self.Config.UI.Enabled:
             return
-        s = self.SimStats.AccStats
+        s = self.Stats
+
         minl, maxl = self.GetLen()
         SpeedStep, Speed = self.GetDataSpeeds()
         StepESA,TimeESA = self.GetDataESAs()
