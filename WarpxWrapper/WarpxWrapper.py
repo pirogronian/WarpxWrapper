@@ -84,7 +84,7 @@ class Stats:
         self.CPU.SetValues(CPUTime, RealTime, PrevCPUTime, PrevRealTime)
 
         if NaNN(self.StorageSize.BaseValue):
-            self.StorageSize.BaseValue = DataSize
+            self.StorageSize.BaseValue = StorageSize
         self.StorageSize.MaxDomain = ETA
         self.StorageSize.SetValues(StorageSize, RealTime, PrevStorageSize, PrevRealTime)
 
